@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "./theme.css";
 import { F, S } from "./sharedStyles.jsx";
 import QuestionsGenerator from "./QuestionsGenerator.jsx";
 import PaymentSuccess from "./components/PaymentSuccess.jsx";

@@ -376,11 +376,12 @@ function QuestionsGeneratorInner() {
           AI Questions Generator
         </h1>
         <p style={{ fontSize: 13.5, color: "var(--text-muted)", fontFamily: F, marginBottom: 20, lineHeight: 1.6 }}>
-          Sign in with the same account you use on the Lesson Planner — your login carries
-          over automatically, this app just has its own exam-credit wallet.
+          Already use the Lesson Planner? Sign in with that same account — it carries over
+          automatically, this app just has its own exam-credit wallet. New here? You can
+          create a free account too.
         </p>
         <button style={{ ...S.btn, width: "100%" }} onClick={() => setShowAuthModal(true)}>
-          Sign in to continue
+          Sign in or create account
         </button>
         {showAuthModal && (
           <AuthModal

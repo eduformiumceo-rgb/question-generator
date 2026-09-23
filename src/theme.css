@@ -1,0 +1,114 @@
+/**
+ * theme.css
+ * ─────────────────────────────────────────────────────────────────
+ * This is the missing piece: sharedStyles.jsx's header comment says
+ * it copies "the F constant, the S object, and THEME_CSS" from the
+ * Lesson Planner's App.jsx — but THEME_CSS itself was never actually
+ * included. Every var(--card-bg), var(--text), var(--border), etc.
+ * used across the app was resolving to nothing, which is why cards
+ * had no background/border and text fell back to browser defaults,
+ * producing the overlapping, "unstyled" look.
+ *
+ * Values below are reverse-engineered from the hardcoded colors
+ * already used elsewhere in this app (teal accent #0D9488, dark
+ * overlay rgba(8,15,35,.72)) so the look matches what's already
+ * there. If the real Lesson Planner App.jsx defines its own
+ * THEME_CSS with different exact values, replace this file's
+ * contents with that instead for a pixel-perfect match.
+ * ─────────────────────────────────────────────────────────────────
+ */
+
+:root {
+  --accent: #0D9488;
+  --accent-soft: rgba(13, 148, 136, 0.12);
+
+  --text: #0D1117;
+  --text-secondary: #4B5563;
+  --text-muted: #6B7280;
+
+  --card-bg: #FFFFFF;
+  --input-bg: #F9FAFB;
+
+  --border: #E5E7EB;
+  --border-hover: #D1D5DB;
+  --border-strong: #CBD5E1;
+  --tag-border: #E5E7EB;
+
+  --err-bg: rgba(229, 62, 62, 0.08);
+  --err-border: rgba(229, 62, 62, 0.28);
+  --err-text: #E53E3E;
+  --red-text: #DC2626;
+  --amber-text: #B45309;
+
+  --logo-edu: #0D1117;
+  --logo-formium: #0D9488;
+
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.10);
+
+  --page-bg: #F3F4F6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #F3F4F6;
+    --text-secondary: #CBD5E1;
+    --text-muted: #94A3B8;
+
+    --card-bg: #131A2B;
+    --input-bg: #0E1526;
+
+    --border: #263049;
+    --border-hover: #33405F;
+    --border-strong: #33405F;
+    --tag-border: #263049;
+
+    --err-bg: rgba(229, 62, 62, 0.14);
+    --err-border: rgba(229, 62, 62, 0.35);
+    --err-text: #FCA5A5;
+    --red-text: #FCA5A5;
+    --amber-text: #FBBF24;
+
+    --logo-edu: #F3F4F6;
+    --logo-formium: #2DD4BF;
+
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.45), 0 4px 16px rgba(0, 0, 0, 0.3);
+
+    --page-bg: #0A0F1E;
+  }
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Referenced by AuthModal_upgraded.jsx's overlay/modal animations — these
+   lived in the Lesson Planner's global <style> and were cut from this
+   companion app along with THEME_CSS. Restored here for the same reason. */
+@keyframes edu-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes edu-modal-in {
+  from { opacity: 0; transform: translateZ(0) scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: translateZ(0) scale(1) translateY(0); }
+}
+@keyframes edu-sheet-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
