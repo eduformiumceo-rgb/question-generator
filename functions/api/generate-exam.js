@@ -1,17 +1,31 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
  * Cloudflare Pages Function — EDUFORMIUM Questions Generator
- * FILE: functions/api/generate-exam.js   (v3 — Gemini, streaming, hardened)
+ * FILE: functions/api/generate-exam.js   (v4 — shared wallet, Gemini, streaming, hardened)
  *
- * v3 correction: earlier versions of this file called the Anthropic API.
- * That was wrong — this codebase's actual AI provider is Google Gemini
- * (gemini-3.6-flash for the paid/premium tier, per generate-premium.js;
- * gemini-2.5-flash + Groq fallback for the free tier, per generate.js).
- * This file now calls the same gemini-3.6-flash endpoint, the same
- * request shape (system_instruction/contents/generationConfig), and the
- * same GEMINI_API_KEY env var as your existing generate-premium.js —
- * genuinely the same provider your Lesson Planner uses, not a
- * lookalike.
+ * v4 correction: earlier versions of this app used a SEPARATE exam_credits
+ * wallet. Per explicit direction, this app now shares the SAME `coins`
+ * wallet as the Lesson Planner — a teacher with 200 coins there sees the
+ * same 200 (×30 for display, see note below) here immediately, no
+ * separate top-up, no starting from zero. This file now reads/writes the
+ * real `coins` table via the real `decrement_coins`/`increment_coins`
+ * Postgres RPCs — copied from functions/api/generate-premium.js's own
+ * deductCoins()/refundCoins(), including its exact error handling
+ * ("insufficient_coins" text match) and its exact read-then-write
+ * fallback if the RPC is ever missing — not reinvented.
+ *
+ * DISPLAY_CREDIT_MULTIPLIER: your real App.jsx multiplies the raw `coins`
+ * balance by 30 before showing it to a teacher (a raw balance of 5 shows
+ * as "150"). That multiplier is CLIENT-SIDE ONLY — this file always
+ * works in raw units, matching generate-premium.js exactly. The client
+ * (QuestionsGenerator.jsx) applies ×30 only when rendering the number.
+ *
+ * v3 correction (still true): earlier versions of this file called the
+ * Anthropic API. That was wrong — this codebase's actual AI provider is
+ * Google Gemini (gemini-3.6-flash for the paid/premium tier, per
+ * generate-premium.js; gemini-2.5-flash + Groq fallback for the free
+ * tier, per generate.js). This file calls the same gemini-3.6-flash
+ * endpoint, the same request shape, and the same GEMINI_API_KEY env var.
  *
  * Changes from v1, and why:
  *   - SECTION-BY-SECTION generation (via examTemplate.js's buildSectionPrompt)
@@ -112,22 +126,86 @@ async function requireUser(request, env) {
   return verifyJWT(token, env.JWT_SECRET);
 }
 
-/* ── exam_credits wallet ── */
-async function getExamCreditBalance(env, userId) {
-  const rows = await sb(env, `/exam_credits?user_id=eq.${userId}&select=balance`);
-  if (rows?.length) return rows[0].balance;
-  await sb(env, "/exam_credits", { method: "POST", body: JSON.stringify({ user_id: userId, balance: 0 }) }).catch(() => {});
-  return 0;
+/* ── SHARED coins wallet — same `coins` table, same RPCs as
+      generate-premium.js's deductCoins()/refundCoins()/getBalance(),
+      ported verbatim (not reimplemented) so behavior — including the
+      exact "insufficient_coins" and RPC-missing-fallback handling —
+      matches byte-for-byte. deductCoins THROWS on failure (does not
+      return {ok:false}) — the caller below is written to match. ── */
+async function getBalance(env, userId) {
+  try {
+    const rows = await sb(env, `/coins?user_id=eq.${userId}&select=balance`);
+    return rows?.[0]?.balance ?? 0;
+  } catch {
+    return 0;
+  }
 }
-async function reserveExamCredits(env, userId, amount) {
-  const balance = await getExamCreditBalance(env, userId);
-  if (balance < amount) return { ok: false, balance };
-  await sb(env, `/exam_credits?user_id=eq.${userId}`, { method: "PATCH", body: JSON.stringify({ balance: balance - amount, updated_at: new Date().toISOString() }) });
-  return { ok: true, balance: balance - amount, refundAmount: amount };
+
+/* ── Atomic coin deduction via Postgres RPC ── */
+async function deductCoins(env, userId, amount) {
+  try {
+    const result = await sb(env, `/rpc/decrement_coins`, {
+      method: "POST",
+      body: JSON.stringify({ p_user_id: userId, p_amount: amount }),
+    });
+    const newBalance = typeof result === "number" ? result : (result?.[0] ?? null);
+    if (newBalance === null || newBalance === undefined) throw new Error("decrement returned no value");
+    return newBalance;
+  } catch (rpcErr) {
+    const msg = rpcErr.message || "";
+
+    if (msg.includes("insufficient_coins")) {
+      throw new Error(`Insufficient credits.`);
+    }
+
+    const rpcMissing = (
+      msg.includes("could not find") ||
+      msg.includes("does not exist") ||
+      msg.includes("404") ||
+      msg.includes("PGRST202") ||
+      msg.includes("decrement returned no value")
+    );
+
+    if (!rpcMissing) {
+      console.error(`[generate-exam] Coin deduction failed for user ${userId}:`, msg);
+      throw new Error("We couldn't process your credit balance right now. Please try again in a moment.");
+    }
+
+    // Fallback: read-then-write
+    const balance = await getBalance(env, userId);
+    if (balance < amount) {
+      // Don't quote a raw balance here — the UI multiplies real balances by
+      // DISPLAY_CREDIT_MULTIPLIER (30x) before showing them to the user, and
+      // that constant only exists client-side, so a raw number here would
+      // show the wrong (much smaller) figure than what the user sees on screen.
+      throw new Error(`Insufficient credits. Please buy more credits to continue.`);
+    }
+    await sb(env, `/coins?user_id=eq.${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ balance: balance - amount, updated_at: new Date().toISOString() }),
+    });
+    return balance - amount;
+  }
 }
-async function refundExamCredits(env, userId, amount) {
-  const balance = await getExamCreditBalance(env, userId);
-  await sb(env, `/exam_credits?user_id=eq.${userId}`, { method: "PATCH", body: JSON.stringify({ balance: balance + amount, updated_at: new Date().toISOString() }) }).catch(() => {});
+
+/* ── Atomic coin refund ── */
+async function refundCoins(env, userId, amount) {
+  try {
+    await sb(env, `/rpc/increment_coins`, {
+      method: "POST",
+      body: JSON.stringify({ p_user_id: userId, p_amount: amount }),
+    });
+  } catch {
+    try {
+      const current = await getBalance(env, userId);
+      await sb(env, `/coins?user_id=eq.${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ balance: current + amount, updated_at: new Date().toISOString() }),
+      });
+    } catch (fallbackErr) {
+      console.error("[generate-exam] refund fallback failed:", fallbackErr.message);
+    }
+  }
 }
 
 /* ── Rate limiting, off exam_generations timestamps — no new table ── */
@@ -173,6 +251,26 @@ async function logExamGeneration(env, userId, meta, creditCost, tier) {
       question_count: meta.questionCount || null,
       total_marks: meta.totalMarks || null,
       tier,
+    }),
+  }).catch(() => {});
+
+  // Also log into the SAME shared `/generations` table the Lesson Planner
+  // writes to (generate-premium.js's logGen / generate.js's equivalent) —
+  // this is what makes exam activity show up in the existing admin panel's
+  // stats/activity views with zero admin-code changes. Uses "exam-premium"/
+  // "exam-free" as the tier value, NOT "premium"/"free" — the Lesson
+  // Planner's own free-tier daily-limit check filters this table on
+  // tier=eq.free (see functions/api/generate.js), and reusing that exact
+  // value would silently inflate a teacher's LESSON PLANNER free-tier count
+  // with unrelated exam activity. Distinct values keep this additive.
+  await sb(env, "/generations", {
+    method: "POST",
+    body: JSON.stringify({
+      user_id: userId,
+      subject: String(meta.subject || "").slice(0, 200),
+      class: String(meta.className || "").slice(0, 100),
+      tier: tier === "free" ? "exam-free" : "exam-premium",
+      coins_used: creditCost,
     }),
   }).catch(() => {});
 }
@@ -336,17 +434,21 @@ async function handleGenerateExamStreaming(body, env, user) {
     if (!freeLimit.ok) return jsonResp({ error: freeLimit.message }, 429);
   }
 
-  // ── Reserve credits — free tier costs 0, nothing to reserve/refund ──
+  // ── Deduct coins — free tier costs 0, nothing to deduct/refund ──
   // Scales with section count = actual AI call count, matching how coins
   // scale with actual generations in the Lesson Planner (see cost comment
-  // above). Rounded to 2 decimals — this app's wallet supports fractional
-  // credits, same as the Lesson Planner's 0.5-coin lessons.
+  // above). Rounded to 2 decimals — the shared coins wallet already
+  // supports fractional amounts, same as the Lesson Planner's 0.5-coin
+  // lessons (COINS_PER_LESSON in generate-premium.js).
   const perSectionRate = includeMarkingScheme ? CREDIT_COST_PER_SECTION_WITH_MARKING : CREDIT_COST_PER_SECTION_QUESTIONS_ONLY;
   const creditCost = tier === "free" ? 0 : Math.round(sections.length * perSectionRate * 100) / 100;
-  let reservation = { ok: true, balance: null, refundAmount: 0 };
+  let balanceAfterDeduction = null;
   if (tier !== "free") {
-    reservation = await reserveExamCredits(env, user.sub, creditCost);
-    if (!reservation.ok) return jsonResp({ error: "Not enough credits. Please top up to continue.", balance: reservation.balance }, 402);
+    try {
+      balanceAfterDeduction = await deductCoins(env, user.sub, creditCost);
+    } catch (e) {
+      return jsonResp({ error: e.message || "Not enough credits. Please top up to continue." }, 402);
+    }
   }
 
   const aiStrategy = tier === "free" ? callFreeAI : callAI;
@@ -377,10 +479,12 @@ async function handleGenerateExamStreaming(body, env, user) {
         const questionCount = examData.sections.reduce((sum, s) => sum + (s.questions || []).length, 0);
         await logExamGeneration(env, user.sub, { ...body, totalMarks, questionCount }, creditCost, tier);
 
-        send({ type: "done", examData, creditsRemaining: reservation.balance, includeMarkingScheme, tier });
+        send({ type: "done", examData, creditsRemaining: balanceAfterDeduction, includeMarkingScheme, tier });
       } catch (err) {
-        if (tier !== "free" && reservation.refundAmount > 0) {
-          await refundExamCredits(env, user.sub, reservation.refundAmount);
+        let creditsRemaining = null;
+        if (tier !== "free" && creditCost > 0) {
+          await refundCoins(env, user.sub, creditCost);
+          creditsRemaining = await getBalance(env, user.sub);
         }
         console.error("generate-exam (streaming) failed:", err?.stack || err?.message || err);
         send({
@@ -388,7 +492,7 @@ async function handleGenerateExamStreaming(body, env, user) {
           message: tier === "free"
             ? (err.message?.includes("temporarily at capacity") ? err.message : "Free generation failed. Please try again, or use Premium.")
             : "Couldn't generate the exam. Please try again — you have not been charged.",
-          creditsRemaining: tier === "free" ? null : reservation.balance + reservation.refundAmount,
+          creditsRemaining,
         });
       } finally {
         controller.close();

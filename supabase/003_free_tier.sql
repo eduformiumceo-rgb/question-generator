@@ -1,8 +1,11 @@
 -- ═══════════════════════════════════════════════════════════════════
 -- EDUFORMIUM — AI Questions Generator — migration 003
--- Run AFTER 001 and 002. Adds free/premium tier tracking so the free
--- tier's own daily limit can be checked independently of the general
--- rate limit in migration 001/002.
+-- v2: now redundant with 001_exam_tables.sql, which already creates
+-- exam_generations with the `tier` column and this same index built in.
+-- Safe to still run — every statement below is idempotent (IF NOT
+-- EXISTS) — it just won't do anything if you're running the current
+-- version of 001. Kept as its own file only so the numbered sequence
+-- still makes sense for anyone referencing it from the README.
 -- ═══════════════════════════════════════════════════════════════════
 
 alter table exam_generations

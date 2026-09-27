@@ -97,7 +97,10 @@ function withCORS(response, env) {
 }
 
 async function getBalance(env, user) {
-  const rows = await sb(env, `/exam_credits?user_id=eq.${user.sub}&select=balance`);
+  // Same shared `coins` table the Lesson Planner reads — not a separate
+  // exam-specific wallet. Raw balance, un-multiplied; the client applies
+  // the ×30 DISPLAY_CREDIT_MULTIPLIER, matching the real App.jsx exactly.
+  const rows = await sb(env, `/coins?user_id=eq.${user.sub}&select=balance`);
   return jsonResp({ balance: rows?.[0]?.balance ?? 0 });
 }
 

@@ -1,25 +1,70 @@
 # EDUFORMIUM — AI Questions Generator
 A **separate app**: its own repo, its own Cloudflare Pages project, its own
 domain (e.g. `questions.eduformium.com`) — wired to the Lesson Planner's
-**same Supabase project** for real single sign-on, with its own credit
-wallet, its own top-up flow, and its own tables.
+**same Supabase project** for real single sign-on, and now sharing the
+**same `coins` wallet** too. A teacher signs in once and sees the exact
+same balance in both apps immediately — no separate top-up, no starting
+from zero here just because they've used the Lesson Planner before.
 
-## 0. Correction from an earlier version of this package
-An earlier version of `generate-exam.js` called the **Anthropic API**. That
-was wrong — I didn't check your actual `functions/api/generate-premium.js`
-closely enough before building. Your Lesson Planner's real AI provider is
-**Google Gemini**: `gemini-3.6-flash` for the paid/premium tier (the direct
-precedent for this credit-gated feature), `gemini-2.5-flash` + rotating
-free keys + Groq fallback for the free tier. This has been fixed:
-`generate-exam.js` now calls `gemini-3.6-flash` at the same
-`generativelanguage.googleapis.com` endpoint, with the same
-`system_instruction`/`contents`/`generationConfig` request shape and the
-same `extractGeminiText()` response-parsing logic as your real
-`generate-premium.js`, reading the same `GEMINI_API_KEY` env var. **I have
-not been able to verify this call actually succeeds** — I have no Gemini
-key and no network access to `generativelanguage.googleapis.com` from this
-sandbox, so this is verified by close comparison against your working code,
-not by executing it. Test it against your real key before relying on it.
+## 0. Corrections from earlier versions of this package
+**Shared wallet (latest change):** earlier versions of this app used a
+separate `exam_credits` table — a deliberate choice at the time, per an
+earlier explicit decision in this project's history. That decision was
+reversed: since both apps already share one login, they now share one
+wallet too. `generate-exam.js` and `exam-payment/[[path]].js` were rewritten
+to read and write the REAL `coins` table via the REAL `decrement_coins`/
+`increment_coins` RPCs — ported from `generate-premium.js`'s own
+`deductCoins()`/`refundCoins()`, including its exact error handling (the
+`"insufficient_coins"` text match) and its exact read-then-write fallback
+if the RPC is ever missing, not reimplemented from scratch. The separate
+`exam_credits`/`exam_transactions` tables and `increment_exam_credits` RPC
+from the old migrations are now unused — `supabase/001_exam_tables.sql`
+and `002_exam_extras.sql` have been rewritten accordingly (§2).
+
+One display detail that mattered a lot here: your real `App.jsx` never
+shows a raw `coins` value to a teacher — it multiplies by
+`DISPLAY_CREDIT_MULTIPLIER = 30` first, per an explicit code comment in
+`generate-premium.js`: *"Never show coins raw to the user — always pass
+through toDisplayCredits() first, same pattern as the timetable app."*
+This app now does the same, everywhere a balance or a cost appears —
+including package sizes in the top-up modal and the post-purchase
+confirmation message, not just the header balance — otherwise the same
+raw number would show as two different figures depending on which app a
+teacher happened to be looking at.
+
+**AI provider (earlier correction, still true):** earlier versions of
+`generate-exam.js` called the **Anthropic API**. That was wrong — this
+codebase's actual AI provider is Google Gemini: `gemini-3.6-flash` for the
+paid/premium tier (the direct precedent for this feature), `gemini-2.5-flash`
++ rotating free keys + Groq fallback for the free tier. Fixed to match
+`generate-premium.js` exactly — endpoint, request shape, response parsing,
+env var. **Still not verified end-to-end** — no Gemini key, no network
+access to `generativelanguage.googleapis.com` from this sandbox. Verified
+by close comparison against your working code, not by executing it.
+
+## 0.5. A launch-blocking bug found in the uploaded "fixed" package
+`sharedStyles.jsx`'s own header comment claimed to copy "the F constant,
+the S object, and THEME_CSS" from your real `App.jsx`. Only F and S were
+ever actually written — `theme.css` (the file defining every
+`var(--card-bg)`, `var(--text)`, `var(--border)`, etc. used throughout
+every component) never existed until it was added in this pass. Without
+it, every card in this app would have rendered with no background, no
+border, and default browser text — a real, launch-blocking bug, not a
+cosmetic one, and exactly the kind of thing that's invisible in a code
+review and only shows up the first time someone opens the app in an
+actual browser. An earlier attempt to patch this reverse-engineered
+plausible values from colors already hardcoded elsewhere in the app; this
+pass replaced that guess with the **actual** `THEME_CSS` constant, copied
+byte-for-byte from your real `App.jsx` (found at `const THEME_CSS =`),
+including both the light and dark variable sets and the input/button/
+select interaction styles. One deliberate exception: the real `App.jsx`
+also never loads "DM Sans" as an actual web font anywhere (no
+`@font-face`, no Google Fonts `<link>` for it) — it silently falls back to
+`system-ui`. `theme.css` intentionally matches that fallback rather than
+"improving" it with a font import, since that would make this app render
+in a visibly different font than the real Lesson Planner does in practice.
+Confirmed working: a real `npm run build` produced valid CSS output
+containing these variables (§9 has the full build verification).
 
 ## Architecture in one sentence
 Same Supabase project + same `JWT_SECRET` = a token minted on
@@ -27,7 +72,8 @@ Same Supabase project + same `JWT_SECRET` = a token minted on
 `questions.eduformium.com`, with zero cookies, zero cross-domain glue, and
 zero new Google OAuth client — auth is a bearer token in
 `Authorization: Bearer …`, not a cookie, so it doesn't care which subdomain
-served the request.
+served the request. The same token also authorizes reads/writes against
+the same `coins` wallet, which is what makes the shared balance work.
 
 ## File map
 ```
@@ -37,6 +83,7 @@ src/
   QuestionsGenerator.jsx          Main page: wizard, auth gate, streaming progress, top-up
   moderation.js                   Input screening (length caps + abuse filter)
   sharedStyles.jsx                F / S style tokens copied from App.jsx
+  theme.css                       The real THEME_CSS from App.jsx — see §0.5 below
   auth.js, AuthModal_upgraded.jsx COPIED VERBATIM from the Lesson Planner
   curriculumIndex.js, jhs/ primary/ shs/ kg/   COPIED VERBATIM — the real curriculum data
   freeTierLimits.js               Free-tier caps — single source of truth, see note below
@@ -57,8 +104,8 @@ functions/
   api/exam-account/[[path]].js    Balance + saved-exam history
   api/exam-payment/[[path]].js    Paystack top-up (mirrors the Lesson Planner's payment security)
 supabase/
-  001_exam_tables.sql             exam_credits / exam_generations / exam_history
-  002_exam_extras.sql             exam_transactions + atomic increment_exam_credits RPC
+  001_exam_tables.sql             exam_generations / exam_history (NOT exam_credits — see §0)
+  002_exam_extras.sql             now a documented no-op — see §0
   003_free_tier.sql               tier tracking for the free-tier daily limit
 tests/
   examTemplate.test.js, examDocx.test.js, moderation.test.js, freeTierLimits.test.js    52 passing Vitest tests — see §9
@@ -139,6 +186,19 @@ strand picker doesn't cover. No curriculum data is duplicated or invented
 anywhere in this app.
 
 ## 6. What changed to push reliability, safety, and UX further
+- **Exam activity now shows up in your existing admin panel automatically**
+  — `logExamGeneration()` writes to the shared `/generations` table (the
+  same one `generate-premium.js` and `generate.js` already write to), using
+  the distinct tier values `"exam-premium"`/`"exam-free"` rather than
+  reusing `"premium"`/`"free"`. That distinction matters: your Lesson
+  Planner's own free-tier daily-limit check filters that table on
+  `tier=eq.free` (see `functions/api/generate.js`) — reusing that exact
+  value would have silently inflated a teacher's LESSON PLANNER free-tier
+  count with unrelated exam activity. This app's OWN free-tier limit still
+  uses its own `exam_generations` table (§0.5/§2), which is unaffected.
+  No changes were made to the admin panel itself — it was already querying
+  `/generations` generically, so this required zero admin-code changes to
+  work, only correct logging on this app's side.
 - **Inline exam editor + Word (.docx) export** (new, answers "can a teacher
   edit this before printing"): `ExamEditor.jsx` is a structured document
   editor — question text, marks, MCQ options/correct answer, and marking
@@ -156,21 +216,28 @@ anywhere in this app.
   and reading the document XML, and confirmed `Packer.toBlob()` (the
   browser API, not just `toBuffer()`) produces a correctly-typed Blob.
   6 tests cover it, all passing.
-- **Lazy-loaded**: `docx` bundles to ~700KB, so `examDocx.js` is loaded via
-  `await import()` only when a teacher actually clicks "Download Word",
-  not on every page load — directly protects the "no lag on low-end
-  Android" requirement. Caveat, stated plainly: I verified the source uses
-  the correct dynamic-import pattern for a bundler to code-split on, but
-  my crude single-file esbuild check in this sandbox doesn't confirm your
-  real bundler (Vite/webpack, whichever you use) actually produces a
-  separate chunk for it — check your build output for a second `.js` file
-  after building, to be sure.
+- **Lazy-loaded, and now actually confirmed, not just claimed**: once real
+  scaffolding (`vite.config.js`/`index.html`/`main.jsx`) existed to build
+  against, I ran a real `npm run build` (Vite, not a hand-rolled esbuild
+  check) and confirmed `examDocx.js` genuinely code-splits into its own
+  `357.60 kB` chunk, separate from the main bundle — the lazy-load pattern
+  works as intended, verified by output, not assumed.
+- **The curriculum-data bundle-size concern, now measured, not estimated**:
+  that same real build produced a main bundle of **13.5MB (2.46MB
+  gzipped)**. This is dominated by curriculum data (`shs/` alone is 12MB
+  raw), not by app code or the `docx` library. 2.46MB gzipped is still a
+  meaningful first-load cost on a slow connection — this remains flagged,
+  not fixed, for the same reason as before: restructuring how curriculum
+  data loads is a real architectural change shared with the Lesson
+  Planner and deserves its own scoped conversation, not a change buried
+  inside a wallet-sharing update.
 - **Two real bugs found and fixed while verifying the above** (by actually
   bundling the app, not just running `node --check`, which doesn't resolve
   imports): `TopUpModal.jsx` and `PaymentSuccess.jsx` both imported
   `./auth.js` when they needed `../auth.js` (wrong relative path — would
   have broken at build time). `@supabase/supabase-js` was used by `auth.js`
-  but never declared in `package.json`. Both fixed.
+  but never declared in `package.json`. Both fixed, and both confirmed
+  fixed by the real build succeeding afterward.
 - **A pre-existing bug found in your original curriculum data**, not
   something I introduced: `src/jhs/french_curriculum.js` has a duplicate
   `"Basic 9"` key (lines 1476 and 1993) — in a JS object literal, the
@@ -360,7 +427,23 @@ Run during development: **52/52 passing** — including catching one of my
 own test assertions being wrong (mismatched error-message text) on the
 first run, fixed and re-verified. Every `.js`/`.jsx` file in this package
 was also syntax/build-checked (`node --check` for plain JS, `esbuild` for
-every JSX file) before delivery. What this still does *not* cover: the
+every JSX file) before delivery.
+
+**This pass, for the first time, also ran a real `npm run build` (Vite)** —
+possible now that real scaffolding (`vite.config.js`/`index.html`/
+`main.jsx`) exists to build against. It succeeded: 181 modules transformed,
+`examDocx.js` confirmed code-split into its own `357.60 kB` chunk (the
+lazy-load actually works, not just "should work"), `theme.css` confirmed
+present and valid in the CSS output (§0.5's fix confirmed working, not
+just written), and the two `./auth.js` → `../auth.js` path bugs confirmed
+fixed by the build no longer failing on them. This is real evidence at a
+level none of the earlier `node --check`/esbuild-single-file checks could
+reach, and it's exactly what caught the auth.js path bugs in the first
+place — a lesson worth stating plainly: syntax-checking individual files
+is not the same as building the whole app, and several real bugs this
+session were only found by doing the latter.
+
+What this still does *not* cover: the
 actual AI call, the Supabase reserve/refund flow, or the Paystack verify
 flow — those need integration tests against a real (or sandboxed)
 environment, which is on you to set up with your actual test keys.

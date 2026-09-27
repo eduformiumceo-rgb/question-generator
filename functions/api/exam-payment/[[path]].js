@@ -1,11 +1,15 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
  * Cloudflare Pages Function — EDUFORMIUM Questions Generator
- * FILE: functions/api/exam-payment/[[path]].js
+ * FILE: functions/api/exam-payment/[[path]].js   (v2 — shared coins wallet)
  *
- * Paystack top-up for THIS app's exam_credits wallet — a deliberate,
- * close mirror of the Lesson Planner's functions/api/payment/[[path]].js,
- * carrying over every security property that file already earned:
+ * v2 correction: this used to top up a separate `exam_credits` wallet.
+ * Per explicit direction, it now tops up the SAME `coins` wallet the
+ * Lesson Planner uses — buying credits here adds to the exact balance a
+ * teacher already sees there, using the real `transactions` table and the
+ * real `increment_coins` RPC (functions/api/payment/[[path]].js), not
+ * exam-specific lookalikes. Every security property that file earned is
+ * carried over unchanged:
  *   - server is the source of truth for pricing (never trust a client amount)
  *   - transaction row created BEFORE calling Paystack (prevents fabricated refs)
  *   - ownership check on verify (prevents IDOR — claiming someone else's ref)
@@ -15,17 +19,27 @@
  *   - failed credit step resets the transaction to "pending" so the user
  *     can recover via "restore previous purchase" instead of losing it
  *
+ * This app keeps its OWN Cloudflare Pages Function (rather than calling
+ * planner.eduformium.com/api/payment directly) to avoid cross-domain
+ * coupling between two independently-deployed apps — but it now reads
+ * and writes the identical rows either app's payment endpoint would.
+ * A purchase made in either app is visible, immediately, in both.
+ *
  * Routes:
- *   GET  /api/exam-payment/balance      → { balance, packages }
+ *   GET  /api/exam-payment/balance      → { balance, packages }   (raw coins — see note below)
  *   GET  /api/exam-payment/pending      → { pending_refs: string[] }
  *   POST /api/exam-payment/initialize   → { authorization_url, reference, package, amount_pesewas }
  *   POST /api/exam-payment/verify       → { success, credits_added, new_balance }
  *
+ * DISPLAY_CREDIT_MULTIPLIER: balances returned here are RAW coin units,
+ * matching what the Lesson Planner's backend works in. The client applies
+ * ×30 only when rendering — see QuestionsGenerator.jsx.
+ *
  * ENV VARS — same PROD_/DEV_ SUPABASE_URL/SERVICE_KEY/JWT_SECRET/ALLOWED_ORIGIN
  * as generate-exam.js, plus PROD_PAYSTACK_SECRET_KEY / DEV_PAYSTACK_SECRET_KEY
- * (can be the SAME Paystack account as the Lesson Planner, or a separate one
- * if you want exam-credit revenue tracked apart from lesson-plan coin revenue —
- * either works; Paystack doesn't care which app calls it).
+ * (can be the SAME Paystack account as the Lesson Planner, or a separate one —
+ * either works; Paystack doesn't care which app calls it, and both credit
+ * the same `coins` balance either way).
  * ═══════════════════════════════════════════════════════════════════
  */
 
@@ -44,10 +58,8 @@ function corsHeaders(env) { return { "Access-Control-Allow-Origin": env.ALLOWED_
 function jsonResp(data, status = 200, cors = {}) { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...cors } }); }
 function errResp(msg, status, cors) { return jsonResp({ error: { message: msg } }, status, cors); }
 
-// Same GHS/credit exchange rate as the Lesson Planner's real COIN_PACKAGES
-// (functions/api/payment/[[path]].js) — not a new, unrelated price point.
-// A teacher moving between the two apps sees the same value per unit, even
-// though the wallets are deliberately separate (see README §0/§7 history).
+// Identical to the Lesson Planner's real COIN_PACKAGES (functions/api/payment/
+// [[path]].js) — literally the same price points, not a new unrelated one.
 const CREDIT_PACKAGES = [
   { id: "trial",    credits: 4,  ghs: 600,  label: "4 Credits"  },
   { id: "starter",  credits: 7,  ghs: 1000, label: "7 Credits"  },
@@ -97,25 +109,25 @@ export async function onRequest(context) {
   const token = (request.headers.get("Authorization") || "").replace("Bearer ", "").trim();
   const allowedOrigin = (env.ALLOWED_ORIGIN || "").trim().replace(/\/+$/, "");
 
-  /* GET /balance */
+  /* GET /balance — reads the SAME `coins` table the Lesson Planner reads */
   if (request.method === "GET" && action === "balance") {
     if (!token) return errResp("Not authenticated.", 401, corsHdrs);
     try {
       const user = await verifyToken(env, token);
-      const rows = await sbAdmin(env, `/exam_credits?user_id=eq.${user.id}&select=balance`);
+      const rows = await sbAdmin(env, `/coins?user_id=eq.${user.id}&select=balance`);
       if (!rows || rows.length === 0) {
-        await sbAdmin(env, "/exam_credits", { method: "POST", body: JSON.stringify({ user_id: user.id, balance: 0 }) }).catch(() => {});
+        await sbAdmin(env, "/coins", { method: "POST", body: JSON.stringify({ user_id: user.id, balance: 0 }) }).catch(() => {});
       }
       return jsonResp({ balance: rows?.[0]?.balance ?? 0, packages: CREDIT_PACKAGES }, 200, corsHdrs);
     } catch (e) { return errResp(e.message, e.dbError ? 500 : 401, corsHdrs); }
   }
 
-  /* GET /pending */
+  /* GET /pending — reads the SAME `transactions` table */
   if (request.method === "GET" && action === "pending") {
     if (!token) return errResp("Not authenticated.", 401, corsHdrs);
     try {
       const user = await verifyToken(env, token);
-      const rows = await sbAdmin(env, `/exam_transactions?user_id=eq.${user.id}&status=eq.pending&select=paystack_ref,created_at&order=created_at.desc&limit=20`);
+      const rows = await sbAdmin(env, `/transactions?user_id=eq.${user.id}&status=eq.pending&select=paystack_ref,created_at&order=created_at.desc&limit=20`);
       return jsonResp({ pending_refs: (rows || []).map(r => r.paystack_ref) }, 200, corsHdrs);
     } catch (e) { return errResp(e.message, e.dbError ? 500 : 401, corsHdrs); }
   }
@@ -133,10 +145,13 @@ export async function onRequest(context) {
     const pkg = CREDIT_PACKAGES.find(p => p.id === body.package_id);
     if (!pkg) return errResp("Invalid package.", 400, corsHdrs);
 
+    // "eduq_" prefix keeps refs from this app visually distinguishable from
+    // the Lesson Planner's own refs in the shared `transactions` table,
+    // even though both write to the same table/wallet.
     const ref = `eduq_${user.id.slice(0, 8)}_${Date.now()}`;
-    await sbAdmin(env, "/exam_transactions", {
+    await sbAdmin(env, "/transactions", {
       method: "POST",
-      body: JSON.stringify({ user_id: user.id, amount_ghs: pkg.ghs / 100, credits_purchased: pkg.credits, paystack_ref: ref, status: "pending" }),
+      body: JSON.stringify({ user_id: user.id, amount_ghs: pkg.ghs / 100, coins_purchased: pkg.credits, paystack_ref: ref, status: "pending" }),
     });
 
     const psRes = await fetch("https://api.paystack.co/transaction/initialize", {
@@ -163,13 +178,13 @@ export async function onRequest(context) {
     const ref = body.reference;
     if (!ref) return errResp("Missing reference.", 400, corsHdrs);
 
-    const existing = await sbAdmin(env, `/exam_transactions?paystack_ref=eq.${ref}&status=eq.completed&select=id,user_id,credits_purchased`);
+    const existing = await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}&status=eq.completed&select=id,user_id,coins_purchased`);
     if (existing?.length > 0) {
       if (existing[0].user_id !== verifyUser.id) return errResp("Transaction not found. Please contact support.", 404, corsHdrs);
-      return jsonResp({ message: "Already processed.", already_credited: true, credits_added: existing[0].credits_purchased }, 200, corsHdrs);
+      return jsonResp({ message: "Already processed.", already_credited: true, credits_added: existing[0].coins_purchased }, 200, corsHdrs);
     }
 
-    const pending = await sbAdmin(env, `/exam_transactions?paystack_ref=eq.${ref}&select=id,user_id,credits_purchased,status,amount_ghs`);
+    const pending = await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}&select=id,user_id,coins_purchased,status,amount_ghs`);
     if (!pending?.length) return errResp("Transaction not found. Please contact support.", 404, corsHdrs);
     const txn = pending[0];
 
@@ -193,37 +208,37 @@ export async function onRequest(context) {
       return errResp("Payment amount mismatch. Please contact support.", 400, corsHdrs);
     }
 
-    const credits = txn.credits_purchased ?? parseInt(psData.data?.metadata?.credits ?? "0");
+    const credits = txn.coins_purchased ?? parseInt(psData.data?.metadata?.credits ?? "0");
     if (!credits || credits <= 0) return errResp("Invalid credit amount. Please contact support.", 400, corsHdrs);
 
     // Atomic claim — PATCH only succeeds if status is still "pending", preventing a double-credit race.
-    const claimResult = await sbAdmin(env, `/exam_transactions?paystack_ref=eq.${ref}&status=eq.pending`, {
+    const claimResult = await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}&status=eq.pending`, {
       method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify({ status: "processing" }),
     });
     if (!claimResult?.length) return jsonResp({ message: "Already processed.", already_credited: true, credits_added: credits }, 200, corsHdrs);
 
     let newTotalBalance;
     try {
-      await sbAdmin(env, `/rpc/increment_exam_credits`, { method: "POST", body: JSON.stringify({ p_user_id: userId, p_amount: credits }) });
-      const balRows = await sbAdmin(env, `/exam_credits?user_id=eq.${userId}&select=balance`);
+      await sbAdmin(env, `/rpc/increment_coins`, { method: "POST", body: JSON.stringify({ p_user_id: userId, p_amount: credits }) });
+      const balRows = await sbAdmin(env, `/coins?user_id=eq.${userId}&select=balance`);
       newTotalBalance = balRows?.[0]?.balance ?? credits;
     } catch {
       try {
-        const balRows = await sbAdmin(env, `/exam_credits?user_id=eq.${userId}&select=balance`);
+        const balRows = await sbAdmin(env, `/coins?user_id=eq.${userId}&select=balance`);
         const current = balRows?.[0]?.balance ?? 0;
         newTotalBalance = current + credits;
         if (!balRows || balRows.length === 0) {
-          await sbAdmin(env, "/exam_credits", { method: "POST", body: JSON.stringify({ user_id: userId, balance: newTotalBalance, updated_at: new Date().toISOString() }) });
+          await sbAdmin(env, "/coins", { method: "POST", body: JSON.stringify({ user_id: userId, balance: newTotalBalance, updated_at: new Date().toISOString() }) });
         } else {
-          await sbAdmin(env, `/exam_credits?user_id=eq.${userId}`, { method: "PATCH", body: JSON.stringify({ balance: newTotalBalance, updated_at: new Date().toISOString() }) });
+          await sbAdmin(env, `/coins?user_id=eq.${userId}`, { method: "PATCH", body: JSON.stringify({ balance: newTotalBalance, updated_at: new Date().toISOString() }) });
         }
       } catch (creditErr) {
-        await sbAdmin(env, `/exam_transactions?paystack_ref=eq.${ref}`, { method: "PATCH", body: JSON.stringify({ status: "pending" }) }).catch(() => {});
+        await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}`, { method: "PATCH", body: JSON.stringify({ status: "pending" }) }).catch(() => {});
         return errResp("Payment verified but your credit top-up failed. Please use 'Restore Previous Purchase'. If this persists, contact support.", 500, corsHdrs);
       }
     }
 
-    await sbAdmin(env, `/exam_transactions?paystack_ref=eq.${ref}`, { method: "PATCH", body: JSON.stringify({ status: "completed" }) });
+    await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}`, { method: "PATCH", body: JSON.stringify({ status: "completed" }) });
     return jsonResp({ success: true, credits_added: credits, new_balance: newTotalBalance }, 200, corsHdrs);
   }
 

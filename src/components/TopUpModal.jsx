@@ -8,6 +8,13 @@ import React, { useEffect, useState } from "react";
 import { getToken } from "../auth.js";
 
 const ACCOUNT_API = "/api/exam-payment";
+// Same rule as the Lesson Planner's own code comment: "Never show coins raw
+// to the user — always pass through toDisplayCredits() first, same pattern
+// as the timetable app." Applies to package sizes here too, not just the
+// running balance — a "4 Credits" raw package should show as "120 Credits"
+// so the number matches what the balance actually jumps by after purchase.
+const DISPLAY_CREDIT_MULTIPLIER = 30;
+const toDisplayCredits = (n) => (typeof n !== "number" || isNaN(n)) ? 0 : n * DISPLAY_CREDIT_MULTIPLIER;
 
 export default function TopUpModal({ onClose, onPurchased, S, F }) {
   const [packages, setPackages] = useState([]);
@@ -85,7 +92,7 @@ export default function TopUpModal({ onClose, onPurchased, S, F }) {
               opacity: loadingPkg && loadingPkg !== pkg.id ? 0.5 : 1,
             }}
           >
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{pkg.label}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{toDisplayCredits(pkg.credits)} Credits</span>
             <span style={{ fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>
               {loadingPkg === pkg.id ? "Redirecting…" : `GH₵${(pkg.ghs / 100).toFixed(2)}`}
             </span>

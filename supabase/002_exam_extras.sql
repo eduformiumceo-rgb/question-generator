@@ -1,41 +1,23 @@
 -- ═══════════════════════════════════════════════════════════════════
 -- EDUFORMIUM — AI Questions Generator — migration 002
--- Run AFTER 001_exam_tables.sql, in the same Supabase project.
--- Adds: rate limiting, Paystack top-up transactions, atomic credit RPC.
+-- v2: NOW A NO-OP. Nothing in this file needs to run.
+--
+-- The original version of this migration created a separate
+-- `exam_transactions` table and an `increment_exam_credits` RPC for a
+-- standalone exam-credit wallet. Per explicit direction, this app now
+-- shares the Lesson Planner's real wallet instead: the real
+-- `transactions` table and the real `increment_coins` RPC
+-- (functions/api/payment/[[path]].js) already exist in this Supabase
+-- project from the Lesson Planner's own setup, and
+-- functions/api/exam-payment/[[path]].js now reads/writes those directly.
+-- There is nothing new for this app to create for payments.
+--
+-- If you already ran the OLD version of this file, `exam_transactions`
+-- and `increment_exam_credits` are now unused — safe to drop once you've
+-- confirmed the shared-wallet switch is live and working:
+--   drop table if exists exam_transactions;
+--   drop function if exists increment_exam_credits(uuid, integer);
+--
+-- (Rate limiting still needs no table of its own — it reads
+-- exam_generations' own timestamps, created by 001_exam_tables.sql.)
 -- ═══════════════════════════════════════════════════════════════════
-
--- 1. Rate limiting — a sliding window is overkill for this scale; a simple
---    per-user rolling counter checked against exam_generations' own
---    timestamps is enough and needs no extra table. See the rate-limit
---    query in functions/api/generate-exam.js, which reads exam_generations
---    directly (created_at >= now() - interval). No new table required here.
-
--- 2. Paystack top-up transactions — mirrors the Lesson Planner's own
---    `transactions` table exactly, scoped to this app's exam credits.
-create table if not exists exam_transactions (
-  id               uuid primary key default gen_random_uuid(),
-  user_id          uuid not null references users(id) on delete cascade,
-  amount_ghs       numeric not null,
-  credits_purchased integer not null,
-  paystack_ref     text not null unique,
-  status           text not null default 'pending', -- pending | processing | completed
-  created_at       timestamptz not null default now()
-);
-create index if not exists idx_exam_transactions_user on exam_transactions(user_id, created_at desc);
-create index if not exists idx_exam_transactions_ref on exam_transactions(paystack_ref);
-
--- 3. Atomic credit increment — avoids the read-then-write race the Lesson
---    Planner's own payment endpoint already guards against via RPC.
---    (functions/api/exam-payment/[[path]].js falls back to read-then-write
---    if this RPC is missing, same fallback pattern as the existing app.)
-create or replace function increment_exam_credits(p_user_id uuid, p_amount integer)
-returns void
-language plpgsql
-as $$
-begin
-  insert into exam_credits (user_id, balance, updated_at)
-  values (p_user_id, p_amount, now())
-  on conflict (user_id)
-  do update set balance = exam_credits.balance + p_amount, updated_at = now();
-end;
-$$;

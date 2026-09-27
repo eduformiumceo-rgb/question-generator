@@ -7,6 +7,9 @@ import React, { useEffect, useState } from "react";
 import { getToken } from "../auth.js";
 
 const ACCOUNT_API = "/api/exam-payment";
+// Same "never show coins raw" rule as TopUpModal.jsx and the real App.jsx.
+const DISPLAY_CREDIT_MULTIPLIER = 30;
+const toDisplayCredits = (n) => (typeof n !== "number" || isNaN(n)) ? 0 : n * DISPLAY_CREDIT_MULTIPLIER;
 
 export default function PaymentSuccess({ onDone, S, F }) {
   const [status, setStatus] = useState("verifying"); // verifying | success | error
@@ -29,7 +32,7 @@ export default function PaymentSuccess({ onDone, S, F }) {
         if (!res.ok) throw new Error(data.error?.message || "Verification failed.");
         sessionStorage.removeItem("eduformium_pending_exam_ref");
         setStatus("success");
-        setMessage(`${data.credits_added} credits added. New balance: ${data.new_balance}.`);
+        setMessage(`${toDisplayCredits(data.credits_added)} credits added. New balance: ${toDisplayCredits(data.new_balance)}.`);
       } catch (e) {
         setStatus("error");
         setMessage(e.message || "Could not verify your payment. If you were charged, please contact support.");

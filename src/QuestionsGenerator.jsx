@@ -44,9 +44,23 @@ const ACCOUNT_API = "/api/exam-account";
 // Priced consistently with the Lesson Planner's real COINS_PER_LESSON=0.5
 // precedent, scaled per section (= per AI call), not a flat guessed number —
 // must match functions/api/generate-exam.js's CREDIT_COST_PER_SECTION_*.
+// These are RAW coin units — the wallet backend always works in raw units.
 const CREDIT_COST_PER_SECTION_WITH_MARKING = 0.5;
 const CREDIT_COST_PER_SECTION_QUESTIONS_ONLY = 0.35;
-const formatCredits = (n) => (Number.isInteger(n) ? n : n.toFixed(2));
+
+// Your real App.jsx multiplies the raw `coins` balance by 30 before showing
+// it to a teacher (confirmed directly in generate-premium.js's own code
+// comment: "the UI multiplies real balances by DISPLAY_CREDIT_MULTIPLIER
+// (30x)... that constant only exists client-side"). This wallet is shared
+// with the Lesson Planner now, so this app must apply the exact same
+// multiplier — otherwise the same raw balance would show as two different
+// numbers depending on which app a teacher happens to be in, which would
+// look like a bug (or missing money) even though nothing is actually wrong.
+const DISPLAY_CREDIT_MULTIPLIER = 30;
+// raw → the number shown on screen. Rounded for display only — the actual
+// amount deducted/charged server-side always stays at full precision.
+const toDisplayCredits = (raw) => Math.round(raw * DISPLAY_CREDIT_MULTIPLIER);
+const formatCredits = (raw) => toDisplayCredits(raw);
 
 const EXAM_TYPES = ["Class Test", "Quiz", "Mid-Term Exam", "End of Term Exam", "Mock Exam"];
 const DIFFICULTIES = ["Easy", "Moderate", "Hard"];
@@ -173,8 +187,10 @@ function QuestionsGeneratorInner() {
   const [showTopUp, setShowTopUp] = useState(false);
   const printFrameRef = useRef(null);
 
-  // Exam credits are THIS app's own wallet (exam_credits table) — a separate
-  // balance from the Lesson Planner's `coins`, fetched from exam-account.
+  // Credits are the SAME shared `coins` wallet the Lesson Planner uses —
+  // not a separate balance. `creditBalance` here is always the RAW value;
+  // toDisplayCredits() is applied only at render time, matching the real
+  // App.jsx's rule ("never show coins raw to the user").
   const [creditBalance, setCreditBalance] = useState(null);
   const fetchBalance = useCallback(async () => {
     try {
@@ -272,8 +288,9 @@ function QuestionsGeneratorInner() {
       setExamHasMarkingScheme(result.includeMarkingScheme !== false);
       setShowAnswerKey(false);
       setDiagramImages({});
-      // Server already deducted from exam_credits and returns the fresh balance —
-      // trust that over a client-side guess so the header never drifts from reality.
+      // Server already deducted from the shared coins wallet and returns the
+      // fresh raw balance — trust that over a client-side guess so the
+      // header never drifts from reality.
       if (typeof result.creditsRemaining === "number") setCreditBalance(result.creditsRemaining);
       else fetchBalance();
     } catch (e) {
@@ -282,12 +299,16 @@ function QuestionsGeneratorInner() {
       if (e.status === 402) {
         setError("You're out of exam credits.");
         setShowTopUp(true);
-        if (typeof e.balance === "number") setCreditBalance(e.balance);
+        // deductCoins() throws rather than returning a balance, so the 402
+        // response body has no `balance` field to trust here — re-fetch
+        // instead of reading a field that no longer exists.
+        fetchBalance();
       } else if (e.status === 429) {
         setError(e.message);
       } else {
         setError(e.message || "Something went wrong generating the exam. Please try again.");
         if (typeof e.creditsRemaining === "number") setCreditBalance(e.creditsRemaining);
+        else fetchBalance();
       }
     } finally {
       setLoading(false);
@@ -377,8 +398,8 @@ function QuestionsGeneratorInner() {
         </h1>
         <p style={{ fontSize: 13.5, color: "var(--text-muted)", fontFamily: F, marginBottom: 20, lineHeight: 1.6 }}>
           Already use the Lesson Planner? Sign in with that same account — it carries over
-          automatically, this app just has its own exam-credit wallet. New here? You can
-          create a free account too.
+          automatically, and your credit balance carries over too, it's the same wallet.
+          New here? You can create a free account too.
         </p>
         <button style={{ ...S.btn, width: "100%" }} onClick={() => setShowAuthModal(true)}>
           Sign in or create account
@@ -410,7 +431,7 @@ function QuestionsGeneratorInner() {
             background: "var(--accent-soft)", border: "1px solid var(--tag-border)", fontSize: 13, fontWeight: 700, color: "var(--accent)",
             cursor: "pointer", fontFamily: F,
           }}>
-            {creditBalance} credits · Top up
+            {toDisplayCredits(creditBalance)} credits · Top up
           </button>
         )}
       </div>
