@@ -133,6 +133,18 @@ run `supabase/001_exam_tables.sql`, then `002_exam_extras.sql`, then
 `003_free_tier.sql`, in that order. None of them touch `users` or `coins`.
 
 ## 3. Set Cloudflare Pages environment variables
+**BUILD-TIME variables (required for Google sign-in) — omitted from earlier
+versions of this guide, found during a bug audit:** `auth.js` reads
+`import.meta.env.VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at build
+time. Add both in Cloudflare Pages → Settings → Variables (Production AND
+Preview), with the same values as the Lesson Planner's build. If they are
+missing, the app builds fine but Google sign-in throws "not configured
+yet" at runtime. Also add this app's URL
+(`https://questions.eduformium.com/auth/callback`) to Supabase →
+Authentication → URL Configuration → Redirect URLs, and the same URI to the
+Google Cloud OAuth client's Authorized redirect URIs.
+
+
 Copy the **exact same values** the Lesson Planner project uses for:
 ```
 PROD_SUPABASE_URL   PROD_SUPABASE_SERVICE_KEY   PROD_JWT_SECRET   (byte-identical — this is what makes SSO work)
@@ -186,6 +198,29 @@ strand picker doesn't cover. No curriculum data is duplicated or invented
 anywhere in this app.
 
 ## 6. What changed to push reliability, safety, and UX further
+- **Bug audit after removing the hard sign-in gate — three real problems
+  found and fixed.** (1) **Google sign-in could never complete**:
+  `auth.js` redirects to `/auth/callback` and `handleGoogleCallback()`
+  finishes the login, but nothing in this app called it — the real app's
+  `AuthCallback.jsx` and its route were never copied into this package
+  (a gap present since the first version, not only the latest change).
+  Fixed: `AuthCallback.jsx` copied verbatim, routed in `main.jsx`, plus
+  the real App.jsx's `completePendingGoogleSignIn()` safety net on load.
+  (2) `public/_redirects` was missing, so `/auth/callback` and
+  `/payment-success` could 404 on Cloudflare Pages; copied from the real
+  app. (3) Signed-out clicks on "Load my Scheme of Learning" and "AI
+  Suggest Topics" would have hit the server with no token; they now open
+  sign-in instead.
+- **Known limitation, not fixed:** Google sign-in is a full-page redirect,
+  so a teacher who fills in the wizard and THEN signs in with Google
+  returns to an empty wizard (email/password sign-in does not reload the
+  page, so it keeps their work). Fixing it properly means persisting the
+  wizard draft across the redirect, which also touches TopicSelector's
+  reset-on-mount effect — deliberately left for a scoped change.
+- **`_headers` (CSP) deliberately NOT copied** from the Lesson Planner: its
+  Content-Security-Policy is tuned for that app, and this one uses print
+  popups, `blob:` downloads and `data:` images that a copied policy could
+  silently break. Add a CSP later, tested in a real browser.
 - **Exam activity now shows up in your existing admin panel automatically**
   — `logExamGeneration()` writes to the shared `/generations` table (the
   same one `generate-premium.js` and `generate.js` already write to), using

@@ -35,6 +35,7 @@ export default function TopicSelector({
   selectedTopics, setSelectedTopics,
   pastedSyllabus, setPastedSyllabus,
   onSuggestTopics,
+  onLoginRequired, // called instead of hitting the server when signed out
   S, F,
 }) {
   const [selectedStrands, setSelectedStrands] = useState([]); // string[]
@@ -77,6 +78,8 @@ export default function TopicSelector({
 
   const loadScheme = async () => {
     if (!subject || !className) return;
+    // Signed out: open sign-in instead of firing a request that can only 401.
+    if (!getToken || !getToken()) { onLoginRequired?.(); return; }
     setSolStatus({ loading: true });
     try {
       const token = getToken ? getToken() : null;

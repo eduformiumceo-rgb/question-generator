@@ -33,7 +33,7 @@ import TopUpModal from "./components/TopUpModal.jsx";
 // but points at the SAME Supabase project and JWT secret, so a teacher who
 // signs in here (or on the Lesson Planner) is recognized on both: real SSO,
 // no second account. See functions/api/auth/[[path]].js for the server side.
-import { getUser, getToken } from "./auth.js";
+import { getUser, getToken, completePendingGoogleSignIn } from "./auth.js";
 // Reused unchanged — same Google sign-in modal/UX as the Lesson Planner.
 // Because both apps share one Supabase project + JWT secret, signing in here
 // creates/reuses the exact same account as the Lesson Planner.
@@ -203,6 +203,16 @@ function QuestionsGeneratorInner() {
     } catch { /* balance display is non-critical — fail quietly */ }
   }, []);
   React.useEffect(() => { fetchBalance(); }, [fetchBalance]);
+
+  // Safety net, mirrored from the real App.jsx: if Google/Supabase lands the
+  // teacher on "/" instead of "/auth/callback" (misconfigured Redirect URL,
+  // cached link), finish the handshake here so login still completes.
+  React.useEffect(() => {
+    completePendingGoogleSignIn()
+      .then(fresh => { if (fresh) { setUser(fresh); fetchBalance(); } })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleCognitive = (level) => {
     setCognitiveLevels(prev => prev.includes(level) ? prev.filter(l => l !== level) : [...prev, level]);
@@ -390,29 +400,14 @@ function QuestionsGeneratorInner() {
     setTimeout(() => w.print(), 350);
   };
 
-  if (!user) {
-    return (
-      <div style={{ maxWidth: 420, margin: "80px auto", padding: "0 16px", fontFamily: F, textAlign: "center" }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: "var(--text)", fontFamily: F, marginBottom: 8 }}>
-          AI Questions Generator
-        </h1>
-        <p style={{ fontSize: 13.5, color: "var(--text-muted)", fontFamily: F, marginBottom: 20, lineHeight: 1.6 }}>
-          Already use the Lesson Planner? Sign in with that same account — it carries over
-          automatically, and your credit balance carries over too, it's the same wallet.
-          New here? You can create a free account too.
-        </p>
-        <button style={{ ...S.btn, width: "100%" }} onClick={() => setShowAuthModal(true)}>
-          Sign in or create account
-        </button>
-        {showAuthModal && (
-          <AuthModal
-            onClose={() => setShowAuthModal(false)}
-            onAuth={(u) => { setUser(u); setShowAuthModal(false); }}
-          />
-        )}
-      </div>
-    );
-  }
+  // Same pattern as the Lesson Planner's own onLoginRequired: don't hard-wall
+  // the whole page behind a sign-in screen. Let a teacher fill in the whole
+  // wizard first — subject, topics, sections, everything — and only ask them
+  // to sign in at the moment they take an action that actually needs an
+  // account (Generate, or opening the top-up modal). Confirmed against the
+  // real App.jsx: `onClick={!user ? onLoginRequired : generate}` is the
+  // exact pattern used throughout, not something invented for this app.
+  const requireLogin = (action) => (user ? action : () => setShowAuthModal(true));
 
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px 16px 60px", fontFamily: F }}>
@@ -425,16 +420,29 @@ function QuestionsGeneratorInner() {
             Build a print-ready exam paper from your curriculum in minutes.
           </p>
         </div>
-        {creditBalance !== null && (
-          <button onClick={() => setShowTopUp(true)} style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 99,
-            background: "var(--accent-soft)", border: "1px solid var(--tag-border)", fontSize: 13, fontWeight: 700, color: "var(--accent)",
-            cursor: "pointer", fontFamily: F,
-          }}>
-            {toDisplayCredits(creditBalance)} credits · Top up
+        {user ? (
+          creditBalance !== null && (
+            <button onClick={requireLogin(() => setShowTopUp(true))} style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 99,
+              background: "var(--accent-soft)", border: "1px solid var(--tag-border)", fontSize: 13, fontWeight: 700, color: "var(--accent)",
+              cursor: "pointer", fontFamily: F,
+            }}>
+              {toDisplayCredits(creditBalance)} credits · Top up
+            </button>
+          )
+        ) : (
+          <button onClick={() => setShowAuthModal(true)} style={{ ...S.sm }}>
+            Sign In
           </button>
         )}
       </div>
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onAuth={(u) => { setUser(u); setShowAuthModal(false); fetchBalance(); }}
+        />
+      )}
 
       {showTopUp && (
         <TopUpModal
@@ -539,7 +547,8 @@ function QuestionsGeneratorInner() {
         term={term}
         selectedTopics={selectedTopics} setSelectedTopics={setSelectedTopics}
         pastedSyllabus={pastedSyllabus} setPastedSyllabus={setPastedSyllabus}
-        onSuggestTopics={handleSuggestTopics}
+        onSuggestTopics={user ? handleSuggestTopics : async () => { setShowAuthModal(true); return []; }}
+        onLoginRequired={() => setShowAuthModal(true)}
         S={S} F={F}
       />
 
@@ -664,7 +673,7 @@ function QuestionsGeneratorInner() {
 
       {error && <div style={S.err}><span>⚠</span><span>{error}</span></div>}
 
-      <button onClick={handleGenerate} disabled={loading} style={{ ...S.btn, width: "100%", opacity: loading ? 0.75 : 1, marginBottom: 8 }}>
+      <button onClick={requireLogin(handleGenerate)} disabled={loading} style={{ ...S.btn, width: "100%", opacity: loading ? 0.75 : 1, marginBottom: 8 }}>
         {loading
           ? <><Spinner /> {progress?.sectionLabel ? `Generating ${progress.sectionLabel} (${progress.index}/${progress.total})…` : "Starting…"}</>
           : (isFree ? <>✨ Generate Free Quiz (Free)</> : <>✨ Generate Exam (~{formatCredits(includeMarkingScheme ? estimatedCostWithMarking : estimatedCostQuestionsOnly)} credits)</>)}
