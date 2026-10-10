@@ -198,6 +198,62 @@ strand picker doesn't cover. No curriculum data is duplicated or invented
 anywhere in this app.
 
 ## 6. What changed to push reliability, safety, and UX further
+- **Flow reordered to match the real Lesson Planner exactly, verified
+  against `App.jsx` before building** — not assumed. Class is now chosen
+  first; Subject only appears once a class is picked, filtered to that
+  class via `SUPPORTED_SUBJECTS.filter(s => getSupportedClasses(s)
+  .includes(className))`, the real app's own line, reused rather than
+  invented. The rest of the form (Exam Type, Basic Info, Difficulty,
+  Structure, Options) now only renders once there's a class/subject to
+  configure it for — directly fixes the "overcrowded" page, since nothing
+  shows before there's a reason to show it.
+- **Bottom generate bar — two independent buttons, not a tier toggle.**
+  Free AI (left) and Premium AI (right) are both always visible and both
+  directly trigger generation with their own tier, matching the real
+  `onClick={!user ? onLoginRequired : generate}` / GENERATE BAR pattern
+  exactly — not a "pick a mode, then click one shared button" flow, which
+  is what this app had before. Free-tier eligibility is now checked only
+  when the Free button specifically is clicked, with a clear message
+  telling the teacher what to change (or to use Premium) rather than the
+  whole form silently reconfiguring itself the moment "Free" was selected.
+- **Free AI is 5/day, not 3** — `FREE_TIER_DAILY_LIMIT` changed to match
+  `FREE_LIMIT_GES = 5` in the real `App.jsx` exactly, kept consistent with
+  the established ecosystem convention rather than an arbitrary different
+  number for this app alone.
+- **New `/api/exam-account/free-usage` endpoint** — exposes `{ used,
+  limit, remaining }` so the Free button can show "X/5 left" proactively,
+  the same way the real app's Free button badge works, not just a 429
+  error after the fact.
+- **Exam Type is now a chip row** (Quiz, Class Test, Mid-Term Exam, End of
+  Term Exam, Mock Exam), not a plain `<select>` — visually consistent with
+  the rest of the redesigned flow.
+- **Output Mode + diagram toggle consolidated into one "Options" card**
+  instead of two separate cards — one real reduction in card count, not
+  just smaller text.
+- **Dead code removed from `ExamStructureBuilder.jsx`, found by re-auditing
+  this same redesign**: an earlier version of that component took
+  `isFree`/`freeMaxTotalQuestions` props and greyed out the essay section
+  when a pre-selected "Free" mode was active. Once the generate flow
+  changed to two independent buttons instead of a tier toggle, nothing
+  passed those props anymore — the props' defaults (`isFree = false`)
+  made this harmless, not broken, but the locking logic could never run
+  again. Removed rather than left stale, and replaced with a small
+  informational "Premium AI only" badge on the essay section instead.
+- **Scope note, stated plainly:** Senior High School classes are listed in
+  the Class picker for completeness, but SHS uses a materially different
+  two-tier Course→Subject curriculum structure in the real app that isn't
+  wired up here — selecting an SHS class falls through to the
+  paste-syllabus fallback. `getSHSStrands`/`getSHSSubStrands` already
+  exist in `curriculumIndex.js`; wiring them is a real, doable next step,
+  deliberately not rushed into this pass.
+- **A sandbox environment reset happened mid-session during this
+  redesign** — the working directory was lost partway through and had to
+  be reconstructed from the last successfully delivered package plus this
+  conversation's own record of what had been verified. Every fix from
+  earlier passes (shared wallet, `theme.css`, `AuthCallback.jsx`,
+  `_redirects`) was confirmed still present in the restored package before
+  continuing, and the full test suite + a real build were re-run after
+  the redesign to confirm nothing regressed — not assumed carried over.
 - **Bug audit after removing the hard sign-in gate — three real problems
   found and fixed.** (1) **Google sign-in could never complete**:
   `auth.js` redirects to `/auth/callback` and `handleGoogleCallback()`

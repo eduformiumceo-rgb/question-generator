@@ -9,11 +9,14 @@
  *   GET  /api/exam-account/history/:id      → full saved exam (exam_json + meta_json)
  *   POST /api/exam-account/history          → save a generated exam { title, subject, class, exam_type, exam_json, meta_json }
  *   DEL  /api/exam-account/history/:id      → delete a saved exam
+ *   GET  /api/exam-account/free-usage       → { used, limit, remaining } — for the "X/5 left" badge on the Free button
  *
  * Same shared-Supabase-project / shared-JWT-secret pattern as
  * generate-exam.js — see that file's header comment for the env vars.
  * ═══════════════════════════════════════════════════════════════════
  */
+
+import { FREE_TIER_DAILY_LIMIT } from "../_shared/freeTierLimits.js";
 
 const MAX_EXAM_HISTORY_PER_USER = 10; // mirrors DB.MAX_PLANS_PER_USER in the Lesson Planner's db.js
 
@@ -81,6 +84,7 @@ export async function onRequest(context) {
     else if (request.method === "GET" && path === "/history") response = await listHistory(env, user);
     else if (request.method === "GET" && path.startsWith("/history/")) response = await getHistoryItem(env, user, path.split("/")[2]);
     else if (request.method === "GET" && path === "/sol-lookup") response = await lookupScheme(env, user, url);
+    else if (request.method === "GET" && path === "/free-usage") response = await getFreeUsage(env, user);
     else if (request.method === "POST" && path === "/history") response = await saveHistory(request, env, user);
     else if (request.method === "DELETE" && path.startsWith("/history/")) response = await deleteHistory(env, user, path.split("/")[2]);
     else response = jsonResp({ error: "Not found." }, 404);
@@ -196,5 +200,19 @@ async function lookupScheme(env, user, url) {
   }
 
   return jsonResp({ source: "none", strands: [] });
+}
+
+/**
+ * Same query generate-exam.js's checkFreeTierLimit() actually enforces —
+ * exposed as a GET here purely so the client can show "X/5 left" on the
+ * Free button BEFORE a teacher attempts a generation, matching the real
+ * App.jsx's pattern of showing the remaining count proactively rather
+ * than only surfacing it after a 429.
+ */
+async function getFreeUsage(env, user) {
+  const todaySince = new Date(Date.now() - 86400 * 1000).toISOString();
+  const rows = await sb(env, `/exam_generations?user_id=eq.${user.sub}&tier=eq.free&created_at=gte.${todaySince}&select=id`);
+  const used = (rows || []).length;
+  return jsonResp({ used, limit: FREE_TIER_DAILY_LIMIT, remaining: Math.max(0, FREE_TIER_DAILY_LIMIT - used) });
 }
 

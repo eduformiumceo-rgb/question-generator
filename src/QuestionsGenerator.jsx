@@ -26,7 +26,7 @@ import { renderExamHTML, validateExamData, createExamVariant } from "./examTempl
 // every visit. Loaded on demand inside handleDownloadWord() instead.
 import ExamEditor from "./components/ExamEditor.jsx";
 import { screenExamInput } from "./moderation.js";
-import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES } from "./freeTierLimits.js";
+import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "./freeTierLimits.js";
 import TopUpModal from "./components/TopUpModal.jsx";
 // Reuses the Lesson Planner's auth.js UNCHANGED (same Google OAuth flow, same
 // getToken()/getUser()) — this app is a separate Cloudflare Pages deployment
@@ -130,12 +130,6 @@ function QuestionsGeneratorInner() {
   const [user, setUser] = useState(() => (getUser ? getUser() : null));
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // ── Tier: Free Quiz vs Premium Exam — must match FREE_TIER_* in
-  // functions/api/generate-exam.js exactly, or the client will let a
-  // teacher configure something the server then rejects.
-  const [tier, setTier] = useState("premium"); // "premium" | "free"
-  const isFree = tier === "free";
-
   // ── Basic Information ──────────────────────────────────────────
   const [schoolName, setSchoolName] = useState("");
   const [schoolLogo, setSchoolLogo] = useState(null); // data URL — printed in the paper header
@@ -158,18 +152,6 @@ function QuestionsGeneratorInner() {
   // ── Exam structure ──────────────────────────────────────────────
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
 
-  // Switching to Free auto-adjusts the structure to stay within free-tier
-  // caps, rather than letting the teacher configure something premium-only
-  // and then hit a confusing rejection at generate time.
-  React.useEffect(() => {
-    if (!isFree) return;
-    setSections(prev => prev.map(sec => {
-      if (!FREE_TIER_ALLOWED_TYPES.includes(sec.type)) return { ...sec, enabled: false };
-      return sec;
-    }));
-    setIncludeMarkingScheme(false);
-  }, [isFree]);
-
   // ── Diagrams ─────────────────────────────────────────────────────
   const [allowDiagrams, setAllowDiagrams] = useState(true);
   const [includeMarkingScheme, setIncludeMarkingScheme] = useState(true);
@@ -177,6 +159,7 @@ function QuestionsGeneratorInner() {
 
   // ── Generation state ─────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
+  const [loadingTier, setLoadingTier] = useState(null); // "free" | "premium" | null — which button is spinning
   const [progress, setProgress] = useState(null); // { index, total, sectionLabel, sectionsDone: Set }
   const [error, setError] = useState("");
   const [examData, setExamData] = useState(null);
@@ -204,12 +187,26 @@ function QuestionsGeneratorInner() {
   }, []);
   React.useEffect(() => { fetchBalance(); }, [fetchBalance]);
 
+  // "X/5 left" on the Free button — same proactive-remaining-count pattern
+  // as the real App.jsx's Free button badge, not just a failure message.
+  const [freeUsage, setFreeUsage] = useState(null); // { used, limit, remaining }
+  const fetchFreeUsage = useCallback(async () => {
+    try {
+      const token = getToken ? getToken() : null;
+      if (!token) { setFreeUsage(null); return; }
+      const res = await fetch(`${ACCOUNT_API}/free-usage`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      setFreeUsage(await res.json());
+    } catch { /* non-critical — fail quietly, the server still enforces the real limit */ }
+  }, []);
+  React.useEffect(() => { fetchFreeUsage(); }, [fetchFreeUsage]);
+
   // Safety net, mirrored from the real App.jsx: if Google/Supabase lands the
   // teacher on "/" instead of "/auth/callback" (misconfigured Redirect URL,
   // cached link), finish the handshake here so login still completes.
   React.useEffect(() => {
     completePendingGoogleSignIn()
-      .then(fresh => { if (fresh) { setUser(fresh); fetchBalance(); } })
+      .then(fresh => { if (fresh) { setUser(fresh); fetchBalance(); fetchFreeUsage(); } })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -222,8 +219,11 @@ function QuestionsGeneratorInner() {
   const estimatedCostWithMarking = Math.round(activeSections.length * CREDIT_COST_PER_SECTION_WITH_MARKING * 100) / 100;
   const estimatedCostQuestionsOnly = Math.round(activeSections.length * CREDIT_COST_PER_SECTION_QUESTIONS_ONLY * 100) / 100;
 
-  // ── Edge-case validation before spending a credit ────────────────
-  const validate = () => {
+  // Two independent buttons (Free / Premium) call this with their own tier —
+  // same pattern as the real App.jsx, where Free and Premium are two
+  // separate actions, not a pre-selected mode. Free-tier limits are only
+  // checked when the Free button specifically is the one clicked.
+  const validate = (tierArg) => {
     if (!subject.trim()) return "Please choose a subject.";
     if (!className.trim()) return "Please choose a class/grade.";
     if (!selectedTopics.length && !pastedSyllabus.trim()) return "Select at least one topic or paste a syllabus.";
@@ -233,12 +233,13 @@ function QuestionsGeneratorInner() {
     const invalid = activeSections.find(s => !Number(s.questionCount) || !Number(s.marksPerQuestion));
     if (invalid) return `Section ${invalid.id} needs a valid question count and marks per question.`;
     if (Number(durationMinutes) < 10 || Number(durationMinutes) > 300) return "Duration should be between 10 and 300 minutes.";
-    if (isFree) {
-      if (activeSections.length > FREE_TIER_MAX_SECTIONS) return `Free quizzes are limited to ${FREE_TIER_MAX_SECTIONS} sections. Switch to Premium for full exams.`;
+    if (tierArg === "free") {
+      if (activeSections.length > FREE_TIER_MAX_SECTIONS) return `Free AI is limited to ${FREE_TIER_MAX_SECTIONS} sections — reduce your sections, or use Premium AI for a full exam.`;
       const disallowed = activeSections.find(s => !FREE_TIER_ALLOWED_TYPES.includes(s.type));
-      if (disallowed) return "Free quizzes don't support essay sections. Switch to Premium for full exams.";
+      if (disallowed) return "Free AI doesn't support essay sections — remove the essay section, or use Premium AI.";
       const totalQ = activeSections.reduce((sum, s) => sum + (Number(s.questionCount) || 0), 0);
-      if (totalQ > FREE_TIER_MAX_TOTAL_QUESTIONS) return `Free quizzes are limited to ${FREE_TIER_MAX_TOTAL_QUESTIONS} questions total (currently ${totalQ}).`;
+      if (totalQ > FREE_TIER_MAX_TOTAL_QUESTIONS) return `Free AI is limited to ${FREE_TIER_MAX_TOTAL_QUESTIONS} questions total (currently ${totalQ}) — reduce question counts, or use Premium AI.`;
+      if (includeMarkingScheme) return "Free AI doesn't include a marking scheme — turn off \"Questions + Marking Scheme\" above, or use Premium AI.";
     }
     // Same screen the server runs — catches obviously-too-long pastes and
     // disallowed content client-side, before even hitting the network.
@@ -264,17 +265,18 @@ function QuestionsGeneratorInner() {
     }
   }, []);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (tierArg) => {
     setError("");
-    const validationError = validate();
+    const validationError = validate(tierArg);
     if (validationError) { setError(validationError); return; }
 
     setLoading(true);
+    setLoadingTier(tierArg);
     setExamData(null);
     setProgress({ index: 0, total: activeSections.length, sectionLabel: "", sectionsDone: new Set() });
     try {
       const payload = {
-        mode: "generate-exam", tier,
+        mode: "generate-exam", tier: tierArg,
         schoolName, className, subject, term, examType, durationMinutes,
         topics: selectedTopics, pastedSyllabus,
         difficulty, languageStyle, cognitiveLevels,
@@ -303,6 +305,7 @@ function QuestionsGeneratorInner() {
       // header never drifts from reality.
       if (typeof result.creditsRemaining === "number") setCreditBalance(result.creditsRemaining);
       else fetchBalance();
+      if (tierArg === "free") fetchFreeUsage(); // update the "X/5 left" badge
     } catch (e) {
       // Network/timeout/server failures land here — no credit is deducted server-side
       // unless generation actually succeeded (see generate-exam.js's refund logic).
@@ -315,6 +318,7 @@ function QuestionsGeneratorInner() {
         fetchBalance();
       } else if (e.status === 429) {
         setError(e.message);
+        if (tierArg === "free") fetchFreeUsage(); // refresh the badge if they've hit today's free limit
       } else {
         setError(e.message || "Something went wrong generating the exam. Please try again.");
         if (typeof e.creditsRemaining === "number") setCreditBalance(e.creditsRemaining);
@@ -322,6 +326,7 @@ function QuestionsGeneratorInner() {
       }
     } finally {
       setLoading(false);
+      setLoadingTier(null);
       setProgress(null);
     }
   };
@@ -452,41 +457,45 @@ function QuestionsGeneratorInner() {
         />
       )}
 
-      {/* ── Tier: Free Quiz vs Premium Exam ─────────────────────── */}
-      <div style={S.card}>
-        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Generation Tier</h3>
-        <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
-          Free is a quick quiz — {FREE_TIER_MAX_SECTIONS} sections max, {FREE_TIER_MAX_TOTAL_QUESTIONS} questions total, no essay, no marking scheme.
-          Premium unlocks full multi-section exams with essay questions and a professional marking scheme.
-        </p>
-        <div className="eduq-grid-2">
-          <button
-            type="button" onClick={() => setTier("free")}
-            style={{
-              textAlign: "left", padding: "14px 16px", borderRadius: 12, cursor: "pointer", fontFamily: F,
-              border: `1.5px solid ${isFree ? "var(--accent)" : "var(--border-strong)"}`,
-              background: isFree ? "var(--accent-soft)" : "var(--card-bg)",
-            }}
-          >
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: isFree ? "var(--accent)" : "var(--text)" }}>{isFree ? "✓ " : ""}Free Quiz</div>
-            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>0 credits · up to {FREE_TIER_MAX_SECTIONS} sections</div>
-          </button>
-          <button
-            type="button" onClick={() => setTier("premium")}
-            style={{
-              textAlign: "left", padding: "14px 16px", borderRadius: 12, cursor: "pointer", fontFamily: F,
-              border: `1.5px solid ${!isFree ? "var(--accent)" : "var(--border-strong)"}`,
-              background: !isFree ? "var(--accent-soft)" : "var(--card-bg)",
-            }}
-          >
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: !isFree ? "var(--accent)" : "var(--text)" }}>{!isFree ? "✓ " : ""}Premium Exam</div>
-            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>Full exams, essay questions, marking scheme</div>
-          </button>
-        </div>
-      </div>
+      {/* ── Curriculum + Topics (GES / NaCCA) — CLASS FIRST, matching
+           the real Lesson Planner's flow exactly. Everything else in the
+           form follows from this, so it comes first on the page too. ── */}
+      <TopicSelector
+        subject={subject} setSubject={setSubject}
+        className={className} setClassName={setClassName}
+        term={term}
+        selectedTopics={selectedTopics} setSelectedTopics={setSelectedTopics}
+        pastedSyllabus={pastedSyllabus} setPastedSyllabus={setPastedSyllabus}
+        onSuggestTopics={user ? handleSuggestTopics : async () => { setShowAuthModal(true); return []; }}
+        onLoginRequired={() => setShowAuthModal(true)}
+        S={S} F={F}
+      />
 
-      {/* ── Basic Information ───────────────────────────────────── */}
+      {/* ── Basic Information — only once a class is chosen, so the
+           form doesn't show a wall of fields before the one choice that
+           actually drives everything else. ── */}
+      {className && (
       <div style={S.card}>
+        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Exam Type</h3>
+        <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
+          What kind of assessment is this?
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+          {EXAM_TYPES.map(t => {
+            const active = examType === t;
+            return (
+              <button key={t} type="button" onClick={() => setExamType(t)} style={{
+                padding: "9px 16px", borderRadius: 99, fontFamily: F, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
+                background: active ? "var(--accent-soft)" : "var(--card-bg)",
+                color: active ? "var(--accent)" : "var(--text-secondary)",
+              }}>
+                {active ? "✓ " : ""}{t}
+              </button>
+            );
+          })}
+        </div>
+
         <h3 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Basic Information</h3>
         <div style={{ marginBottom: 14, display: "flex", gap: 12, alignItems: "flex-end" }}>
           <div style={{ flex: 1 }}>
@@ -516,43 +525,29 @@ function QuestionsGeneratorInner() {
             )}
           </div>
         </div>
-        <div className="eduq-grid-2" style={{ marginBottom: 14 }}>
-          <div>
-            <label style={S.lbl}>Exam Type *</label>
-            <select value={examType} onChange={e => setExamType(e.target.value)} style={S.sel}>
-              {EXAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+        <div className="eduq-grid-2">
           <div>
             <label style={S.lbl}>Term *</label>
             <select value={term} onChange={e => setTerm(e.target.value)} style={S.sel}>
               {["Term 1", "Term 2", "Term 3"].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-        </div>
-        <div>
-          <label style={S.lbl}>Duration (minutes) *</label>
-          <input
-            type="number" min={10} max={300} value={durationMinutes}
-            onChange={e => setDurationMinutes(e.target.value)}
-            style={{ ...S.inp, maxWidth: 160 }}
-          />
+          <div>
+            <label style={S.lbl}>Duration (minutes) *</label>
+            <input
+              type="number" min={10} max={300} value={durationMinutes}
+              onChange={e => setDurationMinutes(e.target.value)}
+              style={S.inp}
+            />
+          </div>
         </div>
       </div>
+      )}
 
-      {/* ── Curriculum + Topics (GES / NaCCA) ───────────────────── */}
-      <TopicSelector
-        subject={subject} setSubject={setSubject}
-        className={className} setClassName={setClassName}
-        term={term}
-        selectedTopics={selectedTopics} setSelectedTopics={setSelectedTopics}
-        pastedSyllabus={pastedSyllabus} setPastedSyllabus={setPastedSyllabus}
-        onSuggestTopics={user ? handleSuggestTopics : async () => { setShowAuthModal(true); return []; }}
-        onLoginRequired={() => setShowAuthModal(true)}
-        S={S} F={F}
-      />
-
-      {/* ── Difficulty + Language + Cognitive level ────────────── */}
+      {/* ── Difficulty + Language + Cognitive level — only once there's
+           a class AND subject chosen, so the form doesn't dump every
+           option on screen before there's anything to configure it for. ── */}
+      {className && subject && (
       <div style={S.card}>
         <h3 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Difficulty &amp; Language Control</h3>
 
@@ -595,66 +590,45 @@ function QuestionsGeneratorInner() {
           })}
         </div>
       </div>
-
-      {/* ── Exam Structure Builder ─────────────────────────────── */}
-      <ExamStructureBuilder
-        sections={sections} setSections={setSections} S={S} F={F}
-        isFree={isFree} freeMaxTotalQuestions={FREE_TIER_MAX_TOTAL_QUESTIONS}
-      />
-
-      {/* ── Output mode: Questions Only vs Questions + Marking Scheme ──
-           (Premium only — free tier is always Questions Only, enforced
-           by the useEffect above and by the server regardless.) ── */}
-      {!isFree && (
-      <div style={S.card}>
-        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Output Mode</h3>
-        <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
-          Choose whether to generate a full marking scheme alongside the questions, or just the question paper.
-        </p>
-        <div className="eduq-grid-2">
-          <button
-            type="button" onClick={() => setIncludeMarkingScheme(false)}
-            style={{
-              flex: 1, textAlign: "left", padding: "14px 16px", borderRadius: 12, cursor: "pointer", fontFamily: F,
-              border: `1.5px solid ${!includeMarkingScheme ? "var(--accent)" : "var(--border-strong)"}`,
-              background: !includeMarkingScheme ? "var(--accent-soft)" : "var(--card-bg)",
-            }}
-          >
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: !includeMarkingScheme ? "var(--accent)" : "var(--text)" }}>
-              {!includeMarkingScheme ? "✓ " : ""}Questions Only
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>
-              Just the question paper — faster, cheaper (~{formatCredits(estimatedCostQuestionsOnly)} credits for this paper). No answer key.
-            </div>
-          </button>
-          <button
-            type="button" onClick={() => setIncludeMarkingScheme(true)}
-            style={{
-              flex: 1, textAlign: "left", padding: "14px 16px", borderRadius: 12, cursor: "pointer", fontFamily: F,
-              border: `1.5px solid ${includeMarkingScheme ? "var(--accent)" : "var(--border-strong)"}`,
-              background: includeMarkingScheme ? "var(--accent-soft)" : "var(--card-bg)",
-            }}
-          >
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: includeMarkingScheme ? "var(--accent)" : "var(--text)" }}>
-              {includeMarkingScheme ? "✓ " : ""}Questions + Marking Scheme
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>
-              Full answer key + point-by-point marking guide (~{formatCredits(estimatedCostWithMarking)} credits for this paper).
-            </div>
-          </button>
-        </div>
-      </div>
       )}
 
-      {/* ── Diagram toggle (pre-generation) ────────────────────── */}
-      <div style={{ ...S.card, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Allow AI-Suggested Diagrams</div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 3 }}>
-            When a question needs a figure, graph or map, the AI will flag it so you can upload one.
+      {/* ── Exam Structure Builder — always full-capability here; a
+           config that doesn't fit the Free tier just shows a clear
+           message when the Free button specifically is clicked, rather
+           than the whole form silently reconfiguring itself. ── */}
+      {className && subject && (
+      <ExamStructureBuilder sections={sections} setSections={setSections} S={S} F={F} />
+      )}
+
+      {/* ── Output mode + diagrams — consolidated into one compact card
+           instead of two, to cut down on card count. ── */}
+      {className && subject && (
+      <div style={S.card}>
+        <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Options</h3>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Include Marking Scheme</div>
+            <div style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>
+              Full answer key + point-by-point marking guide. Off = just the question paper, faster and cheaper.
+              {" "}Not available on Free AI.
+            </div>
           </div>
+          <label style={{ position: "relative", display: "inline-block", width: 44, height: 26, flexShrink: 0, marginLeft: 12 }}>
+            <input type="checkbox" checked={includeMarkingScheme} onChange={e => setIncludeMarkingScheme(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+            <span style={{ position: "absolute", inset: 0, borderRadius: 99, cursor: "pointer", transition: ".15s", background: includeMarkingScheme ? "#0D9488" : "var(--border-strong)" }} onClick={() => setIncludeMarkingScheme(v => !v)} />
+            <span style={{ position: "absolute", top: 3, left: includeMarkingScheme ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: ".15s", pointerEvents: "none", boxShadow: "0 1px 2px rgba(0,0,0,.25)" }} />
+          </label>
         </div>
-        <label style={{ position: "relative", display: "inline-block", width: 44, height: 26, flexShrink: 0 }}>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Allow AI-Suggested Diagrams</div>
+            <div style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>
+              When a question needs a figure, graph or map, the AI will flag it so you can upload one.
+            </div>
+          </div>
+          <label style={{ position: "relative", display: "inline-block", width: 44, height: 26, flexShrink: 0, marginLeft: 12 }}>
           <input
             type="checkbox" checked={allowDiagrams} onChange={e => setAllowDiagrams(e.target.checked)}
             aria-label="Allow AI-suggested diagrams" role="switch" aria-checked={allowDiagrams}
@@ -670,14 +644,55 @@ function QuestionsGeneratorInner() {
           }} />
         </label>
       </div>
+      </div>
+      )}
 
       {error && <div style={S.err}><span>⚠</span><span>{error}</span></div>}
 
-      <button onClick={requireLogin(handleGenerate)} disabled={loading} style={{ ...S.btn, width: "100%", opacity: loading ? 0.75 : 1, marginBottom: 8 }}>
-        {loading
-          ? <><Spinner /> {progress?.sectionLabel ? `Generating ${progress.sectionLabel} (${progress.index}/${progress.total})…` : "Starting…"}</>
-          : (isFree ? <>✨ Generate Free Quiz (Free)</> : <>✨ Generate Exam (~{formatCredits(includeMarkingScheme ? estimatedCostWithMarking : estimatedCostQuestionsOnly)} credits)</>)}
-      </button>
+      {/* ── Bottom generate bar — Free AI (left) / Premium AI (right),
+           two independent, always-visible actions — matching the real
+           App.jsx's GENERATE BAR exactly, not a pre-selected tier toggle
+           feeding one shared button. ── */}
+      {className && subject && (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
+        <button
+          onClick={requireLogin(() => handleGenerate("free"))}
+          disabled={loading || freeUsage?.remaining === 0}
+          style={{
+            ...S.sm, height: 56, flexDirection: "column", gap: 2, fontWeight: 700, fontSize: 14,
+            opacity: (loading && loadingTier !== "free") || freeUsage?.remaining === 0 ? 0.5 : 1,
+          }}
+        >
+          {loading && loadingTier === "free" ? <Spinner /> : (
+            <>
+              <span>✨ Free AI</span>
+              <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-muted)" }}>
+                {freeUsage ? `${freeUsage.remaining} / ${freeUsage.limit} left today` : `${FREE_TIER_DAILY_LIMIT}/day`}
+              </span>
+            </>
+          )}
+        </button>
+        <button
+          onClick={requireLogin(() => handleGenerate("premium"))}
+          disabled={loading}
+          style={{
+            height: 56, border: "none", borderRadius: 99, cursor: "pointer", fontFamily: F,
+            background: "linear-gradient(135deg,#0D9488 0%,#0891B2 100%)", color: "#fff",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
+            opacity: loading && loadingTier !== "premium" ? 0.6 : 1,
+          }}
+        >
+          {loading && loadingTier === "premium" ? <Spinner /> : (
+            <>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>⚡ Premium AI</span>
+              <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.9 }}>
+                ~{formatCredits(includeMarkingScheme ? estimatedCostWithMarking : estimatedCostQuestionsOnly)} credits
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+      )}
       {loading && progress?.total > 1 && (
         <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
           {Array.from({ length: progress.total }).map((_, i) => (
