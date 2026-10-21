@@ -5,7 +5,7 @@ import { F, S } from "./sharedStyles.jsx";
 import QuestionsGenerator from "./QuestionsGenerator.jsx";
 import PaymentSuccess from "./components/PaymentSuccess.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
-import AuthCallback from "./AuthCallback.jsx";
+import { completeHubHandoff } from "./hubHandoff.js";
 
 // Minimal path-based routing — no react-router dependency needed for a
 // two-route app. "/payment-success" matches exam-payment's Paystack
@@ -13,14 +13,6 @@ import AuthCallback from "./AuthCallback.jsx";
 // else renders the main generator.
 function App() {
   const path = window.location.pathname;
-
-  // Google sign-in redirects here after consent. AuthCallback exchanges the
-  // Supabase session for this app's own JWT (handleGoogleCallback in auth.js)
-  // and sends the teacher back to "/". Without this route, Google sign-in
-  // could never complete — the tokens would land in the URL and be ignored.
-  if (path === "/auth/callback") {
-    return <AuthCallback />;
-  }
 
   if (path === "/payment-success") {
     return (
@@ -37,10 +29,14 @@ function App() {
   return <QuestionsGenerator />;
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+// Opened from the Eduformium Hub with a one-time code: sign in first, then draw (so the page starts signed in).
+// With no code this resolves at once and nothing changes.
+completeHubHandoff().finally(() => {
+  ReactDOM.createRoot(document.getElementById("root")).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+});

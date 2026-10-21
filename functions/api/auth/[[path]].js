@@ -27,6 +27,8 @@ function resolveEnv(raw, request) {
     SUPABASE_SERVICE_KEY: isDev ? raw.DEV_SUPABASE_SERVICE_KEY : (raw.PROD_SUPABASE_SERVICE_KEY || raw.SUPABASE_SERVICE_KEY),
     JWT_SECRET:           isDev ? raw.DEV_JWT_SECRET           : (raw.PROD_JWT_SECRET           || raw.JWT_SECRET),
     ALLOWED_ORIGIN:       isDev ? raw.DEV_ALLOWED_ORIGIN       : (raw.PROD_ALLOWED_ORIGIN       || raw.ALLOWED_ORIGIN),
+    LP_BASE_URL:          isDev ? raw.DEV_LP_BASE_URL          : (raw.PROD_LP_BASE_URL          || raw.LP_BASE_URL),
+    WALLET_SHARED_SECRET: isDev ? raw.DEV_WALLET_SHARED_SECRET : (raw.PROD_WALLET_SHARED_SECRET || raw.WALLET_SHARED_SECRET),
   };
 }
 
@@ -55,6 +57,7 @@ export async function onRequest(context) {
     if (method === "POST" && path === "/sign-in")           response = await handleSignIn(request, env);
     else if (method === "POST" && path === "/sign-up")      response = await handleSignUp(request, env);
     else if (method === "POST" && path === "/google")       response = await handleGoogleSignIn(request, env);
+    else if (method === "POST" && path === "/hub")          response = await handleHubSignIn(request, env);
     else if (method === "POST" && path === "/send-otp")     response = await handleSendOTP(request, env);
     else if (method === "POST" && path === "/verify-reset-otp") response = await handleVerifyResetOTP(request, env);
     else if (method === "POST" && path === "/reset-password")   response = await handleResetPassword(request, env);
@@ -773,6 +776,75 @@ function buildEmailHTML(code, headline, bodyText) {
    GET /me — return fresh user profile
    Called on every app load to sync cross-device changes (e.g. avatar)
 ══════════════════════════════════════ */
+/* ══════════════════════════════════════
+   HUB SIGN IN (Eduformium Hub -> Questions, no second sign-in)
+   The hub opens this app with ?hub_code=<one-time code>. This server asks the Lesson Planner (the account system) to
+   confirm the code, which returns only a verified identity. We then find the account by that email (the same users
+   table when this app shares the Lesson Planner's database, otherwise created here) and issue the normal session.
+   Needs LP_BASE_URL and WALLET_SHARED_SECRET (PROD_/DEV_ prefixed like the others).
+══════════════════════════════════════ */
+async function handleHubSignIn(request, env) {
+  const EXPIRED = "This sign-in link has expired. Please sign in again.";
+  let body = {};
+  try { body = await request.json(); } catch {}
+  const code = body.code;
+  if (typeof code !== "string" || !/^[A-Za-z0-9_-]{30,100}$/.test(code)) return jsonResp({ error: EXPIRED }, 400);
+
+  if (env.OTP_KV) {
+    try {
+      const key = `hub_rl:${request.headers.get("CF-Connecting-IP") || "unknown"}`;
+      const used = parseInt(await env.OTP_KV.get(key) || "0", 10);
+      if (used >= 30) return jsonResp({ error: "Too many attempts. Please wait a minute and try again." }, 429);
+      await env.OTP_KV.put(key, String(used + 1), { expirationTtl: 60 });
+    } catch {}
+  }
+
+  if (!env.LP_BASE_URL || !env.WALLET_SHARED_SECRET || env.WALLET_SHARED_SECRET.length < 32) {
+    return jsonResp({ error: "Hub sign-in is not available right now." }, 503);
+  }
+
+  let identity;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const res = await fetch(`${String(env.LP_BASE_URL).replace(/\/+$/, "")}/api/auth/handoff/identity`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Wallet-Secret": env.WALLET_SHARED_SECRET },
+      body: JSON.stringify({ code, target: "questions" }),
+      signal: ctl.signal,
+    });
+    if (res.status === 400) return jsonResp({ error: EXPIRED }, 400);
+    if (!res.ok) return jsonResp({ error: "Hub sign-in is not available right now." }, 502);
+    identity = (await res.json())?.identity;
+  } catch {
+    return jsonResp({ error: "Could not reach Eduformium. Please try again." }, 502);
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const email = String(identity?.email || "").trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return jsonResp({ error: EXPIRED }, 400);
+
+  const rows = await sb(env, `/users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
+  let user;
+  if (rows?.length) {
+    user = rows[0];
+    if (user.is_deleted) return jsonResp({ error: "This account has been removed. Please contact support if you think this is a mistake." }, 403);
+    if (user.status === "suspended") {
+      const reason = user.suspension_reason ? ` Reason: ${user.suspension_reason}` : "";
+      return jsonResp({ error: `Your account has been suspended.${reason} Please contact support.` }, 403);
+    }
+  } else {
+    const id = crypto.randomUUID();
+    user = { id, email, name: String(identity?.name || "").slice(0, 200), school: String(identity?.school || "").slice(0, 200), role: String(identity?.role || "").slice(0, 100), avatar_url: null };
+    await sb(env, "/users", { method: "POST", body: JSON.stringify({ id, email, name: user.name, school: user.school, role: user.role, password_hash: null, email_verified: true }) });
+    await sb(env, "/coins", { method: "POST", body: JSON.stringify({ user_id: id, balance: 0 }) }).catch(() => {});
+  }
+
+  const token = await makeJWT({ sub: user.id, email, exp: Math.floor(Date.now() / 1000) + 30 * 86400 }, env.JWT_SECRET);
+  return jsonResp({ token, user: { id: user.id, email, name: user.name || "", school: user.school || "", role: user.role || "", avatar_url: user.avatar_url || null } });
+}
+
 async function handleMe(request, env) {
   const auth  = request.headers.get("Authorization") || "";
   const token = auth.replace("Bearer ", "").trim();
