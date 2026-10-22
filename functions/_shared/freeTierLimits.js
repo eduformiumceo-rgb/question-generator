@@ -17,7 +17,4 @@
 export const FREE_TIER_MAX_SECTIONS = 2;
 export const FREE_TIER_MAX_TOTAL_QUESTIONS = 15;
 export const FREE_TIER_ALLOWED_TYPES = ["objective", "structured"]; // no essay on free tier
-// Matches FREE_LIMIT_GES in the real App.jsx exactly (5/day for GES lessons)
-// — kept consistent with the established ecosystem convention rather than
-// an arbitrary different number for this app.
-export const FREE_TIER_DAILY_LIMIT = 5;
+export const FREE_TIER_DAILY_LIMIT = 3; // generations per user per day
