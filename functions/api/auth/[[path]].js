@@ -825,25 +825,40 @@ async function handleHubSignIn(request, env) {
   const email = String(identity?.email || "").trim().toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return jsonResp({ error: EXPIRED }, 400);
 
-  const rows = await sb(env, `/users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
-  let user;
-  if (rows?.length) {
-    user = rows[0];
-    if (user.is_deleted) return jsonResp({ error: "This account has been removed. Please contact support if you think this is a mistake." }, 403);
-    if (user.status === "suspended") {
-      const reason = user.suspension_reason ? ` Reason: ${user.suspension_reason}` : "";
-      return jsonResp({ error: `Your account has been suspended.${reason} Please contact support.` }, 403);
+  let stage = "lookup";
+  try {
+    const rows = await sb(env, `/users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
+    let user;
+    if (rows?.length) {
+      user = rows[0];
+      if (user.is_deleted) return jsonResp({ error: "This account has been removed. Please contact support if you think this is a mistake." }, 403);
+      if (user.status === "suspended") {
+        const reason = user.suspension_reason ? ` Reason: ${user.suspension_reason}` : "";
+        return jsonResp({ error: `Your account has been suspended.${reason} Please contact support.` }, 403);
+      }
+    } else {
+      stage = "create-user";
+      const id = crypto.randomUUID();
+      user = { id, email, name: String(identity?.name || "").slice(0, 200), school: String(identity?.school || "").slice(0, 200), role: String(identity?.role || "").slice(0, 100), avatar_url: null };
+      const base = { id, email, name: user.name, school: user.school, password_hash: null, email_verified: true };
+      try {
+        await sb(env, "/users", { method: "POST", body: JSON.stringify({ ...base, role: user.role }) });
+      } catch {
+        await sb(env, "/users", { method: "POST", body: JSON.stringify(base) });
+      }
+      await sb(env, "/coins", { method: "POST", body: JSON.stringify({ user_id: id, balance: 0 }) }).catch(() => {});
     }
-  } else {
-    const id = crypto.randomUUID();
-    user = { id, email, name: String(identity?.name || "").slice(0, 200), school: String(identity?.school || "").slice(0, 200), role: String(identity?.role || "").slice(0, 100), avatar_url: null };
-    await sb(env, "/users", { method: "POST", body: JSON.stringify({ id, email, name: user.name, school: user.school, role: user.role, password_hash: null, email_verified: true }) });
-    await sb(env, "/coins", { method: "POST", body: JSON.stringify({ user_id: id, balance: 0 }) }).catch(() => {});
-  }
 
-  const token = await makeJWT({ sub: user.id, email, exp: Math.floor(Date.now() / 1000) + 30 * 86400 }, env.JWT_SECRET);
-  return jsonResp({ token, user: { id: user.id, email, name: user.name || "", school: user.school || "", role: user.role || "", avatar_url: user.avatar_url || null } });
+    stage = "session";
+    if (!env.JWT_SECRET) throw new Error("JWT_SECRET is not set");
+    const token = await makeJWT({ sub: user.id, email, exp: Math.floor(Date.now() / 1000) + 30 * 86400 }, env.JWT_SECRET);
+    return jsonResp({ token, user: { id: user.id, email, name: user.name || "", school: user.school || "", role: user.role || "", avatar_url: user.avatar_url || null } });
+  } catch (err) {
+    // Safe diagnostic: the step that failed and the database's own message (never a secret).
+    return jsonResp({ error: "Hub sign-in failed at step: " + stage, detail: String(err?.message || err).slice(0, 200) }, 500);
+  }
 }
+
 
 async function handleMe(request, env) {
   const auth  = request.headers.get("Authorization") || "";
