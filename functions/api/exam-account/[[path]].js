@@ -16,7 +16,7 @@
  * ═══════════════════════════════════════════════════════════════════
  */
 
-import { FREE_TIER_DAILY_LIMIT } from "../_shared/freeTierLimits.js";
+import { FREE_TIER_DAILY_LIMIT } from "../../_shared/freeTierLimits.js";
 
 const MAX_EXAM_HISTORY_PER_USER = 10; // mirrors DB.MAX_PLANS_PER_USER in the Lesson Planner's db.js
 
@@ -215,4 +215,3 @@ async function getFreeUsage(env, user) {
   const used = (rows || []).length;
   return jsonResp({ used, limit: FREE_TIER_DAILY_LIMIT, remaining: Math.max(0, FREE_TIER_DAILY_LIMIT - used) });
 }
-
