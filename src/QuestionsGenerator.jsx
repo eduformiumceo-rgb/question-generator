@@ -38,6 +38,7 @@ import { getUser, getToken, completePendingGoogleSignIn } from "./auth.js";
 // Because both apps share one Supabase project + JWT secret, signing in here
 // creates/reuses the exact same account as the Lesson Planner.
 import AuthModal from "./AuthModal_upgraded.jsx";
+import { goToHubSignIn } from "./hubSignIn.js";
 
 const EXAM_API = "/api/generate-exam";
 const ACCOUNT_API = "/api/exam-account";
@@ -128,7 +129,10 @@ async function streamExamAPI(payload, token, onProgress) {
 function QuestionsGeneratorInner() {
   // ── Auth gate — same account/session as the Lesson Planner ─────
   const [user, setUser] = useState(() => (getUser ? getUser() : null));
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAuthModal, setShowAuthModalRaw] = useState(false);
+  // Single sign-in: when VITE_HUB_URL is set, opening sign-in / create account sends the person to the Eduformium Hub (see hubSignIn.js).
+  // Off by default, so this app's own sign-in window works exactly as before until the variable is set.
+  const setShowAuthModal = useCallback((v) => { if (v && goToHubSignIn("questions")) return; setShowAuthModalRaw(v); }, []);
 
   // ── Basic Information ──────────────────────────────────────────
   const [schoolName, setSchoolName] = useState("");

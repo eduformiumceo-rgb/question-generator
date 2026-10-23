@@ -1,0 +1,26 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+# Holds only the public hub address (no secrets); it must be committed so the build turns on hub sign-in.
+!.env.production
+.dev.vars
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local tooling / editor / OS
+.wrangler/
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
