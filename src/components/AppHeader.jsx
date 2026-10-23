@@ -86,7 +86,7 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
               <span style={{ color: "var(--logo-edu)" }}>Edu</span><span style={{ color: "var(--logo-formium)" }}>formium</span>
             </div>
             <div className="qh-brand-sub" style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: F, lineHeight: 1, letterSpacing: ".02em", marginTop: 3, whiteSpace: "nowrap" }}>
-              AI-powered exam questions
+              AI-powered questions
             </div>
           </div>
 

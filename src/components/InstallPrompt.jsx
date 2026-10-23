@@ -103,7 +103,7 @@ export default function InstallPrompt({ onClose, deferredPromptRef }) {
                   {done ? "App Installed" : "Questions Generator"}
                 </div>
                 <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.72)", fontFamily: F, fontWeight: 500, marginTop: 3 }}>
-                  {done ? "" : "AI-powered Exam Questions"}
+                  {done ? "" : "AI-powered Questions"}
                 </div>
               </div>
             </div>
