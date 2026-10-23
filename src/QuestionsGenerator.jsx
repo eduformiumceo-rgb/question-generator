@@ -33,12 +33,15 @@ import TopUpModal from "./components/TopUpModal.jsx";
 // but points at the SAME Supabase project and JWT secret, so a teacher who
 // signs in here (or on the Lesson Planner) is recognized on both: real SSO,
 // no second account. See functions/api/auth/[[path]].js for the server side.
-import { getUser, getToken, completePendingGoogleSignIn } from "./auth.js";
+import { getUser, getToken, completePendingGoogleSignIn, signOut } from "./auth.js";
 // Reused unchanged — same Google sign-in modal/UX as the Lesson Planner.
 // Because both apps share one Supabase project + JWT secret, signing in here
 // creates/reuses the exact same account as the Lesson Planner.
 import AuthModal from "./AuthModal_upgraded.jsx";
 import { goToHubSignIn } from "./hubSignIn.js";
+import AppHeader from "./components/AppHeader.jsx";
+import InstallPrompt from "./components/InstallPrompt.jsx";
+import { usePwaInstall } from "./pwaInstall.js";
 
 const EXAM_API = "/api/generate-exam";
 const ACCOUNT_API = "/api/exam-account";
@@ -133,6 +136,9 @@ function QuestionsGeneratorInner() {
   // Single sign-in: when VITE_HUB_URL is set, opening sign-in / create account sends the person to the Eduformium Hub (see hubSignIn.js).
   // Off by default, so this app's own sign-in window works exactly as before until the variable is set.
   const setShowAuthModal = useCallback((v) => { if (v && goToHubSignIn("questions")) return; setShowAuthModalRaw(v); }, []);
+
+  // Install-app prompt (same behaviour as the Lesson Planner).
+  const pwa = usePwaInstall();
 
   // ── Basic Information ──────────────────────────────────────────
   const [schoolName, setSchoolName] = useState("");
@@ -418,32 +424,32 @@ function QuestionsGeneratorInner() {
   // exact pattern used throughout, not something invented for this app.
   const requireLogin = (action) => (user ? action : () => setShowAuthModal(true));
 
+  const handleSignOut = () => {
+    signOut();
+    setUser(null);
+    setCreditBalance(null);
+  };
+
   return (
+    <>
+    <AppHeader
+      user={user}
+      creditBalance={creditBalance}
+      toDisplayCredits={toDisplayCredits}
+      onSignIn={() => setShowAuthModal(true)}
+      onTopUp={requireLogin(() => setShowTopUp(true))}
+      onSignOut={handleSignOut}
+      canInstall={pwa.canReopen}
+      onInstall={pwa.reopen}
+    />
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px 16px 60px", fontFamily: F }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>
-            AI Questions Generator
-          </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>
-            Build a print-ready exam paper from your curriculum in minutes.
-          </p>
-        </div>
-        {user ? (
-          creditBalance !== null && (
-            <button onClick={requireLogin(() => setShowTopUp(true))} style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 99,
-              background: "var(--accent-soft)", border: "1px solid var(--tag-border)", fontSize: 13, fontWeight: 700, color: "var(--accent)",
-              cursor: "pointer", fontFamily: F,
-            }}>
-              {toDisplayCredits(creditBalance)} credits · Top up
-            </button>
-          )
-        ) : (
-          <button onClick={() => setShowAuthModal(true)} style={{ ...S.sm }}>
-            Sign In
-          </button>
-        )}
+      <div style={{ marginBottom: 22 }}>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>
+          AI Questions Generator
+        </h1>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>
+          Build a print-ready exam paper from your curriculum in minutes.
+        </p>
       </div>
 
       {showAuthModal && (
@@ -451,6 +457,10 @@ function QuestionsGeneratorInner() {
           onClose={() => setShowAuthModal(false)}
           onAuth={(u) => { setUser(u); setShowAuthModal(false); fetchBalance(); }}
         />
+      )}
+
+      {pwa.showInstall && (
+        <InstallPrompt deferredPromptRef={pwa.deferredPromptRef} onClose={pwa.handleClose} />
       )}
 
       {showTopUp && (
@@ -785,6 +795,7 @@ function QuestionsGeneratorInner() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

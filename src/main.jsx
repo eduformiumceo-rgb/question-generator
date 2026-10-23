@@ -40,3 +40,12 @@ completeHubHandoff().finally(() => {
     </React.StrictMode>
   );
 });
+
+// Register the service worker so the app is installable and the shell loads
+// offline. Production builds only — a dev-server service worker would serve
+// stale code while editing.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}

@@ -1,0 +1,7 @@
+# Install-related files must always revalidate so a changed icon/name reaches
+# the browser's install dialog (and the installed app) straight away.
+/manifest.json
+  Cache-Control: no-cache, must-revalidate
+
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
