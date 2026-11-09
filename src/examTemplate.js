@@ -305,17 +305,60 @@ function seededRandom(seed) {
   };
 }
 
+/** Initials for the fallback school seal, e.g. "St. Mary's JHS" -> "SMJ". */
+function schoolInitials(name) {
+  const skip = new Set(["of", "the", "and", "for", "&"]);
+  return String(name || "")
+    .split(/\s+/)
+    .map(w => w.replace(/[^A-Za-z]/g, ""))
+    .filter(w => w && !skip.has(w.toLowerCase()))
+    .map(w => w[0].toUpperCase())
+    .join("")
+    .slice(0, 3);
+}
+
+/**
+ * Clean, print-safe monogram seal (double ring + initials) used in the paper
+ * header when the school hasn't uploaded a logo, so the letterhead never
+ * looks bare. Returns "" when there is no school name to take initials from.
+ */
+export function schoolMonogramSVG(name) {
+  const letters = schoolInitials(name);
+  if (!letters) return "";
+  const fs = letters.length >= 3 ? 27 : letters.length === 2 ? 33 : 40;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">` +
+    `<circle cx="50" cy="50" r="47" fill="#ffffff" stroke="#111111" stroke-width="3"/>` +
+    `<circle cx="50" cy="50" r="41" fill="none" stroke="#111111" stroke-width="1"/>` +
+    `<text x="50" y="${50 + fs * 0.35}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="${fs}" fill="#111111">${letters}</text>` +
+    `</svg>`;
+}
+
+export const OPTIONS_LAYOUTS = [
+  { id: "vertical", label: "Vertical (A, B, C, D stacked)" },
+  { id: "two", label: "Two columns" },
+  { id: "row", label: "One row" },
+];
+
 export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const {
     schoolName = "", className = "", subject = "", term = "",
     examType = "Exam", durationMinutes = 60, landscape = false,
     diagramImages = {}, schoolLogo = null, examVersion = "",
+    optionsLayout = "vertical",
   } = meta;
+  const layout = ["vertical", "two", "row"].includes(optionsLayout) ? optionsLayout : "vertical";
 
   const esc = (s) => String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const nl = (t) => esc(t).replace(/\n/g, "<br/>");
+  // Safe for use inside a CSS string literal (page footer text).
+  const cssStr = (s) => String(s ?? "").replace(/[\\"\n\r]/g, " ").replace(/</g, "").slice(0, 80);
+
+  const sections = examData.sections || [];
+  const sumMarks = (qs) => (qs || []).reduce((s, q) => s + (Number(q.marks) || 0), 0);
+  const computedTotal = sections.reduce((s, sec) => s + sumMarks(sec.questions), 0);
+  const totalMarks = computedTotal || Number(examData.totalMarks) || 0;
 
   const renderDiagram = (q) => {
     if (!q.diagram || !q.diagram.needed) return "";
@@ -334,15 +377,17 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
 
   const renderOptions = (q) => {
     if (!q.options || !q.options.length) return "";
-    return `<div class="opt-grid">${q.options.map((o, i) =>
-      `<div class="opt"><span class="opt-letter">${OPT_LETTERS[i]}.</span><span>${nl(o)}</span></div>`
+    const cols = layout === "row" ? Math.min(q.options.length, 4) : 2;
+    const style = layout === "vertical" ? "" : ` style="grid-template-columns:repeat(${cols},1fr)"`;
+    return `<div class="opts opts-${layout}"${style}>${q.options.map((o, i) =>
+      `<div class="opt"><span class="opt-letter">${OPT_LETTERS[i]}.</span><span class="opt-text">${nl(o)}</span></div>`
     ).join("")}</div>`;
   };
 
   const renderSubparts = (subparts) => {
     if (!subparts || !subparts.length) return "";
     return `<div class="subparts">${subparts.map(sp =>
-      `<div class="subpart"><span class="subpart-label">${esc(sp.label)}.</span><span class="subpart-text">${nl(sp.text)}</span><span class="marks">[${sp.marks}]</span></div>`
+      `<div class="row sub-row"><span class="lbl">(${esc(sp.label)})</span><span class="txt">${nl(sp.text)}</span><span class="marks">[${sp.marks}]</span></div>`
     ).join("")}</div>`;
   };
 
@@ -350,39 +395,111 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     if (!parts || !parts.length) return "";
     return `<div class="parts">${parts.map(p => `
       <div class="part">
-        <div class="part-row"><span class="part-label">(${esc(p.label)})</span><span class="part-text">${nl(p.text)}</span><span class="marks">[${p.marks}]</span></div>
+        <div class="row part-row"><span class="lbl">(${esc(p.label)})</span><span class="txt">${nl(p.text)}</span><span class="marks">[${p.marks}]</span></div>
         ${renderSubparts(p.subparts)}
       </div>`).join("")}</div>`;
   };
 
-  const renderQuestion = (q) => `
+  const renderQuestion = (q) => {
+    const hasParts = Array.isArray(q.parts) && q.parts.length > 0;
+    return `
     <div class="question" data-qnum="${q.number}">
-      <div class="q-row">
-        <span class="q-num">${q.number}.</span>
+      <div class="row q-row${hasParts ? " has-parts" : ""}">
+        <span class="lbl q-num">${q.number}.</span>
         <div class="q-body">
           <div class="q-text">${nl(q.text)}</div>
           ${renderDiagram(q)}
           ${renderOptions(q)}
           ${renderParts(q.parts)}
         </div>
-        ${(!q.parts || !q.parts.length) ? `<span class="marks q-marks">[${q.marks}]</span>` : ""}
+        ${hasParts ? "" : `<span class="marks">[${q.marks}]</span>`}
       </div>
     </div>`;
+  };
 
-  const renderSection = (s) => `
+  const renderSection = (s) => {
+    const secMarks = sumMarks(s.questions);
+    const qs = s.questions || [];
+    return `
     <div class="section">
+      <div class="section-start">
       <div class="section-header">
-        <span class="section-title">${esc(s.label)}</span>
-        ${s.instructions ? `<span class="section-instructions">${esc(s.instructions)}</span>` : ""}
+        <div class="section-line">
+          <span class="section-title">${esc(s.label)}</span>
+          ${secMarks ? `<span class="section-marks">${secMarks} marks</span>` : ""}
+        </div>
+        ${s.instructions ? `<div class="section-instructions">${esc(s.instructions)}</div>` : ""}
       </div>
-      ${(s.questions || []).map(renderQuestion).join("")}
+      ${qs.length ? renderQuestion(qs[0]) : ""}
+      </div>
+      ${qs.slice(1).map(renderQuestion).join("")}
+    </div>`;
+  };
+
+  // Letterhead shared by the question paper and the marking scheme.
+  const logoMarkup = schoolLogo
+    ? `<img src="${schoolLogo}" alt="School logo" class="school-logo"/>`
+    : (schoolMonogramSVG(schoolName) ? `<div class="school-logo school-seal">${schoolMonogramSVG(schoolName)}</div>` : "");
+
+  const letterhead = (titleText) => `
+      <div class="lh-row">
+        <div class="lh-side">${logoMarkup}</div>
+        <div class="lh-text">
+          <div class="school-name">${esc(schoolName || "________________________________")}</div>
+        </div>
+        <div class="lh-side"></div>
+      </div>
+      <div class="lh-rule"></div>
+      <div class="exam-title">${titleText}</div>`;
+
+  const titleText = `${esc(examData.title || examType.toUpperCase())}${examVersion ? ` <span class="exam-version">VERSION ${esc(examVersion)}</span>` : ""}`;
+
+  const metaCell = (label, value) =>
+    `<td><div class="meta-label">${label}</div><div class="meta-value">${esc(value) || "&nbsp;"}</div></td>`;
+
+  const headerBlock = `
+    <div class="paper-header">
+      ${letterhead(titleText)}
+      <table class="meta-grid">
+        <tr>
+          ${metaCell("Subject", subject)}
+          ${metaCell("Class", className)}
+          ${metaCell("Term", term)}
+          ${metaCell("Duration", `${durationMinutes} mins`)}
+          ${totalMarks ? metaCell("Total Marks", totalMarks) : ""}
+        </tr>
+      </table>
+      <div class="candidate">
+        <div class="cand-field grow"><span>Name:</span><i></i></div>
+        <div class="cand-field w-index"><span>Index No.:</span><i></i></div>
+        <div class="cand-field w-date"><span>Date:</span><i></i></div>
+        <div class="score-box"><span>Score</span><b>/ ${totalMarks || ""}</b></div>
+      </div>
+      ${(examData.instructions || []).length ? `
+      <div class="instructions">
+        <div class="instr-title">Instructions to Candidates</div>
+        <ol>${examData.instructions.map(i => `<li>${esc(i)}</li>`).join("")}</ol>
+      </div>` : ""}
     </div>`;
 
   const renderAnswerKey = () => {
     const key = examData.answerKey || [];
-    const hasAnyMarkingGuide = (examData.sections || []).some(s => (s.questions || []).some(q => q.markingGuide && q.markingGuide.trim()));
+    const hasAnyMarkingGuide = sections.some(s => (s.questions || []).some(q => q.markingGuide && q.markingGuide.trim()));
+    const keyHeader = `
+      <div class="paper-header answer-header">
+        ${letterhead(`MARKING SCHEME${examVersion ? ` <span class="exam-version">VERSION ${esc(examVersion)}</span>` : ""}`)}
+        <table class="meta-grid">
+          <tr>
+            ${metaCell("Subject", subject)}
+            ${metaCell("Class", className)}
+            ${metaCell("Term", term)}
+            ${totalMarks ? metaCell("Total Marks", totalMarks) : ""}
+          </tr>
+        </table>
+      </div>`;
     if (!key.length && !hasAnyMarkingGuide) {
       return `
+        ${keyHeader}
         <div class="answer-page">
           <h2>MARKING SCHEME</h2>
           <p class="no-marking-scheme">This paper was generated in <b>Questions Only</b> mode - no answer key or marking
@@ -390,6 +507,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
         </div>`;
     }
     return `
+      ${keyHeader}
       <div class="answer-page">
         ${key.length ? `
         <h2>SECTION A: ANSWER KEY</h2>
@@ -397,45 +515,23 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
           ${key.map(k => `<div class="key-cell"><b>${k.number}.</b> ${esc(k.answer)}</div>`).join("")}
         </div>` : ""}
         <h2>MARKING SCHEME - SECTIONS B &amp; C</h2>
-        ${(examData.sections || []).filter(s => s.type !== "objective").map(s => `
+        ${sections.filter(s => s.type !== "objective").map(s => `
           <h3>${esc(s.label)}</h3>
           ${(s.questions || []).map(q => `
             <div class="mark-block">
-              <div class="mark-qnum">Question ${q.number} <span class="marks">[${q.marks}]</span></div>
+              <div class="mark-qnum"><span>Question ${q.number}</span><span class="marks">[${q.marks}]</span></div>
               <div class="mark-guide">${nl(q.markingGuide)}</div>
             </div>`).join("")}
         `).join("")}
       </div>`;
   };
 
-  const headerBlock = `
-    <div class="paper-header">
-      <div class="header-top">
-        ${schoolLogo ? `<img src="${schoolLogo}" alt="School logo" class="school-logo"/>` : ""}
-        <div class="school-name">${esc(schoolName || "________________________________")}</div>
-      </div>
-      <div class="exam-title">${esc(examData.title || examType.toUpperCase())}${examVersion ? ` <span class="exam-version">- VERSION ${esc(examVersion)}</span>` : ""}</div>
-      <table class="meta-table">
-        <tr>
-          <td><b>Subject:</b> ${esc(subject)}</td>
-          <td><b>Class:</b> ${esc(className)}</td>
-          <td><b>Term:</b> ${esc(term)}</td>
-          <td><b>Duration:</b> ${esc(durationMinutes)} mins</td>
-        </tr>
-      </table>
-      <div class="instructions">
-        <b>Instructions:</b>
-        <ol>${(examData.instructions || []).map(i => `<li>${esc(i)}</li>`).join("")}</ol>
-      </div>
-      <div class="name-line">
-        Name: _____________________________________&nbsp;&nbsp;&nbsp; Index No: ______________&nbsp;&nbsp;&nbsp; Class: ____________
-      </div>
-    </div>`;
-
   const body = mode === "answerKey"
     ? renderAnswerKey()
-    : `${headerBlock}${(examData.sections || []).map(renderSection).join("")}
-       <div class="end-mark">- END OF PAPER -</div>`;
+    : `${headerBlock}${sections.map(renderSection).join("")}
+       <div class="end-mark"><span>END OF PAPER</span></div>`;
+
+  const footerLeft = cssStr([schoolName, subject].filter(Boolean).join("  |  "));
 
   return `<!DOCTYPE html>
 <html>
@@ -444,74 +540,106 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(examData.title || examType)} - ${esc(subject)}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; }
-  html,body{ margin:0; padding:0; background:#EDEFF2; font-family:'DM Sans',Arial,sans-serif; color:#0D1117; }
-  .page{ max-width:820px; margin:24px auto; background:#fff; padding:26px 30px 34px; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  html,body{ margin:0; padding:0; background:#E9EBEF; font-family:"Times New Roman",Times,"Liberation Serif",Georgia,serif; color:#111; }
+  .page{ max-width:794px; margin:24px auto; background:#fff; padding:44px 52px 52px; box-shadow:0 1px 4px rgba(0,0,0,.12); font-size:12pt; line-height:1.5; }
 
-  .paper-header{ border-bottom:2px solid #0D1117; padding-bottom:10px; margin-bottom:16px; }
-  .header-top{ display:flex; justify-content:center; align-items:center; gap:10px; }
-  .school-logo{ width:36px; height:36px; object-fit:contain; }
-  .exam-version{ font-weight:600; opacity:.75; }
-  .school-name{ font-size:16px; font-weight:800; letter-spacing:.02em; text-transform:uppercase; text-align:center; }
-  .exam-title{ font-size:14px; font-weight:700; text-align:center; margin-top:4px; letter-spacing:.03em; }
-  .meta-table{ width:100%; margin-top:10px; font-size:11.5px; border-collapse:collapse; }
-  .meta-table td{ padding:2px 6px; }
-  .instructions{ font-size:11px; margin-top:10px; line-height:1.55; }
+  /* ── Letterhead ─────────────────────────────────────────── */
+  .paper-header{ margin-bottom:20px; }
+  .lh-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
+  .lh-side{ width:84px; flex-shrink:0; display:flex; align-items:center; justify-content:flex-start; }
+  .lh-text{ flex:1; text-align:center; }
+  .school-logo{ width:84px; height:84px; object-fit:contain; display:block; }
+  .school-seal svg{ width:100%; height:100%; display:block; }
+  .school-name{ font-size:21pt; font-weight:700; text-transform:uppercase; letter-spacing:.06em; line-height:1.2; }
+  .lh-rule{ margin:10px 0 0; border-top:3px solid #111; border-bottom:1px solid #111; height:5px; }
+  .exam-title{ text-align:center; font-size:14pt; font-weight:700; text-transform:uppercase; letter-spacing:.12em; margin:12px 0 10px; }
+  .exam-version{ font-weight:600; letter-spacing:.06em; border:1px solid #111; padding:1px 7px; margin-left:8px; font-size:10pt; vertical-align:middle; }
+
+  .meta-grid{ width:100%; border-collapse:collapse; border:1.5px solid #111; table-layout:fixed; }
+  .meta-grid td{ border-right:1px solid #111; padding:5px 9px 6px; vertical-align:top; }
+  .meta-grid td:last-child{ border-right:none; }
+  .meta-label{ font-size:7.5pt; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#444; line-height:1.3; }
+  .meta-value{ font-size:11pt; font-weight:700; line-height:1.35; }
+
+  .candidate{ display:flex; align-items:flex-end; gap:18px; margin-top:16px; font-size:11pt; }
+  .cand-field{ display:flex; align-items:flex-end; gap:6px; }
+  .cand-field.grow{ flex:1; }
+  .cand-field.w-index{ width:30%; }
+  .cand-field.w-date{ width:20%; }
+  .cand-field span{ white-space:nowrap; font-weight:700; }
+  .cand-field i{ flex:1; border-bottom:1px solid #111; height:1.1em; }
+  .score-box{ border:1.5px solid #111; padding:3px 12px 4px; min-width:84px; text-align:center; line-height:1.25; }
+  .score-box span{ display:block; font-size:7.5pt; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#444; }
+  .score-box b{ font-size:11pt; }
+
+  .instructions{ margin-top:16px; border:1px solid #111; padding:8px 14px 8px; font-size:10.5pt; line-height:1.55; }
+  .instr-title{ font-weight:700; text-transform:uppercase; letter-spacing:.1em; font-size:9.5pt; border-bottom:1px solid #999; padding-bottom:3px; margin-bottom:4px; }
   .instructions ol{ margin:4px 0 0 18px; padding:0; }
-  .name-line{ font-size:11.5px; margin-top:12px; }
+  .instructions li{ margin:1px 0; }
 
-  .section{ margin-top:18px; page-break-inside:auto; }
-  .section-header{ display:flex; justify-content:space-between; align-items:baseline; border-bottom:1.5px solid #0D1117; padding-bottom:4px; margin-bottom:10px; }
-  .section-title{ font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.02em; }
-  .section-instructions{ font-size:10.5px; font-style:italic; color:#374151; }
+  /* ── Sections ───────────────────────────────────────────── */
+  .section{ margin-top:22px; }
+  .section-header{ background:#EDEEF1; border-top:1.5px solid #111; border-bottom:1.5px solid #111; padding:6px 10px 6px; margin-bottom:14px; }
+  .section-start{ break-inside:avoid; page-break-inside:avoid; }
+  .section-line{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+  .section-title{ font-size:12pt; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+  .section-marks{ font-size:10pt; font-weight:700; white-space:nowrap; }
+  .section-instructions{ font-size:10.5pt; font-style:italic; color:#222; margin-top:2px; line-height:1.45; }
 
-  .question{ margin-bottom:14px; page-break-inside:avoid; font-size:12px; line-height:1.6; }
-  .q-row{ display:flex; gap:8px; align-items:flex-start; }
-  .q-num{ font-weight:700; flex-shrink:0; min-width:20px; }
-  .q-body{ flex:1; }
-  .q-text{ }
-  .marks{ font-weight:700; white-space:nowrap; }
-  .q-marks{ margin-left:8px; }
+  /* ── Questions ──────────────────────────────────────────── */
+  .question{ margin-bottom:16px; font-size:12pt; line-height:1.5; page-break-inside:avoid; }
+  .row{ display:grid; grid-template-columns:2.3em 1fr 3.4em; column-gap:4px; align-items:start; }
+  .row.has-parts{ grid-template-columns:2.3em 1fr; }
+  .lbl{ font-weight:700; }
+  .marks{ font-weight:700; white-space:nowrap; text-align:right; }
+  .q-text{ margin-bottom:2px; }
 
-  .opt-grid{ display:grid; grid-template-columns:1fr 1fr; gap:4px 18px; margin-top:6px; }
-  .opt{ display:flex; gap:6px; font-size:11.5px; }
+  .opts{ margin-top:6px; }
+  .opt{ display:grid; grid-template-columns:1.8em 1fr; align-items:start; line-height:1.45; }
   .opt-letter{ font-weight:700; }
+  .opts-vertical .opt{ margin:3px 0; }
+  .opts-two, .opts-row{ display:grid; column-gap:20px; row-gap:5px; }
 
-  .parts{ margin-top:6px; }
+  .parts{ margin-top:8px; }
   .part{ margin-top:6px; }
-  .part-row{ display:flex; gap:6px; }
-  .part-label{ font-weight:700; min-width:22px; }
-  .part-text{ flex:1; }
-  .subparts{ margin-left:26px; margin-top:4px; }
-  .subpart{ display:flex; gap:6px; font-size:11.5px; margin-top:3px; }
-  .subpart-label{ font-weight:700; min-width:18px; }
-  .subpart-text{ flex:1; }
+  .part-row{ grid-template-columns:2.3em 1fr 3.4em; }
+  .subparts{ margin:4px 0 0 2.3em; }
+  .sub-row{ grid-template-columns:2.3em 1fr 3.4em; margin-top:3px; font-size:11.5pt; }
 
-  .diagram-box{ margin:8px 0; }
-  .diagram-placeholder{ border:1.5px dashed #9CA3AF; border-radius:6px; padding:16px; font-size:10.5px; color:#4B5563; text-align:center; background:#F8FAFC; }
-  .diagram-img{ max-width:100%; max-height:240px; display:block; margin:0 auto; border:1px solid #D1D5DB; border-radius:4px; }
+  .diagram-box{ margin:10px 0; }
+  .diagram-placeholder{ border:1.5px dashed #888; padding:18px; font-size:10.5pt; color:#444; text-align:center; background:#F7F7F8; font-style:italic; }
+  .diagram-img{ max-width:100%; max-height:260px; display:block; margin:0 auto; border:1px solid #BBB; }
   .diagram-svg-wrap{ display:flex; justify-content:center; }
-  .diagram-svg-wrap svg{ max-width:100%; max-height:220px; }
+  .diagram-svg-wrap svg{ max-width:100%; max-height:230px; }
 
-  .end-mark{ text-align:center; font-weight:700; font-size:11.5px; margin-top:22px; letter-spacing:.05em; }
+  .end-mark{ text-align:center; margin-top:28px; }
+  .end-mark span{ display:inline-block; font-weight:700; letter-spacing:.2em; font-size:11pt; border-top:1px solid #111; border-bottom:1px solid #111; padding:3px 26px; }
 
-  .answer-page h2{ font-size:13px; text-transform:uppercase; border-bottom:1.5px solid #0D1117; padding-bottom:4px; margin-top:22px; }
-  .no-marking-scheme{ font-size:12px; color:#4B5563; line-height:1.6; background:#F8FAFC; border:1px dashed #9CA3AF; border-radius:8px; padding:14px 16px; margin-top:10px; }
-  .key-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; font-size:11.5px; margin-top:8px; }
-  .key-cell{ padding:4px 6px; background:#F8FAFC; border:1px solid #E5E7EB; border-radius:4px; }
-  .mark-block{ margin-top:12px; font-size:11.5px; page-break-inside:avoid; }
-  .mark-qnum{ font-weight:700; display:flex; justify-content:space-between; }
-  .mark-guide{ margin-top:4px; line-height:1.6; color:#1F2937; }
+  /* ── Marking scheme ─────────────────────────────────────── */
+  .answer-page h2{ font-size:12pt; text-transform:uppercase; letter-spacing:.06em; background:#EDEEF1; border-top:1.5px solid #111; border-bottom:1.5px solid #111; padding:6px 10px; margin:24px 0 12px; }
+  .answer-page h3{ font-size:11.5pt; margin:16px 0 4px; text-decoration:underline; }
+  .no-marking-scheme{ font-size:11.5pt; color:#333; line-height:1.6; background:#F7F7F8; border:1px dashed #888; padding:14px 16px; margin-top:10px; }
+  .key-grid{ display:grid; grid-template-columns:repeat(10,1fr); gap:0; font-size:11pt; border-left:1px solid #111; border-top:1px solid #111; }
+  .key-cell{ padding:5px 6px; text-align:center; border-right:1px solid #111; border-bottom:1px solid #111; }
+  .mark-block{ margin-top:12px; font-size:11.5pt; page-break-inside:avoid; }
+  .mark-qnum{ font-weight:700; display:flex; justify-content:space-between; border-bottom:1px solid #BBB; padding-bottom:2px; }
+  .mark-guide{ margin-top:5px; line-height:1.55; color:#111; }
 
   /* ── PRINT: dark-mode-safe, solid black, correct margins ──────── */
   @media print {
-    @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 12mm 14mm; }
+    @page {
+      size: A4 ${landscape ? "landscape" : "portrait"}; margin: 16mm 16mm 20mm;
+      @bottom-left { content: "${footerLeft}"; font-family:"Times New Roman",Times,serif; font-size:8.5pt; color:#444; }
+      @bottom-right { content: "Page " counter(page) " of " counter(pages); font-family:"Times New Roman",Times,serif; font-size:8.5pt; color:#444; }
+    }
     html { color-scheme: light only !important; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-    html, body { background:#fff !important; color:#000 !important; font-size:10.5pt !important; }
-    .page{ box-shadow:none !important; border-radius:0 !important; margin:0 !important; max-width:none !important; padding:0 !important; }
-    .diagram-img{ max-height:180px; }
-    .section, .question, .mark-block{ break-inside:avoid; }
+    html, body { background:#fff !important; color:#000 !important; }
+    .page{ box-shadow:none !important; margin:0 !important; max-width:none !important; padding:0 !important; font-size:11.5pt; }
+    .question{ font-size:11.5pt; }
+    .diagram-img{ max-height:200px; }
+    .answer-page h2, .answer-page h3{ break-after:avoid; }
+    .question, .mark-block{ break-inside:avoid; }
     .paper-header{ break-after:avoid; }
   }
 </style>

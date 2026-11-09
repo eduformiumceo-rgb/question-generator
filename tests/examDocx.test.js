@@ -82,3 +82,27 @@ describe("generateExamDocx", () => {
     await expect(generateExamDocx(minimal, META, "paper")).resolves.toBeTruthy();
   });
 });
+
+describe("generateExamDocx: layout options", () => {
+  for (const optionsLayout of ["vertical", "two", "row"]) {
+    it(`builds a valid document with ${optionsLayout} option layout`, async () => {
+      const blob = await generateExamDocx(SAMPLE_EXAM, { ...META, optionsLayout }, "paper");
+      expect(blob.size).toBeGreaterThan(1000);
+    });
+  }
+
+  it("builds in landscape and with an embedded PNG logo", async () => {
+    // 1x1 transparent PNG
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+    const blob = await generateExamDocx(SAMPLE_EXAM, { ...META, landscape: true, schoolLogo: png }, "paper");
+    expect(blob.size).toBeGreaterThan(1000);
+  });
+
+  it("survives line breaks in question text and marking guides", async () => {
+    const exam = JSON.parse(JSON.stringify(SAMPLE_EXAM));
+    exam.sections[1].questions[0].text = "Line one\nLine two";
+    exam.sections[1].questions[0].markingGuide = "(a) [1] method\n(b) [2] answer";
+    await expect(generateExamDocx(exam, META, "paper")).resolves.toBeTruthy();
+    await expect(generateExamDocx(exam, META, "answerKey")).resolves.toBeTruthy();
+  });
+});

@@ -299,3 +299,39 @@ describe("createExamVariant", () => {
     expect(JSON.stringify(SAMPLE_EXAM)).toBe(before);
   });
 });
+
+describe("renderExamHTML: professional layout", () => {
+  it("stacks MCQ options vertically by default", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, {}, "paper");
+    expect(html).toContain('class="opts opts-vertical"');
+    expect(html).not.toContain('class="opts opts-two"');
+  });
+
+  it("supports two-column and one-row option layouts", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { optionsLayout: "two" }, "paper")).toContain('class="opts opts-two"');
+    expect(renderExamHTML(SAMPLE_EXAM, { optionsLayout: "row" }, "paper")).toContain('class="opts opts-row"');
+  });
+
+  it("falls back to vertical for an unknown layout value", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { optionsLayout: "diagonal" }, "paper")).toContain('class="opts opts-vertical"');
+  });
+
+  it("shows a generated school seal when no logo is uploaded", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { schoolName: "St. Mary's JHS" }, "paper");
+    expect(html).toContain("school-seal");
+    expect(html).toContain(">SMJ<");
+  });
+
+  it("shows the details grid, score box and total marks", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { subject: "Science", className: "JHS 1" }, "paper");
+    expect(html).toContain("meta-grid");
+    expect(html).toContain("score-box");
+    expect(html).toContain("Total Marks");
+  });
+
+  it("puts the school letterhead on the marking scheme too", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { schoolName: "Achimota School" }, "answerKey");
+    expect(html).toContain("Achimota School");
+    expect(html).toContain("MARKING SCHEME");
+  });
+});

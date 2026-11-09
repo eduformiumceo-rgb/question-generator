@@ -20,7 +20,8 @@ import ExamStructureBuilder, { DEFAULT_SECTIONS } from "./components/ExamStructu
 import TopicSelector from "./components/TopicSelector.jsx";
 import DiagramManager from "./components/DiagramManager.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
-import { renderExamHTML, validateExamData, createExamVariant } from "./examTemplate.js";
+import { renderExamHTML, validateExamData, createExamVariant, schoolMonogramSVG, OPTIONS_LAYOUTS } from "./examTemplate.js";
+import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
 // every visit. Loaded on demand inside handleDownloadWord() instead.
@@ -252,6 +253,7 @@ function QuestionsGeneratorInner() {
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [landscape, setLandscape] = useState(false);
+  const [optionsLayout, setOptionsLayout] = useState("vertical"); // MCQ options: "vertical" | "two" | "row"
   const [showTopUp, setShowTopUp] = useState(false);
   const printFrameRef = useRef(null);
 
@@ -441,7 +443,7 @@ function QuestionsGeneratorInner() {
     return examVersion === "A" ? examData : createExamVariant(examData, examVersion);
   }, [examData, examVersion]);
 
-  const meta = { schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages, schoolLogo, examVersion: examVersion === "A" ? "" : examVersion };
+  const meta = { schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages, schoolLogo, optionsLayout, examVersion: examVersion === "A" ? "" : examVersion };
 
   const [downloadingWord, setDownloadingWord] = useState(false);
   const handleDownloadWord = async (mode) => {
@@ -449,7 +451,24 @@ function QuestionsGeneratorInner() {
     setDownloadingWord(true);
     try {
       const { generateExamDocx } = await import("./examDocx.js"); // lazy - see import comment above
-      const blob = await generateExamDocx(activeExamData, meta, mode);
+      // Word can't embed SVG, so turn the fallback school seal and any AI-drawn
+      // diagrams into PNGs first. Failures just fall back to the text placeholder.
+      const docMeta = { ...meta, svgPngs: {} };
+      try {
+        if (!docMeta.schoolLogo) {
+          const seal = schoolMonogramSVG(schoolName);
+          if (seal) docMeta.schoolLogo = await svgToPngDataUrl(seal, 300);
+        }
+      } catch (e) { console.warn("Seal render skipped:", e); }
+      for (const sec of activeExamData.sections || []) {
+        for (const q of sec.questions || []) {
+          if (q.diagram?.needed && q.diagram.generatable && q.diagram.svg && !diagramImages[q.number]) {
+            try { docMeta.svgPngs[`${sec.id}:${q.number}`] = await svgToPngDataUrl(q.diagram.svg, 900); }
+            catch (e) { console.warn("Diagram render skipped:", e); }
+          }
+        }
+      }
+      const blob = await generateExamDocx(activeExamData, docMeta, mode);
       const fileName = `${(activeExamData.title || examType || "exam").replace(/[^a-z0-9]+/gi, "_")}${mode === "answerKey" ? "_marking_scheme" : ""}.docx`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -605,15 +624,15 @@ function QuestionsGeneratorInner() {
               onChange={async e => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                if (file.size > 800 * 1024) { alert("Please use a logo image under 800KB."); return; }
-                const reader = new FileReader();
-                reader.onload = () => setSchoolLogo(reader.result);
-                reader.readAsDataURL(file);
+                if (file.size > 4 * 1024 * 1024) { alert("Please use a logo image under 4MB."); return; }
+                try { setSchoolLogo(await fileToPngDataUrl(file, 512)); }
+                catch { alert("Sorry, that image couldn't be read. Please try a PNG or JPG."); }
+                e.target.value = "";
               }}
             />
             {schoolLogo ? (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <img src={schoolLogo} alt="School logo" style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 8, border: "1px solid var(--border)" }} />
+                <img src={schoolLogo} alt="School logo" style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 8, border: "1px solid var(--border)", background: "#fff" }} />
                 <button type="button" style={S.danger} onClick={() => setSchoolLogo(null)}>Remove</button>
               </div>
             ) : (
@@ -811,6 +830,17 @@ function QuestionsGeneratorInner() {
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
                 <input type="checkbox" checked={landscape} onChange={e => setLandscape(e.target.checked)} style={{ accentColor: "#0D9488" }} />
                 Landscape
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
+                Options:
+                <select
+                  value={optionsLayout}
+                  onChange={e => setOptionsLayout(e.target.value)}
+                  title="How multiple-choice options are arranged in the printed paper and Word file"
+                  style={{ height: 32, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--card-bg)", color: "var(--text)", fontFamily: F, fontSize: 12, padding: "0 6px" }}
+                >
+                  {OPTIONS_LAYOUTS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
               </label>
               {examHasMarkingScheme && (
                 <button style={S.sm} onClick={() => setShowAnswerKey(v => !v)}>
