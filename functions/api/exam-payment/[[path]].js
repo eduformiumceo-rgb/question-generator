@@ -1,18 +1,18 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * Cloudflare Pages Function — EDUFORMIUM Questions Generator
- * FILE: functions/api/exam-payment/[[path]].js   (v2 — shared coins wallet)
+ * Cloudflare Pages Function - EDUFORMIUM Questions Generator
+ * FILE: functions/api/exam-payment/[[path]].js   (v2 - shared coins wallet)
  *
  * v2 correction: this used to top up a separate `exam_credits` wallet.
  * Per explicit direction, it now tops up the SAME `coins` wallet the
- * Lesson Planner uses — buying credits here adds to the exact balance a
+ * Lesson Planner uses - buying credits here adds to the exact balance a
  * teacher already sees there, using the real `transactions` table and the
  * real `increment_coins` RPC (functions/api/payment/[[path]].js), not
  * exam-specific lookalikes. Every security property that file earned is
  * carried over unchanged:
  *   - server is the source of truth for pricing (never trust a client amount)
  *   - transaction row created BEFORE calling Paystack (prevents fabricated refs)
- *   - ownership check on verify (prevents IDOR — claiming someone else's ref)
+ *   - ownership check on verify (prevents IDOR - claiming someone else's ref)
  *   - amount-match check against what Paystack actually confirms
  *   - atomic claim (status pending→processing) to prevent double-credit races
  *   - atomic RPC increment with a read-then-write fallback
@@ -21,23 +21,23 @@
  *
  * This app keeps its OWN Cloudflare Pages Function (rather than calling
  * planner.eduformium.com/api/payment directly) to avoid cross-domain
- * coupling between two independently-deployed apps — but it now reads
+ * coupling between two independently-deployed apps - but it now reads
  * and writes the identical rows either app's payment endpoint would.
  * A purchase made in either app is visible, immediately, in both.
  *
  * Routes:
- *   GET  /api/exam-payment/balance      → { balance, packages }   (raw coins — see note below)
+ *   GET  /api/exam-payment/balance      → { balance, packages }   (raw coins - see note below)
  *   GET  /api/exam-payment/pending      → { pending_refs: string[] }
  *   POST /api/exam-payment/initialize   → { authorization_url, reference, package, amount_pesewas }
  *   POST /api/exam-payment/verify       → { success, credits_added, new_balance }
  *
  * DISPLAY_CREDIT_MULTIPLIER: balances returned here are RAW coin units,
  * matching what the Lesson Planner's backend works in. The client applies
- * ×30 only when rendering — see QuestionsGenerator.jsx.
+ * ×30 only when rendering - see QuestionsGenerator.jsx.
  *
- * ENV VARS — same PROD_/DEV_ SUPABASE_URL/SERVICE_KEY/JWT_SECRET/ALLOWED_ORIGIN
+ * ENV VARS - same PROD_/DEV_ SUPABASE_URL/SERVICE_KEY/JWT_SECRET/ALLOWED_ORIGIN
  * as generate-exam.js, plus PROD_PAYSTACK_SECRET_KEY / DEV_PAYSTACK_SECRET_KEY
- * (can be the SAME Paystack account as the Lesson Planner, or a separate one —
+ * (can be the SAME Paystack account as the Lesson Planner, or a separate one -
  * either works; Paystack doesn't care which app calls it, and both credit
  * the same `coins` balance either way).
  * ═══════════════════════════════════════════════════════════════════
@@ -59,7 +59,7 @@ function jsonResp(data, status = 200, cors = {}) { return new Response(JSON.stri
 function errResp(msg, status, cors) { return jsonResp({ error: { message: msg } }, status, cors); }
 
 // Identical to the Lesson Planner's real COIN_PACKAGES (functions/api/payment/
-// [[path]].js) — literally the same price points, not a new unrelated one.
+// [[path]].js) - literally the same price points, not a new unrelated one.
 const CREDIT_PACKAGES = [
   { id: "trial",    credits: 4,  ghs: 600,  label: "4 Credits"  },
   { id: "starter",  credits: 7,  ghs: 1000, label: "7 Credits"  },
@@ -109,7 +109,7 @@ export async function onRequest(context) {
   const token = (request.headers.get("Authorization") || "").replace("Bearer ", "").trim();
   const allowedOrigin = (env.ALLOWED_ORIGIN || "").trim().replace(/\/+$/, "");
 
-  /* GET /balance — reads the SAME `coins` table the Lesson Planner reads */
+  /* GET /balance - reads the SAME `coins` table the Lesson Planner reads */
   if (request.method === "GET" && action === "balance") {
     if (!token) return errResp("Not authenticated.", 401, corsHdrs);
     try {
@@ -122,7 +122,7 @@ export async function onRequest(context) {
     } catch (e) { return errResp(e.message, e.dbError ? 500 : 401, corsHdrs); }
   }
 
-  /* GET /pending — reads the SAME `transactions` table */
+  /* GET /pending - reads the SAME `transactions` table */
   if (request.method === "GET" && action === "pending") {
     if (!token) return errResp("Not authenticated.", 401, corsHdrs);
     try {
@@ -211,7 +211,7 @@ export async function onRequest(context) {
     const credits = txn.coins_purchased ?? parseInt(psData.data?.metadata?.credits ?? "0");
     if (!credits || credits <= 0) return errResp("Invalid credit amount. Please contact support.", 400, corsHdrs);
 
-    // Atomic claim — PATCH only succeeds if status is still "pending", preventing a double-credit race.
+    // Atomic claim - PATCH only succeeds if status is still "pending", preventing a double-credit race.
     const claimResult = await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}&status=eq.pending`, {
       method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify({ status: "processing" }),
     });

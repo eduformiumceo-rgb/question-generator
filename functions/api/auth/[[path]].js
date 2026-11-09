@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * Cloudflare Pages Function — Eduformium Auth
+ * Cloudflare Pages Function - Eduformium Auth
  * FILE: functions/api/auth/[[path]].js
  *
  * Handles all routes under /api/auth/*
@@ -14,7 +14,7 @@
  * ENV VARS needed (Cloudflare Pages → Settings → Variables and secrets):
  *   PROD_SUPABASE_URL, PROD_SUPABASE_SERVICE_KEY, PROD_JWT_SECRET, PROD_ALLOWED_ORIGIN
  *   DEV_SUPABASE_URL,  DEV_SUPABASE_SERVICE_KEY,  DEV_JWT_SECRET,  DEV_ALLOWED_ORIGIN
- *   OTP_KV, BREVO_API_KEY, BREVO_FROM — shared across branches (not prefixed)
+ *   OTP_KV, BREVO_API_KEY, BREVO_FROM - shared across branches (not prefixed)
  * ═══════════════════════════════════════════════════════════════════
  */
 
@@ -71,7 +71,7 @@ export async function onRequest(context) {
     else response = jsonResp({ error: "Not found." }, 404);
   } catch (e) {
     // Log the full detail server-side (visible in Cloudflare logs) so we can
-    // debug it — but NEVER hand raw internals (URLs, DB errors, stack info)
+    // debug it - but NEVER hand raw internals (URLs, DB errors, stack info)
     // back to the browser. Anything that reaches this catch is unexpected;
     // known, safe, user-facing errors (bad password, rate limit, etc.) are
     // already returned directly by the handlers above with their own message.
@@ -117,11 +117,11 @@ async function clearSignInRate(env, email) {
 function corsHeaders(env) {
   // SECURITY FIX: fail closed (omit the header) rather than reflecting the
   // caller's Origin (or "*") when ALLOWED_ORIGIN isn't configured. This is
-  // the auth endpoint (sign-in/sign-up/password-reset) — the previous
+  // the auth endpoint (sign-in/sign-up/password-reset) - the previous
   // fallback would have let ANY website make credentialed auth requests
   // here if the env var was ever missing in a given deployment.
   const allowed = (env?.ALLOWED_ORIGIN || "").trim().replace(/\/+$/, "");
-  if (!allowed) console.error("[auth] ALLOWED_ORIGIN is not set for this environment — cross-origin requests will be blocked until it is configured.");
+  if (!allowed) console.error("[auth] ALLOWED_ORIGIN is not set for this environment. Cross-origin requests will be blocked until it is configured.");
   return {
     ...(allowed ? { "Access-Control-Allow-Origin": allowed } : {}),
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
@@ -209,7 +209,7 @@ async function verifyJWT(token, secret) {
 
 async function sb(env, path, opts = {}) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
-    // Clear, greppable message in Cloudflare logs — instead of the cryptic
+    // Clear, greppable message in Cloudflare logs - instead of the cryptic
     // native "Invalid URL: undefined/rest/v1/..." that a missing env var
     // otherwise produces. The client never sees this string (see the
     // top-level catch in onRequest), only the generic fallback message.
@@ -234,7 +234,7 @@ async function sb(env, path, opts = {}) {
 }
 
 /* ══════════════════════════════════════
-   SIGN IN — email + password
+   SIGN IN - email + password
 ══════════════════════════════════════ */
 async function handleSignIn(request, env) {
   const { email, password } = await request.json();
@@ -258,7 +258,7 @@ async function handleSignIn(request, env) {
 
   const user = rows[0];
 
-  // Google accounts have password_hash: null — verifyPassword() would crash
+  // Google accounts have password_hash: null - verifyPassword() would crash
   // trying to call .startsWith() on null. Give a clear, actionable message
   // instead of the generic "Something went wrong" 500 error.
   if (!user.password_hash) {
@@ -290,11 +290,11 @@ async function handleSignIn(request, env) {
     const reason = user.suspension_reason ? ` Reason: ${user.suspension_reason}` : "";
     return jsonResp({ error: `Your account has been suspended.${reason} Please contact support.` }, 403);
   }
-  // Flagged users can still sign in — flagging is an internal admin marker,
+  // Flagged users can still sign in - flagging is an internal admin marker,
   // not a hard block. Only suspension and deletion prevent access.
   // ──────────────────────────────────────────────────────────────
 
-  // Clear rate-limit counter only after ALL checks pass — password correct AND
+  // Clear rate-limit counter only after ALL checks pass - password correct AND
   // account is active. Clearing earlier (e.g. on correct password but suspended
   // account) would reset the brute-force counter for a blocked account.
   await clearSignInRate(env, normalEmail);
@@ -311,7 +311,7 @@ async function handleSignIn(request, env) {
    GOOGLE SIGN IN / SIGN UP
    Receives the Supabase access_token from the frontend after OAuth redirect.
    Verifies it with Supabase, upserts the user in our own users table,
-   then returns our own app JWT — so the rest of the app works identically
+   then returns our own app JWT - so the rest of the app works identically
    whether the user signed in via email or Google.
 ══════════════════════════════════════ */
 async function handleGoogleSignIn(request, env) {
@@ -334,7 +334,7 @@ async function handleGoogleSignIn(request, env) {
   const email    = supaUser?.email?.trim().toLowerCase();
   const name     = supaUser?.user_metadata?.full_name || supaUser?.user_metadata?.name || "";
   // Google issues every account a picture URL, even ones that never set a
-  // custom photo — those come back as a generic silhouette placeholder
+  // custom photo - those come back as a generic silhouette placeholder
   // (URL contains "default-user"). Treat that as "no photo" so the app
   // falls back to initials instead of showing Google's placeholder image.
   const rawAvatar = supaUser?.user_metadata?.avatar_url || "";
@@ -343,17 +343,17 @@ async function handleGoogleSignIn(request, env) {
   if (!email) return jsonResp({ error: "Could not read email from Google account." }, 400);
 
   // 2. Upsert into our own users table (create if new, skip if existing)
-  //    We match on email. Google users have no password_hash — that's fine,
+  //    We match on email. Google users have no password_hash - that's fine,
   //    they can never use email+password sign-in, only Google.
   const existing = await sb(env, `/users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
 
   let userId;
   let userName   = name;
   let userSchool = "";
-  let userAvatar = avatar; // from Google token — freshest source
+  let userAvatar = avatar; // from Google token - freshest source
 
   if (existing?.length) {
-    // Existing user — check account status before issuing a token
+    // Existing user - check account status before issuing a token
     const existingUser = existing[0];
 
     if (existingUser.is_deleted) {
@@ -378,7 +378,7 @@ async function handleGoogleSignIn(request, env) {
       }).catch(() => {});
     }
   } else {
-    // New user — create their record
+    // New user - create their record
     userId = crypto.randomUUID();
     await sb(env, "/users", {
       method: "POST",
@@ -401,7 +401,7 @@ async function handleGoogleSignIn(request, env) {
     }).catch(() => {});
   }
 
-  // 3. Issue our own app JWT — same 30-day token as email sign-in
+  // 3. Issue our own app JWT - same 30-day token as email sign-in
   const token = await makeJWT(
     { sub: userId, email, exp: Math.floor(Date.now() / 1000) + 30 * 86400 },
     env.JWT_SECRET
@@ -418,7 +418,7 @@ async function handleGoogleSignIn(request, env) {
    Stored in KV as a counter with 1-hour TTL.
    Prevents an attacker from abusing the email API (Brevo) at no cost to them. */
 async function checkOTPSendRate(env, email, purpose) {
-  if (!env.OTP_KV) return; // KV not bound — fail open (dev environment)
+  if (!env.OTP_KV) return; // KV not bound - fail open (dev environment)
   const key = `otp_rate:${purpose}:${email}`;
   try {
     const current = parseInt(await env.OTP_KV.get(key) || "0", 10);
@@ -433,7 +433,7 @@ async function checkOTPSendRate(env, email, purpose) {
 }
 
 /* ══════════════════════════════════════
-   SEND OTP — for signup verification or password reset
+   SEND OTP - for signup verification or password reset
 ══════════════════════════════════════ */
 async function handleSendOTP(request, env) {
   const { email, purpose: rawPurpose = "verify" } = await request.json();
@@ -469,7 +469,7 @@ async function handleSendOTP(request, env) {
     ? "You requested a password reset. Enter this code to continue."
     : "Thanks for signing up! Enter this code to verify your email and activate your account.";
 
-  // Send email FIRST — only store the OTP in KV if the send succeeds.
+  // Send email FIRST - only store the OTP in KV if the send succeeds.
   // Previously the OTP was written before the send, leaving a phantom KV entry
   // if Brevo failed. That gave a 10-minute brute-force window for an OTP the
   // user never received.
@@ -490,19 +490,19 @@ async function handleSendOTP(request, env) {
     return jsonResp({ error: "Failed to send email. Please try again." }, 502);
   }
 
-  // Email confirmed sent — now safe to store the OTP
+  // Email confirmed sent - now safe to store the OTP
   await env.OTP_KV.put(`otp:${purpose}:${normalEmail}`, hashed, { expirationTtl: 600 });
 
   return jsonResp({ ok: true });
 }
 
 /* ══════════════════════════════════════
-   SIGN UP — verify OTP then create account
+   SIGN UP - verify OTP then create account
 ══════════════════════════════════════ */
 // FIX: `role` here is a self-described profile field the user picks on the
-// sign-up form ("Teacher", "Head Teacher / Principal", etc. — see the
+// sign-up form ("Teacher", "Head Teacher / Principal", etc. - see the
 // dropdown in AuthModal_upgraded.jsx). It is display/personalization data
-// only, never an authorization control — admin access is entirely
+// only, never an authorization control - admin access is entirely
 // independent (separate `admins` table + credentials + JWT). Previously
 // this field was collected from the user (with a required-field validator
 // in the UI) but silently discarded on the server, so it was never saved.
@@ -540,7 +540,7 @@ async function handleSignUp(request, env) {
 
   const hashed = await sha256(otp.trim());
   if (hashed !== stored) {
-    // Delete OTP on wrong guess — prevents brute-force of the 6-digit code.
+    // Delete OTP on wrong guess - prevents brute-force of the 6-digit code.
     await env.OTP_KV.delete(kvKey);
     return jsonResp({ error: "Incorrect verification code. Please request a new one." }, 400);
   }
@@ -586,7 +586,7 @@ async function handleVerifyResetOTP(request, env) {
 
   const hashed = await sha256(otp.trim());
   if (hashed !== stored) {
-    // Delete the OTP on any wrong guess — prevents brute-force enumeration of the 6-digit code.
+    // Delete the OTP on any wrong guess - prevents brute-force enumeration of the 6-digit code.
     // The user must request a new OTP to try again.
     await env.OTP_KV.delete(kvKey);
     return jsonResp({ error: "Incorrect code. Please request a new one." }, 400);
@@ -646,21 +646,21 @@ async function handleResetPassword(request, env) {
    COINS
 ══════════════════════════════════════ */
 async function handleGetCoins(request, env, url) {
-  // Verify JWT — user can only read their own balance
+  // Verify JWT - user can only read their own balance
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return jsonResp({ error: "Authentication required." }, 401);
   const payload = await verifyJWT(token, env.JWT_SECRET);
   if (!payload) return jsonResp({ error: "Invalid or expired session." }, 401);
 
-  // Use the authenticated user's ID from the JWT — never trust the query param alone
+  // Use the authenticated user's ID from the JWT - never trust the query param alone
   const userId = payload.sub;
   const rows = await sb(env, `/coins?user_id=eq.${userId}&select=balance`);
   return jsonResp({ balance: rows?.[0]?.balance ?? 0 });
 }
 
 async function handleDeductCoins(request, env) {
-  // Verify JWT — user can only deduct from their own balance
+  // Verify JWT - user can only deduct from their own balance
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return jsonResp({ error: "Authentication required." }, 401);
@@ -668,7 +668,7 @@ async function handleDeductCoins(request, env) {
   if (!payload) return jsonResp({ error: "Invalid or expired session." }, 401);
 
   const { amount = 1 } = await request.json();
-  // Always use the authenticated user's ID — ignore any user_id in the body
+  // Always use the authenticated user's ID - ignore any user_id in the body
   const user_id = payload.sub;
   const rows    = await sb(env, `/coins?user_id=eq.${user_id}&select=balance`);
   const current = rows?.[0]?.balance ?? 0;
@@ -685,7 +685,7 @@ async function handleDeductCoins(request, env) {
    GENERATIONS
 ══════════════════════════════════════ */
 async function handleLogGen(request, env) {
-  // Verify JWT — user can only log generations for themselves
+  // Verify JWT - user can only log generations for themselves
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return jsonResp({ error: "Authentication required." }, 401);
@@ -694,12 +694,12 @@ async function handleLogGen(request, env) {
 
   const { subject, class: cls, tier: rawTier, coins_used: rawCoinsUsed = 0,
           fingerprint: rawFp = "", ip_hash: rawIpHash = "" } = await request.json();
-  // Always use the authenticated user's ID — ignore any user_id in the body
+  // Always use the authenticated user's ID - ignore any user_id in the body
   const user_id = payload.sub;
-  // Sanitize user-supplied fields — these go directly into the DB
+  // Sanitize user-supplied fields - these go directly into the DB
   const tier        = rawTier === "premium" ? "premium" : "free";
   const coins_used  = Math.max(0, parseInt(rawCoinsUsed, 10) || 0);
-  // Sanitize fingerprint / ip_hash — alphanumeric only, max 64 chars
+  // Sanitize fingerprint / ip_hash - alphanumeric only, max 64 chars
   const fingerprint = String(rawFp   || "").replace(/[^a-f0-9]/gi, "").slice(0, 64) || null;
   const ip_hash     = String(rawIpHash || "").replace(/[^a-f0-9]/gi, "").slice(0, 64) || null;
   await sb(env, "/generations", {
@@ -718,7 +718,7 @@ async function handleLogGen(request, env) {
 }
 
 async function handleGenToday(request, env, url) {
-  // Verify JWT — user can only query their own daily usage
+  // Verify JWT - user can only query their own daily usage
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return jsonResp({ error: "Authentication required." }, 401);
@@ -731,7 +731,7 @@ async function handleGenToday(request, env, url) {
   const today  = new Date().toISOString().slice(0, 10);
   const rows   = await sb(env, `/generations?user_id=eq.${userId}&tier=eq.${tier}&created_at=gte.${today}T00:00:00Z&select=id`);
 
-  // Next UTC midnight — this is exactly when the daily window resets
+  // Next UTC midnight - this is exactly when the daily window resets
   const resetAt = new Date(`${today}T00:00:00Z`);
   resetAt.setUTCDate(resetAt.getUTCDate() + 1);
 
@@ -773,7 +773,7 @@ function buildEmailHTML(code, headline, bodyText) {
 </html>`;
 }
 /* ══════════════════════════════════════
-   GET /me — return fresh user profile
+   GET /me - return fresh user profile
    Called on every app load to sync cross-device changes (e.g. avatar)
 ══════════════════════════════════════ */
 /* ══════════════════════════════════════

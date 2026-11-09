@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * Cloudflare Pages Function — EDUFORMIUM Questions Generator
+ * Cloudflare Pages Function - EDUFORMIUM Questions Generator
  * FILE: functions/api/exam-account/[[path]].js
  *
  * Routes:
@@ -9,10 +9,10 @@
  *   GET  /api/exam-account/history/:id      → full saved exam (exam_json + meta_json)
  *   POST /api/exam-account/history          → save a generated exam { title, subject, class, exam_type, exam_json, meta_json }
  *   DEL  /api/exam-account/history/:id      → delete a saved exam
- *   GET  /api/exam-account/free-usage       → { used, limit, remaining } — for the "X/5 left" badge on the Free button
+ *   GET  /api/exam-account/free-usage       → { used, limit, remaining } - for the "X/5 left" badge on the Free button
  *
  * Same shared-Supabase-project / shared-JWT-secret pattern as
- * generate-exam.js — see that file's header comment for the env vars.
+ * generate-exam.js - see that file's header comment for the env vars.
  * ═══════════════════════════════════════════════════════════════════
  */
 
@@ -101,7 +101,7 @@ function withCORS(response, env) {
 }
 
 async function getBalance(env, user) {
-  // Same shared `coins` table the Lesson Planner reads — not a separate
+  // Same shared `coins` table the Lesson Planner reads - not a separate
   // exam-specific wallet. Raw balance, un-multiplied; the client applies
   // the ×30 DISPLAY_CREDIT_MULTIPLIER, matching the real App.jsx exactly.
   const rows = await sb(env, `/coins?user_id=eq.${user.sub}&select=balance`);
@@ -124,7 +124,7 @@ async function saveHistory(request, env, user) {
   const { title, subject, class: cls, exam_type, exam_json, meta_json } = await request.json();
   if (!exam_json) return jsonResp({ error: "Missing exam data." }, 400);
 
-  // Enforce the per-user cap server-side — a client-supplied count can't be trusted.
+  // Enforce the per-user cap server-side - a client-supplied count can't be trusted.
   const existing = await sb(env, `/exam_history?user_id=eq.${user.sub}&select=id,created_at&order=created_at.asc`);
   if ((existing || []).length >= MAX_EXAM_HISTORY_PER_USER) {
     const oldest = existing[0];
@@ -158,11 +158,11 @@ async function lookupScheme(env, user, url) {
   const term = url.searchParams.get("term") || "";
   if (!subject || !className) return jsonResp({ error: "Subject and class are required." }, 400);
 
-  // Read-only access to the Lesson Planner's own `lesson_plans` table — same
+  // Read-only access to the Lesson Planner's own `lesson_plans` table - same
   // Supabase project, same user_id. This app never writes to that table.
   const q = (extra) => `/lesson_plans?user_id=eq.${user.sub}&subject=eq.${encodeURIComponent(subject)}&class_name=eq.${encodeURIComponent(className)}${term ? `&term=eq.${encodeURIComponent(term)}` : ""}${extra}`;
 
-  // 1. Prefer a saved Scheme of Learning (type="term") — one row covers the
+  // 1. Prefer a saved Scheme of Learning (type="term") - one row covers the
   //    whole term's Week|Strand|Sub-Strand breakdown, most reliable source.
   const solRows = await sb(env, q(`&type=eq.term&select=strand,sub_strand,term,saved_at,raw_data&order=saved_at.desc&limit=1`));
   if (solRows?.length) {
@@ -183,7 +183,7 @@ async function lookupScheme(env, user, url) {
   }
 
   // 2. Fall back to aggregating individual saved weekly lesson plans
-  //    (type="single") for this subject/class/term — partial by nature,
+  //    (type="single") for this subject/class/term - partial by nature,
   //    since the 10-plan retention cap may have evicted earlier weeks.
   const singleRows = await sb(env, q(`&type=eq.single&select=strand,sub_strand,week,saved_at&order=week.asc`));
   if (singleRows?.length) {
@@ -203,7 +203,7 @@ async function lookupScheme(env, user, url) {
 }
 
 /**
- * Same query generate-exam.js's checkFreeTierLimit() actually enforces —
+ * Same query generate-exam.js's checkFreeTierLimit() actually enforces -
  * exposed as a GET here purely so the client can show "X/5 left" on the
  * Free button BEFORE a teacher attempts a generation, matching the real
  * App.jsx's pattern of showing the remaining count proactively rather

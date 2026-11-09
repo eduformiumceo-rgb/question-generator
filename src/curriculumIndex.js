@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * GHANA NaCCA CURRICULUM — MASTER INDEX
+ * GHANA NaCCA CURRICULUM - MASTER INDEX
  * Subjects: Mathematics, English Language, Science
  * To add a new subject: import it and add one entry to ALL_SUBJECTS
  * ═══════════════════════════════════════════════════════════════════
@@ -135,7 +135,7 @@ export const ALL_SUBJECTS = {
   "Social Studies":               { data: { ...JHS_SOCIAL_STUDIES_CURRICULUM,...SHS_SOCIAL_STUDIES_CURRICULUM } },
   "Arabic":                       { data: JHS_ARABIC_CURRICULUM },
   "Career Technology":            { data: JHS_CT_CURRICULUM },
-  /* ── SHS Core (PE&H is SHS-only key — distinct from Primary/JHS "Physical Education") ── */
+  /* ── SHS Core (PE&H is SHS-only key - distinct from Primary/JHS "Physical Education") ── */
   "Physical Education & Health":  { data: SHS_PE_CURRICULUM },
   "General Science":              { data: SHS_GENERAL_SCIENCE_CURRICULUM },
 
@@ -322,13 +322,13 @@ export function buildExemplarBlock(subject, cls, strandName, subStrandName, indi
       const ind = details[Math.min(i, details.length - 1)];
       return [
         `╔══ DAY ${i + 1}: ${dayName.toUpperCase()} ══╗`,
-        `  Indicator: ${ind ? ind.code + " — " + ind.text : "as selected"}`,
-        `  ⚠ No NaCCA exemplar stored for this indicator.`,
+        `  Indicator: ${ind ? ind.code + " - " + ind.text : "as selected"}`,
+        `  No NaCCA exemplar stored for this indicator.`,
         `  Write Phase 2 activities based on the indicator text, using NaCCA pedagogy.`,
         `  Include: a teacher-led explanation, a group activity, and an individual task.`,
       ].join("\n");
     });
-    return `\n${"═".repeat(60)}\nNaCCA EXEMPLAR STEPS — PER DAY ASSIGNMENT\n${"═".repeat(60)}\n\n${lines.join("\n\n")}`;
+    return `\n${"═".repeat(60)}\nNaCCA EXEMPLAR STEPS: PER DAY ASSIGNMENT\n${"═".repeat(60)}\n\n${lines.join("\n\n")}`;
   }
 
   // ── Helper: distribute steps evenly across N days ──
@@ -355,14 +355,14 @@ export function buildExemplarBlock(subject, cls, strandName, subStrandName, indi
 
       return [
         header,
-        `  Indicator: ${ex.code} — ${ex.text}`,
-        `  NaCCA Exemplar steps (${steps.length} step${steps.length !== 1 ? "s" : ""}) — copy each WORD FOR WORD, only swap first verb:`,
+        `  Indicator: ${ex.code} - ${ex.text}`,
+        `  NaCCA Exemplar steps (${steps.length} step${steps.length !== 1 ? "s" : ""}) - copy each WORD FOR WORD, only swap first verb:`,
         stepLines,
         kwLine,
       ].filter(Boolean).join("\n");
     }
 
-    // ── Fewer exemplars than days — split steps across days ──
+    // ── Fewer exemplars than days - split steps across days ──
     // Collect all steps from all exemplars into one pool
     const allSteps = exemplars.flatMap(ex => parseExemplarSteps(ex.exemplar));
     const primaryEx = exemplars[0];
@@ -375,9 +375,9 @@ export function buildExemplarBlock(subject, cls, strandName, subStrandName, indi
     if (mySteps.length === 0) {
       return [
         header,
-        `  Indicator: ${primaryEx.code} — ${primaryEx.text}`,
+        `  Indicator: ${primaryEx.code} - ${primaryEx.text}`,
         `  All ${totalSteps} exemplar steps were covered on previous days.`,
-        `  Use this lesson for review and assessment only — NO new exemplar steps.`,
+        `  Use this lesson for review and assessment only - NO new exemplar steps.`,
         `  Write 3-4 activities where learners demonstrate what they have learned.`,
       ].join("\n");
     }
@@ -393,10 +393,10 @@ export function buildExemplarBlock(subject, cls, strandName, subStrandName, indi
 
     return [
       header,
-      `  Indicator: ${primaryEx.code} — ${primaryEx.text}`,
-      `  NaCCA Exemplar — your steps for today (${mySteps.length} of ${totalSteps} total):`,
+      `  Indicator: ${primaryEx.code} - ${primaryEx.text}`,
+      `  NaCCA Exemplar - your steps for today (${mySteps.length} of ${totalSteps} total):`,
       contNote,
-      `  Copy each step WORD FOR WORD — only swap the very first verb using your synonym table:`,
+      `  Copy each step WORD FOR WORD - only swap the very first verb using your synonym table:`,
       stepLines,
       (primaryEx.keyWords && primaryEx.keyWords !== "null")
         ? `  Key Words: ${primaryEx.keyWords}` : "",
@@ -406,7 +406,7 @@ export function buildExemplarBlock(subject, cls, strandName, subStrandName, indi
   return [
     "",
     "═".repeat(60),
-    "NaCCA EXEMPLAR STEPS — PER DAY ASSIGNMENT",
+    "NaCCA EXEMPLAR STEPS: PER DAY ASSIGNMENT",
     "INSTRUCTION: For each day's [NACCA] block, copy the steps",
     "listed under that day EXACTLY. Change ONLY the first verb.",
     "Every other word must be identical to what is written below.",

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * EDUFORMIUM — AI QUESTIONS GENERATOR
+ * EDUFORMIUM - AI QUESTIONS GENERATOR
  * Main page component
  *
  * Drop-in page for the existing Eduformium shell. Wire it up the same way
@@ -9,19 +9,19 @@
  *
  * Reuses, unmodified:
  *   - curriculumIndex.js               (all GES curriculum data + helpers)
- *   - auth.js  (getUser, getToken — unchanged from the Lesson Planner)
+ *   - auth.js  (getUser, getToken - unchanged from the Lesson Planner)
  *   - sharedStyles.jsx                  (F / S tokens copied from App.jsx)
  *   - examTemplate.js                  (system prompt + print-safe renderer)
  * ═══════════════════════════════════════════════════════════════════
  */
-import React, { useState, useMemo, useRef, useCallback } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { F, S, Spinner } from "./sharedStyles.jsx";
 import ExamStructureBuilder, { DEFAULT_SECTIONS } from "./components/ExamStructureBuilder.jsx";
 import TopicSelector from "./components/TopicSelector.jsx";
 import DiagramManager from "./components/DiagramManager.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { renderExamHTML, validateExamData, createExamVariant } from "./examTemplate.js";
-// NOT statically imported — docx bundles to ~700KB, which would hurt first-load
+// NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
 // every visit. Loaded on demand inside handleDownloadWord() instead.
 import ExamEditor from "./components/ExamEditor.jsx";
@@ -29,12 +29,12 @@ import { screenExamInput } from "./moderation.js";
 import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "./freeTierLimits.js";
 import TopUpModal from "./components/TopUpModal.jsx";
 // Reuses the Lesson Planner's auth.js UNCHANGED (same Google OAuth flow, same
-// getToken()/getUser()) — this app is a separate Cloudflare Pages deployment
+// getToken()/getUser()) - this app is a separate Cloudflare Pages deployment
 // but points at the SAME Supabase project and JWT secret, so a teacher who
 // signs in here (or on the Lesson Planner) is recognized on both: real SSO,
 // no second account. See functions/api/auth/[[path]].js for the server side.
 import { getUser, getToken, completePendingGoogleSignIn, signOut } from "./auth.js";
-// Reused unchanged — same Google sign-in modal/UX as the Lesson Planner.
+// Reused unchanged - same Google sign-in modal/UX as the Lesson Planner.
 // Because both apps share one Supabase project + JWT secret, signing in here
 // creates/reuses the exact same account as the Lesson Planner.
 import AuthModal from "./AuthModal_upgraded.jsx";
@@ -46,9 +46,9 @@ import { usePwaInstall } from "./pwaInstall.js";
 const EXAM_API = "/api/generate-exam";
 const ACCOUNT_API = "/api/exam-account";
 // Priced consistently with the Lesson Planner's real COINS_PER_LESSON=0.5
-// precedent, scaled per section (= per AI call), not a flat guessed number —
+// precedent, scaled per section (= per AI call), not a flat guessed number -
 // must match functions/api/generate-exam.js's CREDIT_COST_PER_SECTION_*.
-// These are RAW coin units — the wallet backend always works in raw units.
+// These are RAW coin units - the wallet backend always works in raw units.
 const CREDIT_COST_PER_SECTION_WITH_MARKING = 0.5;
 const CREDIT_COST_PER_SECTION_QUESTIONS_ONLY = 0.35;
 
@@ -57,14 +57,68 @@ const CREDIT_COST_PER_SECTION_QUESTIONS_ONLY = 0.35;
 // comment: "the UI multiplies real balances by DISPLAY_CREDIT_MULTIPLIER
 // (30x)... that constant only exists client-side"). This wallet is shared
 // with the Lesson Planner now, so this app must apply the exact same
-// multiplier — otherwise the same raw balance would show as two different
+// multiplier - otherwise the same raw balance would show as two different
 // numbers depending on which app a teacher happens to be in, which would
 // look like a bug (or missing money) even though nothing is actually wrong.
 const DISPLAY_CREDIT_MULTIPLIER = 30;
-// raw → the number shown on screen. Rounded for display only — the actual
+// raw → the number shown on screen. Rounded for display only - the actual
 // amount deducted/charged server-side always stays at full precision.
 const toDisplayCredits = (raw) => Math.round(raw * DISPLAY_CREDIT_MULTIPLIER);
 const formatCredits = (raw) => toDisplayCredits(raw);
+
+
+/** Accessible on/off switch. A single <button> - no hidden checkbox inside a <label>,
+ *  which previously fired twice per tap (span onClick + label→input onChange) and
+ *  cancelled itself out, so the toggles appeared dead. */
+function Toggle({ checked, onChange, label }) {
+  return (
+    <button
+      type="button" role="switch" aria-checked={checked} aria-label={label}
+      onClick={() => onChange(!checked)}
+      style={{
+        position: "relative", width: 44, height: 26, flexShrink: 0, marginLeft: 12, padding: 0,
+        border: "none", borderRadius: 99, cursor: "pointer", transition: "background .15s",
+        background: checked ? "#0D9488" : "var(--border-strong)",
+      }}
+    >
+      <span style={{
+        position: "absolute", top: 3, left: checked ? 21 : 3, width: 20, height: 20, borderRadius: "50%",
+        background: "#fff", transition: "left .15s", pointerEvents: "none", boxShadow: "0 1px 2px rgba(0,0,0,.25)",
+      }} />
+    </button>
+  );
+}
+
+/** Progress panel: real per-section fill, an animated "working" segment, elapsed time. */
+function GenerationProgress({ progress, elapsed }) {
+  const total = Math.max(progress?.total || 1, 1);
+  const done = progress?.sectionsDone?.size || 0;
+  const current = Math.min(progress?.index || 1, total);
+  const mm = Math.floor(elapsed / 60), ss = String(elapsed % 60).padStart(2, "0");
+  return (
+    <div style={{ marginBottom: 10 }} aria-live="polite">
+      <style>{`@keyframes qgPulse{0%,100%{opacity:.35}50%{opacity:1}}`}</style>
+      <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+        {Array.from({ length: total }).map((_, i) => {
+          const isDone = i < done;
+          const isActive = !isDone && i === done;
+          return (
+            <div key={i} style={{
+              flex: 1, height: 6, borderRadius: 3,
+              background: isDone || isActive ? "#0D9488" : "var(--border)",
+              animation: isActive ? "qgPulse 1.2s ease-in-out infinite" : "none",
+              transition: "background .2s",
+            }} />
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--text-muted)" }}>
+        <span>{progress?.sectionLabel ? `Writing ${progress.sectionLabel} (${current} of ${total})` : "Starting…"}</span>
+        <span>{mm}:{ss}</span>
+      </div>
+    </div>
+  );
+}
 
 const EXAM_TYPES = ["Class Test", "Quiz", "Mid-Term Exam", "End of Term Exam", "Mock Exam"];
 const DIFFICULTIES = ["Easy", "Moderate", "Hard"];
@@ -82,13 +136,25 @@ const COGNITIVE_LEVELS = ["Recall", "Application", "Critical Thinking"];
  * Returns the final { examData, creditsRemaining } from the "done" event.
  */
 async function streamExamAPI(payload, token, onProgress) {
-  const res = await fetch(EXAM_API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  let watchdog;
+  const arm = () => { clearTimeout(watchdog); watchdog = setTimeout(() => controller.abort(), 120000); };
+  arm();
+  let res;
+  try {
+    res = await fetch(EXAM_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(watchdog);
+    throw new Error(e.name === "AbortError" ? "The server took too long to respond. Please try again. You have not been charged." : e.message);
+  }
 
   if (!res.ok) {
+    clearTimeout(watchdog);
     const errBody = await res.json().catch(() => ({}));
     const err = new Error(errBody.error || errBody.message || `Generation failed (HTTP ${res.status}).`);
     err.status = res.status;
@@ -104,7 +170,14 @@ async function streamExamAPI(payload, token, onProgress) {
   let streamError = null;
 
   while (true) {
-    const { done, value } = await reader.read();
+    let chunk;
+    try { chunk = await reader.read(); }
+    catch (e) {
+      clearTimeout(watchdog);
+      throw new Error(e.name === "AbortError" ? "Generation stalled and was stopped. Please try again. You have not been charged." : "Connection lost while generating. Please try again.");
+    }
+    arm(); // any bytes (including server keep-alive pings) reset the stall timer
+    const { done, value } = chunk;
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
@@ -119,18 +192,19 @@ async function streamExamAPI(payload, token, onProgress) {
     }
   }
 
+  clearTimeout(watchdog);
   if (streamError) {
     const err = new Error(streamError.message);
     err.creditsRemaining = streamError.creditsRemaining;
     throw err;
   }
-  if (!finalResult) throw new Error("The connection was interrupted before the exam finished generating. Please try again — you have not been charged for an incomplete generation, but do check your credit balance.");
+  if (!finalResult) throw new Error("The connection was interrupted before the exam finished generating. Please try again. You have not been charged for an incomplete generation, but do check your credit balance.");
   return finalResult;
 }
 
 
 function QuestionsGeneratorInner() {
-  // ── Auth gate — same account/session as the Lesson Planner ─────
+  // ── Auth gate - same account/session as the Lesson Planner ─────
   const [user, setUser] = useState(() => (getUser ? getUser() : null));
   const [showAuthModal, setShowAuthModalRaw] = useState(false);
   // Single sign-in: when VITE_HUB_URL is set, opening sign-in / create account sends the person to the Eduformium Hub (see hubSignIn.js).
@@ -142,7 +216,7 @@ function QuestionsGeneratorInner() {
 
   // ── Basic Information ──────────────────────────────────────────
   const [schoolName, setSchoolName] = useState("");
-  const [schoolLogo, setSchoolLogo] = useState(null); // data URL — printed in the paper header
+  const [schoolLogo, setSchoolLogo] = useState(null); // data URL - printed in the paper header
   const logoInputRef = useRef(null);
   const [className, setClassName] = useState("");
   const [term, setTerm] = useState("Term 1");
@@ -169,8 +243,9 @@ function QuestionsGeneratorInner() {
 
   // ── Generation state ─────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
-  const [loadingTier, setLoadingTier] = useState(null); // "free" | "premium" | null — which button is spinning
+  const [loadingTier, setLoadingTier] = useState(null); // "free" | "premium" | null - which button is spinning
   const [progress, setProgress] = useState(null); // { index, total, sectionLabel, sectionsDone: Set }
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const [examData, setExamData] = useState(null);
   const [examHasMarkingScheme, setExamHasMarkingScheme] = useState(true); // reflects the generated exam, not the current toggle
@@ -180,7 +255,7 @@ function QuestionsGeneratorInner() {
   const [showTopUp, setShowTopUp] = useState(false);
   const printFrameRef = useRef(null);
 
-  // Credits are the SAME shared `coins` wallet the Lesson Planner uses —
+  // Credits are the SAME shared `coins` wallet the Lesson Planner uses -
   // not a separate balance. `creditBalance` here is always the RAW value;
   // toDisplayCredits() is applied only at render time, matching the real
   // App.jsx's rule ("never show coins raw to the user").
@@ -193,11 +268,11 @@ function QuestionsGeneratorInner() {
       if (!res.ok) return;
       const data = await res.json();
       setCreditBalance(data.balance);
-    } catch { /* balance display is non-critical — fail quietly */ }
+    } catch { /* balance display is non-critical - fail quietly */ }
   }, []);
   React.useEffect(() => { fetchBalance(); }, [fetchBalance]);
 
-  // "X/5 left" on the Free button — same proactive-remaining-count pattern
+  // "X/5 left" on the Free button - same proactive-remaining-count pattern
   // as the real App.jsx's Free button badge, not just a failure message.
   const [freeUsage, setFreeUsage] = useState(null); // { used, limit, remaining }
   const fetchFreeUsage = useCallback(async () => {
@@ -207,7 +282,7 @@ function QuestionsGeneratorInner() {
       const res = await fetch(`${ACCOUNT_API}/free-usage`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) return;
       setFreeUsage(await res.json());
-    } catch { /* non-critical — fail quietly, the server still enforces the real limit */ }
+    } catch { /* non-critical - fail quietly, the server still enforces the real limit */ }
   }, []);
   React.useEffect(() => { fetchFreeUsage(); }, [fetchFreeUsage]);
 
@@ -229,7 +304,7 @@ function QuestionsGeneratorInner() {
   const estimatedCostWithMarking = Math.round(activeSections.length * CREDIT_COST_PER_SECTION_WITH_MARKING * 100) / 100;
   const estimatedCostQuestionsOnly = Math.round(activeSections.length * CREDIT_COST_PER_SECTION_QUESTIONS_ONLY * 100) / 100;
 
-  // Two independent buttons (Free / Premium) call this with their own tier —
+  // Two independent buttons (Free / Premium) call this with their own tier -
   // same pattern as the real App.jsx, where Free and Premium are two
   // separate actions, not a pre-selected mode. Free-tier limits are only
   // checked when the Free button specifically is the one clicked.
@@ -244,21 +319,21 @@ function QuestionsGeneratorInner() {
     if (invalid) return `Section ${invalid.id} needs a valid question count and marks per question.`;
     if (Number(durationMinutes) < 10 || Number(durationMinutes) > 300) return "Duration should be between 10 and 300 minutes.";
     if (tierArg === "free") {
-      if (activeSections.length > FREE_TIER_MAX_SECTIONS) return `Free AI is limited to ${FREE_TIER_MAX_SECTIONS} sections — reduce your sections, or use Premium AI for a full exam.`;
+      if (activeSections.length > FREE_TIER_MAX_SECTIONS) return `Free AI is limited to ${FREE_TIER_MAX_SECTIONS} sections. Reduce your sections, or use Premium AI for a full exam.`;
       const disallowed = activeSections.find(s => !FREE_TIER_ALLOWED_TYPES.includes(s.type));
-      if (disallowed) return "Free AI doesn't support essay sections — remove the essay section, or use Premium AI.";
+      if (disallowed) return "Free AI doesn't support essay sections. Remove the essay section, or use Premium AI.";
       const totalQ = activeSections.reduce((sum, s) => sum + (Number(s.questionCount) || 0), 0);
-      if (totalQ > FREE_TIER_MAX_TOTAL_QUESTIONS) return `Free AI is limited to ${FREE_TIER_MAX_TOTAL_QUESTIONS} questions total (currently ${totalQ}) — reduce question counts, or use Premium AI.`;
-      if (includeMarkingScheme) return "Free AI doesn't include a marking scheme — turn off \"Questions + Marking Scheme\" above, or use Premium AI.";
+      if (totalQ > FREE_TIER_MAX_TOTAL_QUESTIONS) return `Free AI is limited to ${FREE_TIER_MAX_TOTAL_QUESTIONS} questions total (currently ${totalQ}). Reduce question counts, or use Premium AI.`;
+      if (includeMarkingScheme) return "Free AI doesn't include a marking scheme. Turn off \"Questions + Marking Scheme\" above, or use Premium AI.";
     }
-    // Same screen the server runs — catches obviously-too-long pastes and
+    // Same screen the server runs - catches obviously-too-long pastes and
     // disallowed content client-side, before even hitting the network.
     const screen = screenExamInput({ schoolName, pastedSyllabus, topics: selectedTopics });
     if (!screen.ok) return screen.error;
     return "";
   };
 
-  /** AI-assisted topic suggestion — used by TopicSelector's "✨ AI Suggest Topics" button. */
+  /** AI-assisted topic suggestion - used by TopicSelector's "AI Suggest Topics" button. */
   const handleSuggestTopics = useCallback(async (subj, cls, strand) => {
     try {
       const token = getToken ? getToken() : null;
@@ -271,7 +346,7 @@ function QuestionsGeneratorInner() {
       const data = await res.json();
       return Array.isArray(data.topics) ? data.topics : [];
     } catch {
-      return []; // fail quietly — suggestion is a convenience, not a blocker
+      return []; // fail quietly - suggestion is a convenience, not a blocker
     }
   }, []);
 
@@ -311,19 +386,19 @@ function QuestionsGeneratorInner() {
       setShowAnswerKey(false);
       setDiagramImages({});
       // Server already deducted from the shared coins wallet and returns the
-      // fresh raw balance — trust that over a client-side guess so the
+      // fresh raw balance - trust that over a client-side guess so the
       // header never drifts from reality.
       if (typeof result.creditsRemaining === "number") setCreditBalance(result.creditsRemaining);
       else fetchBalance();
       if (tierArg === "free") fetchFreeUsage(); // update the "X/5 left" badge
     } catch (e) {
-      // Network/timeout/server failures land here — no credit is deducted server-side
+      // Network/timeout/server failures land here - no credit is deducted server-side
       // unless generation actually succeeded (see generate-exam.js's refund logic).
       if (e.status === 402) {
         setError("You're out of exam credits.");
         setShowTopUp(true);
         // deductCoins() throws rather than returning a balance, so the 402
-        // response body has no `balance` field to trust here — re-fetch
+        // response body has no `balance` field to trust here - re-fetch
         // instead of reading a field that no longer exists.
         fetchBalance();
       } else if (e.status === 429) {
@@ -341,12 +416,19 @@ function QuestionsGeneratorInner() {
     }
   };
 
+  useEffect(() => {
+    if (!loading) { setElapsed(0); return; }
+    const t0 = Date.now();
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [loading]);
+
   const questionsNeedingDiagrams = useMemo(() => {
     if (!examData) return [];
     const out = [];
     (examData.sections || []).forEach(sec => (sec.questions || []).forEach(q => {
       // Only prompt for a manual upload when the AI COULDN'T draw it itself
-      // (generatable=false/no svg) — a clean AI-generated SVG needs no
+      // (generatable=false/no svg) - a clean AI-generated SVG needs no
       // teacher action, though DiagramManager still lets them override it.
       if (q.diagram?.needed && !(q.diagram.generatable && q.diagram.svg)) out.push(q);
     }));
@@ -366,7 +448,7 @@ function QuestionsGeneratorInner() {
     if (!activeExamData) return;
     setDownloadingWord(true);
     try {
-      const { generateExamDocx } = await import("./examDocx.js"); // lazy — see import comment above
+      const { generateExamDocx } = await import("./examDocx.js"); // lazy - see import comment above
       const blob = await generateExamDocx(activeExamData, meta, mode);
       const fileName = `${(activeExamData.title || examType || "exam").replace(/[^a-z0-9]+/gi, "_")}${mode === "answerKey" ? "_marking_scheme" : ""}.docx`;
       const url = URL.createObjectURL(blob);
@@ -385,7 +467,7 @@ function QuestionsGeneratorInner() {
     if (!activeExamData) return;
     const html = renderExamHTML(activeExamData, meta, showAnswerKey ? "answerKey" : "paper");
     const fileName = `${(activeExamData.title || examType || "exam").replace(/[^a-z0-9]+/gi, "_")}.html`;
-    // Sharing the rendered HTML (not a PDF) — this app relies on the browser's
+    // Sharing the rendered HTML (not a PDF) - this app relies on the browser's
     // own print engine for PDF fidelity via window.print(), and there's no
     // PDF library wired into this project; adding one just for sharing risks
     // a lower-fidelity export than the carefully-tuned print CSS produces.
@@ -394,7 +476,7 @@ function QuestionsGeneratorInner() {
     const file = new File([html], fileName, { type: "text/html" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file], title: activeExamData.title || examType }); }
-      catch { /* user cancelled the share sheet — not an error */ }
+      catch { /* user cancelled the share sheet - not an error */ }
     } else {
       const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
       const a = document.createElement("a");
@@ -417,7 +499,7 @@ function QuestionsGeneratorInner() {
 
   // Same pattern as the Lesson Planner's own onLoginRequired: don't hard-wall
   // the whole page behind a sign-in screen. Let a teacher fill in the whole
-  // wizard first — subject, topics, sections, everything — and only ask them
+  // wizard first - subject, topics, sections, everything - and only ask them
   // to sign in at the moment they take an action that actually needs an
   // account (Generate, or opening the top-up modal). Confirmed against the
   // real App.jsx: `onClick={!user ? onLoginRequired : generate}` is the
@@ -471,7 +553,7 @@ function QuestionsGeneratorInner() {
         />
       )}
 
-      {/* ── Curriculum + Topics (GES / NaCCA) — CLASS FIRST, matching
+      {/* ── Curriculum + Topics (GES / NaCCA) - CLASS FIRST, matching
            the real Lesson Planner's flow exactly. Everything else in the
            form follows from this, so it comes first on the page too. ── */}
       <TopicSelector
@@ -485,7 +567,7 @@ function QuestionsGeneratorInner() {
         S={S} F={F}
       />
 
-      {/* ── Basic Information — only once a class is chosen, so the
+      {/* ── Basic Information - only once a class is chosen, so the
            form doesn't show a wall of fields before the one choice that
            actually drives everything else. ── */}
       {className && (
@@ -504,7 +586,7 @@ function QuestionsGeneratorInner() {
                 background: active ? "var(--accent-soft)" : "var(--card-bg)",
                 color: active ? "var(--accent)" : "var(--text-secondary)",
               }}>
-                {active ? "✓ " : ""}{t}
+                {t}
               </button>
             );
           })}
@@ -558,7 +640,7 @@ function QuestionsGeneratorInner() {
       </div>
       )}
 
-      {/* ── Difficulty + Language + Cognitive level — only once there's
+      {/* ── Difficulty + Language + Cognitive level - only once there's
            a class AND subject chosen, so the form doesn't dump every
            option on screen before there's anything to configure it for. ── */}
       {className && subject && (
@@ -599,14 +681,14 @@ function QuestionsGeneratorInner() {
                 border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
                 background: active ? "var(--accent-soft)" : "var(--card-bg)",
                 color: active ? "var(--accent)" : "var(--text)",
-              }}>{active ? "✓ " : ""}{lvl}</button>
+              }}>{lvl}</button>
             );
           })}
         </div>
       </div>
       )}
 
-      {/* ── Exam Structure Builder — always full-capability here; a
+      {/* ── Exam Structure Builder - always full-capability here; a
            config that doesn't fit the Free tier just shows a clear
            message when the Free button specifically is clicked, rather
            than the whole form silently reconfiguring itself. ── */}
@@ -614,7 +696,7 @@ function QuestionsGeneratorInner() {
       <ExamStructureBuilder sections={sections} setSections={setSections} S={S} F={F} />
       )}
 
-      {/* ── Output mode + diagrams — consolidated into one compact card
+      {/* ── Output mode + diagrams - consolidated into one compact card
            instead of two, to cut down on card count. ── */}
       {className && subject && (
       <div style={S.card}>
@@ -628,11 +710,7 @@ function QuestionsGeneratorInner() {
               {" "}Not available on Free AI.
             </div>
           </div>
-          <label style={{ position: "relative", display: "inline-block", width: 44, height: 26, flexShrink: 0, marginLeft: 12 }}>
-            <input type="checkbox" checked={includeMarkingScheme} onChange={e => setIncludeMarkingScheme(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-            <span style={{ position: "absolute", inset: 0, borderRadius: 99, cursor: "pointer", transition: ".15s", background: includeMarkingScheme ? "#0D9488" : "var(--border-strong)" }} onClick={() => setIncludeMarkingScheme(v => !v)} />
-            <span style={{ position: "absolute", top: 3, left: includeMarkingScheme ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: ".15s", pointerEvents: "none", boxShadow: "0 1px 2px rgba(0,0,0,.25)" }} />
-          </label>
+          <Toggle checked={includeMarkingScheme} onChange={setIncludeMarkingScheme} label="Include marking scheme" />
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -642,29 +720,15 @@ function QuestionsGeneratorInner() {
               When a question needs a figure, graph or map, the AI will flag it so you can upload one.
             </div>
           </div>
-          <label style={{ position: "relative", display: "inline-block", width: 44, height: 26, flexShrink: 0, marginLeft: 12 }}>
-          <input
-            type="checkbox" checked={allowDiagrams} onChange={e => setAllowDiagrams(e.target.checked)}
-            aria-label="Allow AI-suggested diagrams" role="switch" aria-checked={allowDiagrams}
-            style={{ opacity: 0, width: 0, height: 0 }}
-          />
-          <span style={{
-            position: "absolute", inset: 0, borderRadius: 99, cursor: "pointer", transition: ".15s",
-            background: allowDiagrams ? "#0D9488" : "var(--border-strong)",
-          }} onClick={() => setAllowDiagrams(v => !v)} />
-          <span style={{
-            position: "absolute", top: 3, left: allowDiagrams ? 21 : 3, width: 20, height: 20, borderRadius: "50%",
-            background: "#fff", transition: ".15s", pointerEvents: "none", boxShadow: "0 1px 2px rgba(0,0,0,.25)",
-          }} />
-        </label>
+          <Toggle checked={allowDiagrams} onChange={setAllowDiagrams} label="Allow AI-suggested diagrams" />
       </div>
       </div>
       )}
 
-      {error && <div style={S.err}><span>⚠</span><span>{error}</span></div>}
+      {error && <div style={S.err}><span>{error}</span></div>}
 
-      {/* ── Bottom generate bar — Free AI (left) / Premium AI (right),
-           two independent, always-visible actions — matching the real
+      {/* ── Bottom generate bar - Free AI (left) / Premium AI (right),
+           two independent, always-visible actions - matching the real
            App.jsx's GENERATE BAR exactly, not a pre-selected tier toggle
            feeding one shared button. ── */}
       {className && subject && (
@@ -679,7 +743,7 @@ function QuestionsGeneratorInner() {
         >
           {loading && loadingTier === "free" ? <Spinner /> : (
             <>
-              <span>✨ Free AI</span>
+              <span>Free AI</span>
               <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-muted)" }}>
                 {freeUsage ? `${freeUsage.remaining} / ${freeUsage.limit} left today` : `${FREE_TIER_DAILY_LIMIT}/day`}
               </span>
@@ -698,7 +762,7 @@ function QuestionsGeneratorInner() {
         >
           {loading && loadingTier === "premium" ? <Spinner /> : (
             <>
-              <span style={{ fontWeight: 700, fontSize: 14 }}>⚡ Premium AI</span>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Premium AI</span>
               <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.9 }}>
                 ~{formatCredits(includeMarkingScheme ? estimatedCostWithMarking : estimatedCostQuestionsOnly)} credits
               </span>
@@ -707,19 +771,9 @@ function QuestionsGeneratorInner() {
         </button>
       </div>
       )}
-      {loading && progress?.total > 1 && (
-        <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-          {Array.from({ length: progress.total }).map((_, i) => (
-            <div key={i} style={{
-              flex: 1, height: 4, borderRadius: 2,
-              background: i < progress.index ? "#0D9488" : "var(--border)",
-              transition: "background .2s",
-            }} />
-          ))}
-        </div>
-      )}
+      {loading && <GenerationProgress progress={progress} elapsed={elapsed} />}
       <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 0 }}>
-        Nothing is charged unless generation succeeds — failed or timed-out requests are not billed.
+        Nothing is charged unless generation succeeds. Failed or timed-out requests are not billed.
       </p>
 
       {/* ── Diagram uploads (post-generation) ──────────────────── */}
@@ -737,7 +791,7 @@ function QuestionsGeneratorInner() {
         <div style={S.out}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>
-              {examData.title || examType} — Ready
+              {examData.title || examType}: Ready
               {!examHasMarkingScheme && (
                 <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginLeft: 8 }}>(Questions Only)</span>
               )}
@@ -746,7 +800,7 @@ function QuestionsGeneratorInner() {
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginRight: 4 }}>
                 <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginRight: 4 }}>Version:</span>
                 {["A", "B", "C"].map(v => (
-                  <button key={v} type="button" onClick={() => setExamVersion(v)} title={v === "A" ? "Original order" : `Shuffled variant ${v} — different question/option order, same content (anti-cheating)`} style={{
+                  <button key={v} type="button" onClick={() => setExamVersion(v)} title={v === "A" ? "Original order" : `Shuffled variant ${v}: different question/option order, same content (anti-cheating)`} style={{
                     width: 28, height: 28, borderRadius: 8, fontFamily: F, fontSize: 12, fontWeight: 700, cursor: "pointer",
                     border: `1.5px solid ${examVersion === v ? "var(--accent)" : "var(--border-strong)"}`,
                     background: examVersion === v ? "var(--accent-soft)" : "var(--card-bg)",
@@ -767,17 +821,17 @@ function QuestionsGeneratorInner() {
                 style={editMode ? { ...S.sm, borderColor: "var(--accent)", color: "var(--accent)", background: "var(--accent-soft)" } : S.sm}
                 onClick={() => setEditMode(v => !v)}
               >
-                {editMode ? "✓ Editing" : "✏️ Edit"}
+                {editMode ? "Editing" : "Edit"}
               </button>
-              <button style={S.sm} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>🖨 Print</button>
+              <button style={S.sm} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>Print</button>
               <button style={{ ...S.btn, height: 40, padding: "0 18px", fontSize: 13 }} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>
-                ⬇ Download PDF
+                Download PDF
               </button>
               <button style={S.sm} disabled={downloadingWord} onClick={() => handleDownloadWord(showAnswerKey ? "answerKey" : "paper")}>
-                {downloadingWord ? "Generating…" : "📄 Download Word"}
+                {downloadingWord ? "Generating…" : "Download Word"}
               </button>
-              <button style={S.sm} onClick={handleShare} title="Share as a file — works with WhatsApp, email, Drive, etc. on mobile">
-                📤 Share
+              <button style={S.sm} onClick={handleShare} title="Share as a file. Works with WhatsApp, email, Drive, etc. on mobile">
+                Share
               </button>
             </div>
           </div>
@@ -803,8 +857,8 @@ function QuestionsGeneratorInner() {
  * A small, scoped responsive stylesheet for the couple of fixed 2-column
  * grids used across this wizard (Basic Info, Curriculum, Exam Structure
  * Builder). Inline React styles can't express media queries, and these
- * grids not stacking on a narrow phone — squishing two inputs into ~150px
- * each — is a real usability regression against the "smooth on low-end
+ * grids not stacking on a narrow phone - squishing two inputs into ~150px
+ * each - is a real usability regression against the "smooth on low-end
  * Android" requirement, not a cosmetic nitpick.
  */
 const RESPONSIVE_CSS = `

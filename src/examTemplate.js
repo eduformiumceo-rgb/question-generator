@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * EDUFORMIUM — AI QUESTIONS GENERATOR
+ * EDUFORMIUM - AI QUESTIONS GENERATOR
  * Exam paper template + AI system-prompt builder
  *
  * Mirrors the existing lessonTemplate.js / shsLessonTemplate.js pattern:
@@ -8,7 +8,7 @@
  *   - renderExamHTML(examData)    → deterministic, print-safe HTML render
  *     of whatever structured JSON the AI (or a human edit) produces
  *
- * The AI is NEVER trusted to emit raw HTML for the exam body — it returns
+ * The AI is NEVER trusted to emit raw HTML for the exam body - it returns
  * structured JSON (sections → questions → parts), and this file is the
  * single place that turns that JSON into markup. That keeps print/PDF
  * layout, numbering (1a, 1b, i, ii) and dark-mode-safe printing correct
@@ -45,16 +45,16 @@ export function buildExamSystemPrompt(cfg) {
   );
 
   const sectionSpec = sections.map(s =>
-    `  - Section ${s.id} — ${s.label} (${s.type}): ${s.questionCount} question(s), ${s.marksPerQuestion} mark(s) each, ${(Number(s.questionCount)||0)*(Number(s.marksPerQuestion)||0)} marks total.`
+    `  - Section ${s.id} - ${s.label} (${s.type}): ${s.questionCount} question(s), ${s.marksPerQuestion} mark(s) each, ${(Number(s.questionCount)||0)*(Number(s.marksPerQuestion)||0)} marks total.`
   ).join("\n");
 
   const topicLine = topics.length
     ? topics.join("; ")
-    : (pastedSyllabus ? "(see pasted syllabus below)" : "(no specific topics supplied — use standard scope for the class/subject)");
+    : (pastedSyllabus ? "(see pasted syllabus below)" : "(no specific topics supplied - use standard scope for the class/subject)");
 
   return `You are an expert examiner writing a ${examType} for a Ghana Education Service (GES/NaCCA) school.
 
-Return ONLY valid JSON — no markdown fences, no commentary — matching exactly this shape:
+Return ONLY valid JSON - no markdown fences, no commentary - matching exactly this shape:
 
 {
   "title": string,                     // e.g. "MID-TERM EXAMINATION"
@@ -71,7 +71,7 @@ Return ONLY valid JSON — no markdown fences, no commentary — matching exactl
           "text": string,              // the question stem
           "options": string[]|null,    // 4 options ("A.","B.","C.","D." prefixes NOT included, just text) for objective type, else null
           "correctOption": "A"|"B"|"C"|"D"|null,   // objective only
-          "parts": [                   // for structured/essay: sub-parts like (a), (b) — empty array if none
+          "parts": [                   // for structured/essay: sub-parts like (a), (b) - empty array if none
             { "label": "a", "text": string, "marks": number,
               "subparts": [ { "label": "i", "text": string, "marks": number } ] }
           ],
@@ -98,24 +98,24 @@ EXAM PARAMETERS
   Topics to cover: ${topicLine}
   ${pastedSyllabus ? `Pasted syllabus/reference text (use this as the authoritative scope):\n"""\n${pastedSyllabus}\n"""` : ""}
   Difficulty: ${difficulty}
-  Language style: ${languageStyle === "Simple" ? "simple and clear, short sentences, avoid rare vocabulary" : languageStyle === "Advanced" ? "advanced academic wording appropriate for top-band students" : "balanced — clear but properly academic"}
+  Language style: ${languageStyle === "Simple" ? "simple and clear, short sentences, avoid rare vocabulary" : languageStyle === "Advanced" ? "advanced academic wording appropriate for top-band students" : "balanced - clear but properly academic"}
   Cognitive levels to emphasise: ${cognitiveLevels.join(", ")}
-  Diagrams: ${allowDiagrams ? "allowed — flag diagram.needed=true and describe it in diagram.description whenever a question genuinely benefits from a labelled diagram, graph, map or figure" : "do not request diagrams"}
+  Diagrams: ${allowDiagrams ? "allowed - flag diagram.needed=true and describe it in diagram.description whenever a question genuinely benefits from a labelled diagram, graph, map or figure" : "do not request diagrams"}
 
-STRUCTURE (must match exactly — do not add or remove sections/questions)
+STRUCTURE (must match exactly - do not add or remove sections/questions)
 ${sectionSpec}
   Total marks across the paper: ${totalMarks}
 
 STRICT RULES
 1. Follow GES/NaCCA exam-paper conventions: formal register, no chatty tone, no emoji.
 2. Number questions continuously within each section starting at 1. Use "a", "b", "c" for parts and "i", "ii", "iii" for sub-parts, exactly as the JSON schema's "label" fields.
-3. Every question must map to one of the supplied topics (or the pasted syllabus) — never invent off-syllabus content.
-4. No two questions may test the same fact/skill in the same way — avoid repetition across the whole paper.
+3. Every question must map to one of the supplied topics (or the pasted syllabus) - never invent off-syllabus content.
+4. No two questions may test the same fact/skill in the same way - avoid repetition across the whole paper.
 5. Match the requested difficulty and cognitive-level mix as closely as possible across all sections.
 6. Objective (Section A / multiple choice) questions must have exactly 4 options, exactly one correct, and 3 plausible distractors (common misconceptions, not silly options).
-7. Structured/essay questions must carry a full marking scheme/model answer in "markingGuide" — specific enough that another teacher could mark from it.
+7. Structured/essay questions must carry a full marking scheme/model answer in "markingGuide" - specific enough that another teacher could mark from it.
 8. Marks per question (and per part, if parts are used) must sum to the "marks" requested for that question in the STRUCTURE above.
-9. Keep every diagram description concrete enough that an illustrator or the teacher could sketch it (labels, axes, key features) — never leave it vague.
+9. Keep every diagram description concrete enough that an illustrator or the teacher could sketch it (labels, axes, key features) - never leave it vague.
 10. Output nothing but the JSON object.`;
 }
 
@@ -129,20 +129,20 @@ STRICT RULES
  * the whole paper, and let the client show real per-section progress
  * instead of one long blocking spinner.
  *
- * @param {Object} cfg    — same shape as buildExamSystemPrompt's cfg, plus
+ * @param {Object} cfg    - same shape as buildExamSystemPrompt's cfg, plus
  *   optional `includeMarkingScheme` (boolean, default true). When false,
  *   the model is told to skip marking-guide prose entirely (saves output
  *   tokens and generation time) and the answer key/marking scheme UI is
- *   hidden client-side — for teachers who just want a quick question set
+ *   hidden client-side - for teachers who just want a quick question set
  *   (e.g. for a worksheet, or to send to a colleague for review before the
  *   marking scheme is written). When true, the marking guidance is asked
  *   for in the actual GES/WAEC convention per question type: point-by-point
  *   mark allocation for structured questions, a banded Level 1/2/3 rubric
  *   for essay questions, and a one-line rationale (why the key is right and
- *   each distractor is wrong) for objective questions — not just "A is
+ *   each distractor is wrong) for objective questions - not just "A is
  *   correct."
- * @param {Object} section — the single { id, label, type, questionCount, marksPerQuestion }
- * @param {Boolean} isFirstSection — whether to also request the paper-level
+ * @param {Object} section - the single { id, label, type, questionCount, marksPerQuestion }
+ * @param {Boolean} isFirstSection - whether to also request the paper-level
  *   "title" and "instructions" fields (only needed once)
  */
 export function buildSectionPrompt(cfg, section, isFirstSection) {
@@ -157,28 +157,28 @@ export function buildSectionPrompt(cfg, section, isFirstSection) {
 
   const topicLine = topics.length
     ? topics.join("; ")
-    : (pastedSyllabus ? "(see pasted syllabus below)" : "(no specific topics supplied — use standard scope for the class/subject)");
+    : (pastedSyllabus ? "(see pasted syllabus below)" : "(no specific topics supplied - use standard scope for the class/subject)");
 
   const sectionMarks = (Number(section.questionCount) || 0) * (Number(section.marksPerQuestion) || 0);
 
   const paperLevelFields = isFirstSection ? `
-  "title": string,                     // e.g. "MID-TERM EXAMINATION" — only on the first section
-  "instructions": string[],            // top-of-paper instructions — only on the first section` : "";
+  "title": string,                     // e.g. "MID-TERM EXAMINATION" - only on the first section
+  "instructions": string[],            // top-of-paper instructions - only on the first section` : "";
 
   const markingGuideFieldDoc = includeMarkingScheme
-    ? `"markingGuide": string           // REQUIRED, professional marking scheme — see MARKING SCHEME RULES below for the exact format by question type`
-    : `"markingGuide": ""               // marking scheme was NOT requested for this paper — always return an empty string here, do not write any marking guidance`;
+    ? `"markingGuide": string           // REQUIRED, professional marking scheme - see MARKING SCHEME RULES below for the exact format by question type`
+    : `"markingGuide": ""               // marking scheme was NOT requested for this paper - always return an empty string here, do not write any marking guidance`;
 
   const markingRulesBlock = includeMarkingScheme ? `
-MARKING SCHEME RULES (GES/WAEC convention — "markingGuide" must follow the format for this section's type)
-${section.type === "objective" ? `- Objective: one line stating the correct option's letter, then a brief clause on why it's correct AND a brief clause on why each of the other three options is a plausible-but-wrong distractor (e.g. "B is correct — mitochondria release energy via respiration. A is wrong because...; C confuses...; D confuses...").` : ""}${section.type === "structured" ? `- Structured: a POINT-BY-POINT breakdown that allocates every mark to a specific idea, step, or fact — never a vague paragraph. Format each part as a short list, e.g. "(a) [1] correct formula stated; [1] correct substitution; [1] correct final answer with unit." State any acceptable alternative methods/answers, and note common wrong answers that must NOT receive credit even if superficially similar.` : ""}${section.type === "essay" ? `- Essay: a BANDED RUBRIC with 3 levels matching WAEC/GES essay-marking convention, each with a mark range and a one-sentence descriptor of what that band's response looks like, e.g. "Level 1 (1-${Math.ceil(section.marksPerQuestion*0.3)}): superficial response, little relevant content. Level 2 (${Math.ceil(section.marksPerQuestion*0.3)+1}-${Math.ceil(section.marksPerQuestion*0.7)}): relevant content with some development, limited critical engagement. Level 3 (${Math.ceil(section.marksPerQuestion*0.7)+1}-${section.marksPerQuestion}): well-developed, critically engaged, addresses the question fully." Then list 3-5 specific content points a strong answer would include.` : ""}
-- Every marking guide must be specific enough that a different teacher, reading only the marking guide, could mark a pupil's script consistently — vague guidance like "award marks for a good answer" is not acceptable.` : `
+MARKING SCHEME RULES (GES/WAEC convention - "markingGuide" must follow the format for this section's type)
+${section.type === "objective" ? `- Objective: one line stating the correct option's letter, then a brief clause on why it's correct AND a brief clause on why each of the other three options is a plausible-but-wrong distractor (e.g. "B is correct - mitochondria release energy via respiration. A is wrong because...; C confuses...; D confuses...").` : ""}${section.type === "structured" ? `- Structured: a POINT-BY-POINT breakdown that allocates every mark to a specific idea, step, or fact - never a vague paragraph. Format each part as a short list, e.g. "(a) [1] correct formula stated; [1] correct substitution; [1] correct final answer with unit." State any acceptable alternative methods/answers, and note common wrong answers that must NOT receive credit even if superficially similar.` : ""}${section.type === "essay" ? `- Essay: a BANDED RUBRIC with 3 levels matching WAEC/GES essay-marking convention, each with a mark range and a one-sentence descriptor of what that band's response looks like, e.g. "Level 1 (1-${Math.ceil(section.marksPerQuestion*0.3)}): superficial response, little relevant content. Level 2 (${Math.ceil(section.marksPerQuestion*0.3)+1}-${Math.ceil(section.marksPerQuestion*0.7)}): relevant content with some development, limited critical engagement. Level 3 (${Math.ceil(section.marksPerQuestion*0.7)+1}-${section.marksPerQuestion}): well-developed, critically engaged, addresses the question fully." Then list 3-5 specific content points a strong answer would include.` : ""}
+- Every marking guide must be specific enough that a different teacher, reading only the marking guide, could mark a pupil's script consistently - vague guidance like "award marks for a good answer" is not acceptable.` : `
 MARKING SCHEME RULES
-- The teacher requested QUESTIONS ONLY for this paper — do not write a marking guide, model answer, or point allocation of any kind. Leave "markingGuide" as an empty string "" for every question. Still set "marks" on each question/part normally (the mark allocation itself is part of the question paper, not the marking scheme).`;
+- The teacher requested QUESTIONS ONLY for this paper - do not write a marking guide, model answer, or point allocation of any kind. Leave "markingGuide" as an empty string "" for every question. Still set "marks" on each question/part normally (the mark allocation itself is part of the question paper, not the marking scheme).`;
 
-  return `You are an expert examiner writing ONE SECTION of a ${examType} for a Ghana Education Service (GES/NaCCA) school. Other sections are generated separately — write ONLY this section's questions, nothing else.
+  return `You are an expert examiner writing ONE SECTION of a ${examType} for a Ghana Education Service (GES/NaCCA) school. Other sections are generated separately - write ONLY this section's questions, nothing else.
 
-Return ONLY valid JSON — no markdown fences, no commentary — matching exactly this shape:
+Return ONLY valid JSON - no markdown fences, no commentary - matching exactly this shape:
 
 {${paperLevelFields}
   "section": {
@@ -197,7 +197,7 @@ Return ONLY valid JSON — no markdown fences, no commentary — matching exactl
         "diagram": {
           "needed": boolean,
           "description": string,
-          "generatable": boolean,      // true ONLY if this is a clean geometric/graph/number-line/coordinate-plane figure you can draw precisely in SVG (e.g. a triangle with labelled sides, a bar chart, a number line, a coordinate grid). false for anything needing real-world illustration (a labelled diagram of a plant cell, a map, a photo-realistic scene) — those get a text placeholder for the teacher to fill in.
+          "generatable": boolean,      // true ONLY if this is a clean geometric/graph/number-line/coordinate-plane figure you can draw precisely in SVG (e.g. a triangle with labelled sides, a bar chart, a number line, a coordinate grid). false for anything needing real-world illustration (a labelled diagram of a plant cell, a map, a photo-realistic scene) - those get a text placeholder for the teacher to fill in.
           "svg": string|null           // if generatable=true: a COMPLETE, valid, self-contained <svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg">...</svg> string using only black/white/greyscale strokes (this prints on paper), with all labels as <text> elements. If generatable=false, this must be null.
         } | null,
         "cognitiveLevel": "Recall"|"Application"|"Critical Thinking",
@@ -213,7 +213,7 @@ SECTION PARAMETERS
   Topics: ${topicLine}
   ${pastedSyllabus ? `Pasted syllabus/reference text (authoritative scope):\n"""\n${pastedSyllabus}\n"""` : ""}
   Difficulty: ${difficulty} | Language style: ${languageStyle === "Simple" ? "simple and clear" : languageStyle === "Advanced" ? "advanced academic wording" : "balanced"} | Cognitive levels: ${cognitiveLevels.join(", ")}
-  Diagrams: ${allowDiagrams ? "allowed — see the diagram schema notes above; only set generatable=true when you can actually draw it precisely" : "do not request diagrams (set needed=false on every question)"}
+  Diagrams: ${allowDiagrams ? "allowed - see the diagram schema notes above; only set generatable=true when you can actually draw it precisely" : "do not request diagrams (set needed=false on every question)"}
 
 THIS SECTION MUST HAVE EXACTLY ${section.questionCount} question(s), ${section.marksPerQuestion} mark(s) each (${sectionMarks} marks total for this section).
 
@@ -221,11 +221,12 @@ STRICT RULES
 1. Formal exam register, no chatty tone, no emoji.
 2. Number questions 1..${section.questionCount} within this section only.
 3. Use "a","b","c" for parts and "i","ii","iii" for sub-parts.
-4. Every question must map to the supplied topics/syllabus — never invent off-syllabus content.
+4. Every question must map to the supplied topics/syllabus - never invent off-syllabus content.
 5. No repeated questions within this section.
 6. Objective questions: exactly 4 options, one correct, three plausible distractors.
 7. Marks per question (and parts, if used) must sum to the requested total.
 8. Output nothing but the JSON object.
+9. Never use em dashes (the long dash character) anywhere in the paper. Use commas, full stops, colons or brackets instead.
 ${markingRulesBlock}`;
 }
 
@@ -237,20 +238,20 @@ const OPT_LETTERS = ["A", "B", "C", "D", "E", "F"];
    ──────────────────────────────────────────────────────────────── */
 
 /**
- * @param {Object} examData  — parsed JSON matching the schema above
- * @param {Object} meta      — { schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages: {questionNumber: dataURL} }
+ * @param {Object} examData  - parsed JSON matching the schema above
+ * @param {Object} meta      - { schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages: {questionNumber: dataURL} }
  * @param {"paper"|"answerKey"} mode
  */
 /**
  * Produces a shuffled variant of an already-generated exam for anti-cheating
- * "Version A / B / C" papers — standard practice in real invigilated exams.
+ * "Version A / B / C" papers - standard practice in real invigilated exams.
  * No extra AI call needed: this reorders questions within each section and
  * reorders MCQ options, deterministically from a seed so the same version
  * letter always produces the same shuffle (reproducible if regenerated).
  *
- * @param {Object} examData — the generated exam (unmodified)
- * @param {String} seed — anything stable, e.g. "B" or "version-2"
- * @returns {Object} a new examData with shuffled order — the original is untouched
+ * @param {Object} examData - the generated exam (unmodified)
+ * @param {String} seed - anything stable, e.g. "B" or "version-2"
+ * @returns {Object} a new examData with shuffled order - the original is untouched
  */
 export function createExamVariant(examData, seed) {
   const rng = seededRandom(seed);
@@ -321,7 +322,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     const img = diagramImages[q.number];
     // Priority: teacher-uploaded image > AI-generated SVG (geometric/graph figures
     // the model can draw precisely) > text placeholder (anything needing real
-    // illustration — a cell diagram, a map — that a human should supply).
+    // illustration - a cell diagram, a map - that a human should supply).
     if (img) {
       return `<div class="diagram-box"><img src="${img}" alt="Diagram for question ${q.number}" class="diagram-img"/></div>`;
     }
@@ -384,18 +385,18 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
       return `
         <div class="answer-page">
           <h2>MARKING SCHEME</h2>
-          <p class="no-marking-scheme">This paper was generated in <b>Questions Only</b> mode — no answer key or marking
+          <p class="no-marking-scheme">This paper was generated in <b>Questions Only</b> mode - no answer key or marking
           scheme was requested. Regenerate with "Questions + Marking Scheme" enabled to get one.</p>
         </div>`;
     }
     return `
       <div class="answer-page">
         ${key.length ? `
-        <h2>SECTION A — ANSWER KEY</h2>
+        <h2>SECTION A: ANSWER KEY</h2>
         <div class="key-grid">
           ${key.map(k => `<div class="key-cell"><b>${k.number}.</b> ${esc(k.answer)}</div>`).join("")}
         </div>` : ""}
-        <h2>MARKING SCHEME — SECTIONS B &amp; C</h2>
+        <h2>MARKING SCHEME - SECTIONS B &amp; C</h2>
         ${(examData.sections || []).filter(s => s.type !== "objective").map(s => `
           <h3>${esc(s.label)}</h3>
           ${(s.questions || []).map(q => `
@@ -413,7 +414,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
         ${schoolLogo ? `<img src="${schoolLogo}" alt="School logo" class="school-logo"/>` : ""}
         <div class="school-name">${esc(schoolName || "________________________________")}</div>
       </div>
-      <div class="exam-title">${esc(examData.title || examType.toUpperCase())}${examVersion ? ` <span class="exam-version">— VERSION ${esc(examVersion)}</span>` : ""}</div>
+      <div class="exam-title">${esc(examData.title || examType.toUpperCase())}${examVersion ? ` <span class="exam-version">- VERSION ${esc(examVersion)}</span>` : ""}</div>
       <table class="meta-table">
         <tr>
           <td><b>Subject:</b> ${esc(subject)}</td>
@@ -434,14 +435,14 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const body = mode === "answerKey"
     ? renderAnswerKey()
     : `${headerBlock}${(examData.sections || []).map(renderSection).join("")}
-       <div class="end-mark">— END OF PAPER —</div>`;
+       <div class="end-mark">- END OF PAPER -</div>`;
 
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${esc(examData.title || examType)} — ${esc(subject)}</title>
+<title>${esc(examData.title || examType)} - ${esc(subject)}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; }
@@ -525,7 +526,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
  * Minimal safety check on AI-returned SVG before it's ever rendered: must be
  * a well-formed <svg> root, reasonably sized, and contain none of the tags
  * that could execute script or load external content in a print window
- * (script/foreignObject/iframe/image with an http(s) href — external image
+ * (script/foreignObject/iframe/image with an http(s) href - external image
  * refs would silently fail offline and are also an easy injection vector).
  * Anything that fails this check is treated as "not generatable" and falls
  * back to the text placeholder instead of being rendered.
@@ -555,12 +556,12 @@ export function validateExamData(examData, expectedSections = []) {
     const gotCount = questions.length;
     if (gotCount !== Number(exp.questionCount)) {
       errors.push(`Section ${exp.id} expected ${exp.questionCount} question(s), got ${gotCount}.`);
-      return; // question-count mismatch makes the marks check below meaningless — skip it
+      return; // question-count mismatch makes the marks check below meaningless - skip it
     }
 
     // Marks-integrity check: catches a model that generates the right NUMBER
     // of questions but gets the arithmetic wrong (e.g. a 10-mark question
-    // whose parts sum to 8) — a subtler failure than truncation, but just as
+    // whose parts sum to 8) - a subtler failure than truncation, but just as
     // damaging on a real exam paper, since a wrong total means a teacher
     // has to hand-fix the mark scheme before they can use it.
     const expectedSectionMarks = Number(exp.questionCount) * Number(exp.marksPerQuestion);
@@ -577,7 +578,7 @@ export function validateExamData(examData, expectedSections = []) {
       }
     });
   });
-  // Sanitize any diagram SVGs in place — untrusted model output never reaches print.
+  // Sanitize any diagram SVGs in place - untrusted model output never reaches print.
   (examData.sections || []).forEach(s => (s.questions || []).forEach(q => {
     if (q.diagram?.svg && !isSafeGeneratedSVG(q.diagram.svg)) {
       q.diagram.generatable = false;

@@ -127,7 +127,7 @@ export const GHANAIAN_LANGUAGE_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 4: B7.1.4 CHIEFTAINCY — INSTALLMENT AND DESTOOLMENT",
+          name: "Sub-Strand 4: B7.1.4 CHIEFTAINCY - INSTALLMENT AND DESTOOLMENT",
           contentStandards: [
             {
               code: "B7.1.4.1",
@@ -264,7 +264,7 @@ export const GHANAIAN_LANGUAGE_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 3: B7.2.3 SPEECH SOUNDS — VOWELS, CONSONANTS AND SYLLABLES",
+          name: "Sub-Strand 3: B7.2.3 SPEECH SOUNDS - VOWELS, CONSONANTS AND SYLLABLES",
           contentStandards: [
             {
               code: "B7.2.3.1",
@@ -342,7 +342,7 @@ export const GHANAIAN_LANGUAGE_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 6: B7.2.6 PRESENTATION — EVERYDAY EXPERIENCE",
+          name: "Sub-Strand 6: B7.2.6 PRESENTATION - EVERYDAY EXPERIENCE",
           contentStandards: [
             {
               code: "B7.2.6.1",
@@ -421,7 +421,7 @@ export const GHANAIAN_LANGUAGE_CURRICULUM = {
       strand: "Strand 4: B7.4 LANGUAGE AND USAGE",
       subStrands: [
         {
-          name: "Sub-Strand 1: B7.4.1 SENTENCES — SIMPLE, COMPOUND AND COMPLEX",
+          name: "Sub-Strand 1: B7.4.1 SENTENCES - SIMPLE, COMPOUND AND COMPLEX",
           contentStandards: [
             {
               code: "B7.4.1.1",
@@ -705,7 +705,7 @@ export const GHANAIAN_LANGUAGE_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: B8.1.2 NAMING SYSTEMS — FAMILY NAMES, KINSHIP TERMS, PROVERBIAL AND INSINUATION NAMES",
+          name: "Sub-Strand 2: B8.1.2 NAMING SYSTEMS - FAMILY NAMES, KINSHIP TERMS, PROVERBIAL AND INSINUATION NAMES",
           contentStandards: [
             {
               code: "B8.1.2.1",
@@ -893,7 +893,7 @@ export const GHANAIAN_LANGUAGE_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 6: B8.2.6 PRESENTATION — EVERYDAY EXPERIENCE",
+          name: "Sub-Strand 6: B8.2.6 PRESENTATION - EVERYDAY EXPERIENCE",
           contentStandards: [
             {
               code: "B8.2.6.1",
@@ -1150,7 +1150,7 @@ export const GHANAIAN_LANGUAGE_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: B9.1.2 NAMING SYSTEMS — CIRCUMSTANTIAL, REINCARNATION, DEITY NAMES",
+          name: "Sub-Strand 2: B9.1.2 NAMING SYSTEMS - CIRCUMSTANTIAL, REINCARNATION, DEITY NAMES",
           contentStandards: [
             {
               code: "B9.1.2.1",

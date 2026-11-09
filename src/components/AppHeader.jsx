@@ -1,5 +1,5 @@
 /**
- * AppHeader — sticky top bar, same look as the Lesson Planner's header:
+ * AppHeader - sticky top bar, same look as the Lesson Planner's header:
  *   Left   Eduformium wordmark + tagline
  *   Right  Sign In (signed out)  |  credits + Topup + avatar menu (signed in)
  *
@@ -113,7 +113,7 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                   }}>Topup</button>
                 </div>
 
-                {/* Mobile: one compact tappable chip — never wraps */}
+                {/* Mobile: one compact tappable chip - never wraps */}
                 <button className="qh-credits-mobile" onClick={onTopUp} aria-label={`${credits} credits. Tap to top up`} style={{
                   alignItems: "center", gap: 5, height: 32, padding: "0 6px 0 9px", borderRadius: 99,
                   border: "1px solid var(--tag-border)", background: "var(--accent-soft)", cursor: "pointer",

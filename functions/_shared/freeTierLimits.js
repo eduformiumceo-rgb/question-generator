@@ -4,13 +4,13 @@
  * Single source of truth for the Free Quiz tier's caps, so the client
  * (form validation, UI copy, ExamStructureBuilder's locked-section
  * display) and the server (functions/api/generate-exam.js's actual
- * enforcement) can never silently drift apart — which is exactly the
+ * enforcement) can never silently drift apart - which is exactly the
  * kind of bug that's invisible until a teacher hits a confusing
  * rejection the UI never warned them about.
  *
  * Duplicated (not imported) into functions/_shared/freeTierLimits.js
  * for the same cross-boundary-bundler reason as moderation.js and
- * examPrompt.js — keep both copies identical if you change either.
+ * examPrompt.js - keep both copies identical if you change either.
  * ─────────────────────────────────────────────────────────────────
  */
 

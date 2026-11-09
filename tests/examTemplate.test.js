@@ -131,7 +131,7 @@ describe("validateExamData", () => {
 
   it("flags a section whose question marks don't sum to the declared total", () => {
     const broken = JSON.parse(JSON.stringify(SAMPLE_EXAM));
-    broken.sections[0].questions[0].marks = 3; // was 1 — section A total is now 7, not 5
+    broken.sections[0].questions[0].marks = 3; // was 1 - section A total is now 7, not 5
     const { ok, errors } = validateExamData(broken, SECTIONS);
     expect(ok).toBe(false);
     expect(errors.some(e => e.includes("marks don't add up"))).toBe(true);
@@ -280,7 +280,7 @@ describe("createExamVariant", () => {
     variant.answerKey.forEach(k => expect(k.number).toBeGreaterThanOrEqual(1));
   });
 
-  it("is deterministic — the same seed always produces the same shuffle", () => {
+  it("is deterministic - the same seed always produces the same shuffle", () => {
     const v1 = createExamVariant(SAMPLE_EXAM, "B");
     const v2 = createExamVariant(SAMPLE_EXAM, "B");
     expect(v1.sections[0].questions.map(q => q.text)).toEqual(v2.sections[0].questions.map(q => q.text));

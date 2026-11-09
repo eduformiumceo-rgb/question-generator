@@ -7,7 +7,7 @@ export default defineConfig({
     outDir: "dist",
     // Your curriculum data (src/shs, src/jhs, src/primary, src/kg) is ~16.5MB
     // total and eagerly imported by curriculumIndex.js. Raising this just
-    // silences Vite's chunk-size warning — it does NOT fix the underlying
+    // silences Vite's chunk-size warning - it does NOT fix the underlying
     // bundle-size issue the README already flagged. Splitting curriculum
     // data to load per-level is a real follow-up, not solved here.
     chunkSizeWarningLimit: 4000,

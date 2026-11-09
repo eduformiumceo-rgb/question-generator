@@ -2,15 +2,15 @@
  * TopicSelector
  * Curriculum + Topics step of the exam wizard. GES-only, by design.
  *
- * Flow order — CLASS FIRST, then Subject — matches the real Lesson
+ * Flow order - CLASS FIRST, then Subject - matches the real Lesson
  * Planner's CurriculumSelector exactly, verified against src/App.jsx
  * before building this, not guessed:
  *   - ALL_CLASSES is a static, grouped list (Kindergarten / Lower Primary /
  *     Upper Primary / Junior High School / Senior High School), shown
- *     unconditionally as Step 1 — same grouping, same order as the real app.
+ *     unconditionally as Step 1 - same grouping, same order as the real app.
  *   - Subject only appears once a class is chosen, and the subject list is
  *     FILTERED to that class: `SUPPORTED_SUBJECTS.filter(s =>
- *     getSupportedClasses(s).includes(className))` — the real app's exact
+ *     getSupportedClasses(s).includes(className))` - the real app's exact
  *     line, not a new lookup function (curriculumIndex.js has no
  *     class-first lookup; the real app derives it client-side the same way).
  *   - Strand → Sub-Strand only appear once Subject is chosen, same
@@ -19,21 +19,21 @@
  * SCOPE NOTE, stated plainly: Senior High School classes are listed for
  * completeness (matching ALL_CLASSES), but SHS uses a materially different
  * two-tier Course→Subject curriculum structure in the real app (shsCourse/
- * shsSubject fields) that this component does not wire up — selecting an
+ * shsSubject fields) that this component does not wire up - selecting an
  * SHS class here falls through to the paste-syllabus fallback instead of a
  * strand/sub-strand picker. Wiring real SHS support (getSHSStrands/
  * getSHSSubStrands already exist in curriculumIndex.js) is a real, doable
  * next step, deliberately not rushed into this pass.
  *
  * Three layered ways to set scope, most-automatic first:
- *   1. "Load my Scheme of Learning" — pulls the teacher's own saved SOL
+ *   1. "Load my Scheme of Learning" - pulls the teacher's own saved SOL
  *      (or, failing that, aggregated weekly lesson plans) from the SAME
  *      Supabase `lesson_plans` table the Lesson Planner already writes to.
- *   2. Paste the scheme/syllabus directly — the fallback when #1 finds
+ *   2. Paste the scheme/syllabus directly - the fallback when #1 finds
  *      nothing, or for SHS (see scope note above).
- *   3. Manual multi-strand + multi-sub-strand picker — always available.
+ *   3. Manual multi-strand + multi-sub-strand picker - always available.
  *
- * IMPORTANT: curriculum data itself is still reused, never duplicated —
+ * IMPORTANT: curriculum data itself is still reused, never duplicated -
  *   import { SUPPORTED_SUBJECTS, getSupportedClasses, getStrands, getSubStrands }
  *     from "../curriculumIndex.js";
  */
@@ -58,7 +58,7 @@ const SHS_CLASSES = ["SHS 1", "SHS 2", "SHS 3"];
 export default function TopicSelector({
   subject, setSubject,
   className, setClassName,
-  term, // read-only here — used only to scope the SOL lookup
+  term, // read-only here - used only to scope the SOL lookup
   selectedTopics, setSelectedTopics,
   pastedSyllabus, setPastedSyllabus,
   onSuggestTopics,
@@ -78,7 +78,7 @@ export default function TopicSelector({
     return SUPPORTED_SUBJECTS.filter(s => getSupportedClasses(s).includes(className));
   }, [className, isSHS]);
 
-  // Reset downstream selections when class changes — a stale subject/strand
+  // Reset downstream selections when class changes - a stale subject/strand
   // pick from a different class would silently mis-scope the exam.
   useEffect(() => { setSubject(""); setSelectedStrands([]); setSelectedTopics([]); setSolStatus(null); }, [className]); // eslint-disable-line
   useEffect(() => { setSelectedStrands([]); setSelectedTopics([]); }, [subject]); // eslint-disable-line
@@ -141,10 +141,10 @@ export default function TopicSelector({
         Curriculum <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>(GES / NaCCA)</span>
       </h3>
       <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
-        Choose the class first — the subject list is filtered to what's actually taught at that level.
+        Choose the class first. The subject list is filtered to what's actually taught at that level.
       </p>
 
-      {/* -- STEP 1: Class — always shown first -- */}
+      {/* -- STEP 1: Class - always shown first -- */}
       <div style={{ marginBottom: className ? 20 : 0 }}>
         <label style={S.lbl}>Class *</label>
         <select value={className} onChange={e => setClassName(e.target.value)} style={S.sel}>
@@ -157,7 +157,7 @@ export default function TopicSelector({
         </select>
       </div>
 
-      {/* -- STEP 2: Subject — shown only once a class is chosen, filtered to that class -- */}
+      {/* -- STEP 2: Subject - shown only once a class is chosen, filtered to that class -- */}
       {className && !isSHS && (
         <div style={{ marginBottom: subject ? 20 : 0 }}>
           <label style={S.lbl}>Subject *</label>
@@ -171,7 +171,7 @@ export default function TopicSelector({
       {isSHS && (
         <div style={{ marginBottom: 4 }}>
           <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, background: "var(--accent-soft)", border: "1px solid var(--tag-border)", borderRadius: 10, padding: "10px 12px" }}>
-            SHS subject/strand selection isn't wired up here yet — type your subject and paste your syllabus below instead.
+            SHS subject/strand selection isn't wired up here yet. Type your subject and paste your syllabus below instead.
           </div>
           <div style={{ marginTop: 10 }}>
             <label style={S.lbl}>Subject *</label>
@@ -183,34 +183,32 @@ export default function TopicSelector({
       {subject && className && !isSHS && (
         <div style={{ marginTop: 20, marginBottom: 4 }}>
           <button type="button" onClick={loadScheme} disabled={solStatus?.loading} style={{ ...S.sm, opacity: solStatus?.loading ? 0.6 : 1 }}>
-            {solStatus?.loading ? "Checking your Scheme of Learning…" : "📋 Load my Scheme of Learning"}
+            {solStatus?.loading ? "Checking your Scheme of Learning…" : "Load my Scheme of Learning"}
           </button>
 
           {solStatus && !solStatus.loading && solStatus.source === "scheme_of_learning" && (
             <div style={{ ...S.err, background: "var(--accent-soft)", borderColor: "var(--tag-border)", color: "var(--accent)", marginTop: 10, marginBottom: 0 }}>
-              <span>✓</span>
               <span>
                 Loaded {solStatus.matchedCount} strand(s) from your saved Scheme of Learning
-                {solStatus.term ? ` (${solStatus.term})` : ""}. Review the selection below — add or remove anything before generating.
+                {solStatus.term ? ` (${solStatus.term})` : ""}. Review the selection below. Add or remove anything before generating.
               </span>
             </div>
           )}
           {solStatus && !solStatus.loading && solStatus.source === "weekly_plans_partial" && (
             <div style={{ ...S.err, marginTop: 10, marginBottom: 0 }}>
-              <span>⚠</span>
               <span>
-                No saved Scheme of Learning found — loaded strands from {solStatus.weeksFound} saved weekly lesson plan(s)
+                No saved Scheme of Learning found. Loaded strands from {solStatus.weeksFound} saved weekly lesson plan(s)
                 instead. This may not cover the whole term. Please double-check the selection below.
               </span>
             </div>
           )}
           {solStatus && !solStatus.loading && solStatus.source === "none" && (
             <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 8 }}>
-              No saved Scheme of Learning found — select strands manually below, or paste your scheme.
+              No saved Scheme of Learning found. Select strands manually below, or paste your scheme.
             </div>
           )}
           {solStatus?.error && (
-            <div style={{ ...S.err, marginTop: 10, marginBottom: 0 }}><span>⚠</span><span>{solStatus.error}</span></div>
+            <div style={{ ...S.err, marginTop: 10, marginBottom: 0 }}><span>{solStatus.error}</span></div>
           )}
         </div>
       )}
@@ -228,7 +226,7 @@ export default function TopicSelector({
                   background: active ? "var(--accent-soft)" : "var(--card-bg)",
                   color: active ? "var(--accent)" : "var(--text-secondary)",
                 }}>
-                  {active ? "✓ " : ""}{st.strand}
+                  {st.strand}
                 </button>
               );
             })}
@@ -242,7 +240,7 @@ export default function TopicSelector({
             <label style={{ ...S.lbl, marginBottom: 0 }}>Topics (Sub-Strands)</label>
             {onSuggestTopics && (
               <button type="button" onClick={handleSuggest} disabled={suggesting} style={{ ...S.sm, height: 30, fontSize: 11.5, opacity: suggesting ? 0.6 : 1 }}>
-                {suggesting ? "Suggesting…" : "✨ AI Suggest Topics"}
+                {suggesting ? "Suggesting…" : "AI Suggest Topics"}
               </button>
             )}
           </div>
@@ -260,7 +258,7 @@ export default function TopicSelector({
                       background: active ? "var(--accent-soft)" : "var(--card-bg)",
                       color: active ? "var(--accent)" : "var(--text-secondary)",
                     }}>
-                      {active ? "✓ " : ""}{name}
+                      {name}
                     </button>
                   );
                 })}
@@ -288,7 +286,6 @@ export default function TopicSelector({
 
       {className && !selectedTopics.length && !pastedSyllabus.trim() && (
         <div style={{ ...S.err, marginTop: 14, marginBottom: 0 }}>
-          <span>⚠</span>
           <span>Select at least one topic, or paste a syllabus, before generating.</span>
         </div>
       )}

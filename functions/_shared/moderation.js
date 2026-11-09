@@ -1,7 +1,7 @@
 /**
  * moderation.js
  * ─────────────────────────────────────────────────────────────────
- * Lightweight, fast, PRE-FLIGHT input screening — this is not a
+ * Lightweight, fast, PRE-FLIGHT input screening - this is not a
  * substitute for the AI's own judgement (Claude already declines to
  * generate genuinely harmful exam content), it's a cheap first line of
  * defence that:
@@ -12,7 +12,7 @@
  *
  * This file is intentionally duplicated (not imported across the
  * src/ ↔ functions/ boundary) because Cloudflare Pages Functions and
- * whatever bundler builds src/ may resolve module paths differently —
+ * whatever bundler builds src/ may resolve module paths differently -
  * duplicating ~30 lines is safer than a fragile cross-boundary import
  * that silently breaks in one runtime but not the other. Keep both
  * copies (this one and src/moderation.js) in sync if you edit either.
@@ -24,7 +24,7 @@ export const MAX_TOPIC_CHARS = 120;          // per individual topic string
 export const MAX_TOPICS = 40;                // topic list length
 export const MAX_SCHOOL_NAME_CHARS = 200;
 
-// Deliberately narrow and high-precision — this exists to catch obvious
+// Deliberately narrow and high-precision - this exists to catch obvious
 // abuse (hate speech, sexual content, requests to generate exam content
 // about self-harm/violence framed as "questions"), not to police normal
 // academic language. False positives on legitimate school topics are
@@ -38,7 +38,7 @@ const BLOCKED_PATTERNS = [
 ];
 
 /**
- * @param {Object} fields — { schoolName, pastedSyllabus, topics: string[] }
+ * @param {Object} fields - { schoolName, pastedSyllabus, topics: string[] }
  * @returns {{ ok: boolean, error?: string }}
  */
 export function screenExamInput(fields = {}) {
@@ -54,7 +54,7 @@ export function screenExamInput(fields = {}) {
     return { ok: false, error: `Too many topics selected (max ${MAX_TOPICS}).` };
   }
   if (topics.some(t => String(t).length > MAX_TOPIC_CHARS)) {
-    return { ok: false, error: "One of the topics is unusually long — please shorten it." };
+    return { ok: false, error: "One of the topics is unusually long. Please shorten it." };
   }
 
   const combined = [schoolName, pastedSyllabus, ...topics].join(" \n ");

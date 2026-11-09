@@ -2,14 +2,14 @@
  * ═══════════════════════════════════════════════════════════════════
  * functions/_shared/freeGeneration.js
  *
- * Free-tier AI calling strategy — mirrors functions/api/generate.js's
+ * Free-tier AI calling strategy - mirrors functions/api/generate.js's
  * proven rotation pattern (sequential key rotation, not parallel racing,
  * to spread the ~10 req/day per-key limit across the whole pool instead
  * of exhausting every key simultaneously; Groq fallback only once every
  * Gemini key is exhausted).
  *
  * Deliberately does NOT force Gemini's responseMimeType:"application/json"
- * here, matching generate.js's own choice — free-tier Groq fallback uses
+ * here, matching generate.js's own choice - free-tier Groq fallback uses
  * plain OpenAI-style chat completions with no JSON-mode guarantee, so
  * forcing strict JSON only on the Gemini leg would make behavior
  * inconsistent between the two legs of the same fallback chain. The
@@ -25,7 +25,7 @@
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const TEMPERATURE = 0.2;
-const MAX_KEY_SLOTS = 100; // matches generate.js — loop just skips any that aren't set
+const MAX_KEY_SLOTS = 100; // matches generate.js - loop just skips any that aren't set
 
 const GROQ_MODEL_CHAIN = [
   "llama-3.3-70b-versatile",
@@ -115,11 +115,11 @@ export async function callFreeAI(env, systemPrompt, userPrompt, maxTokens, timeo
     const shuffled = [...geminiKeys].sort(() => Math.random() - 0.5);
     for (let i = 0; i < shuffled.length; i++) {
       try {
-        if (i > 0) await new Promise(r => setTimeout(r, 300)); // stagger — avoid tripping per-key RPM
+        if (i > 0) await new Promise(r => setTimeout(r, 300)); // stagger - avoid tripping per-key RPM
         return await tryGemini(shuffled[i], systemPrompt, userPrompt, maxTokens, timeoutMs);
       } catch (err) {
         if (err.quota) continue; // try next key
-        continue; // other errors also just move on — free tier has no one key worth waiting on
+        continue; // other errors also just move on - free tier has no one key worth waiting on
       }
     }
   }
@@ -137,5 +137,5 @@ export async function callFreeAI(env, systemPrompt, userPrompt, maxTokens, timeo
     }
   }
 
-  throw new Error("Free generation is temporarily at capacity — please try again in a few minutes, or use Premium.");
+  throw new Error("Free generation is temporarily at capacity. Please try again in a few minutes, or use Premium.");
 }

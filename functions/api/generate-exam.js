@@ -1,27 +1,27 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * Cloudflare Pages Function — EDUFORMIUM Questions Generator
- * FILE: functions/api/generate-exam.js   (v4 — shared wallet, Gemini, streaming, hardened)
+ * Cloudflare Pages Function - EDUFORMIUM Questions Generator
+ * FILE: functions/api/generate-exam.js   (v4 - shared wallet, Gemini, streaming, hardened)
  *
  * v4 correction: earlier versions of this app used a SEPARATE exam_credits
  * wallet. Per explicit direction, this app now shares the SAME `coins`
- * wallet as the Lesson Planner — a teacher with 200 coins there sees the
+ * wallet as the Lesson Planner - a teacher with 200 coins there sees the
  * same 200 (×30 for display, see note below) here immediately, no
  * separate top-up, no starting from zero. This file now reads/writes the
  * real `coins` table via the real `decrement_coins`/`increment_coins`
- * Postgres RPCs — copied from functions/api/generate-premium.js's own
+ * Postgres RPCs - copied from functions/api/generate-premium.js's own
  * deductCoins()/refundCoins(), including its exact error handling
  * ("insufficient_coins" text match) and its exact read-then-write
- * fallback if the RPC is ever missing — not reinvented.
+ * fallback if the RPC is ever missing - not reinvented.
  *
  * DISPLAY_CREDIT_MULTIPLIER: your real App.jsx multiplies the raw `coins`
  * balance by 30 before showing it to a teacher (a raw balance of 5 shows
- * as "150"). That multiplier is CLIENT-SIDE ONLY — this file always
+ * as "150"). That multiplier is CLIENT-SIDE ONLY - this file always
  * works in raw units, matching generate-premium.js exactly. The client
  * (QuestionsGenerator.jsx) applies ×30 only when rendering the number.
  *
  * v3 correction (still true): earlier versions of this file called the
- * Anthropic API. That was wrong — this codebase's actual AI provider is
+ * Anthropic API. That was wrong - this codebase's actual AI provider is
  * Google Gemini (gemini-3.6-flash for the paid/premium tier, per
  * generate-premium.js; gemini-2.5-flash + Groq fallback for the free
  * tier, per generate.js). This file calls the same gemini-3.6-flash
@@ -34,16 +34,16 @@
  *     enough that truncation is effectively eliminated, and a failed
  *     section can be retried without redoing the whole paper.
  *   - STREAMED response (newline-delimited JSON) so the client can show
- *     real per-section progress instead of one 30-45s blocking spinner —
+ *     real per-section progress instead of one 30-45s blocking spinner -
  *     directly addresses the "no lag on low-end Android" requirement,
  *     since perceived responsiveness matters as much as raw speed there.
- *   - RATE LIMITING off `exam_generations` timestamps — no new table needed.
+ *   - RATE LIMITING off `exam_generations` timestamps - no new table needed.
  *   - INPUT SCREENING via the shared moderation module before any credit
  *     is reserved or any AI call is made.
  *   - RETRY: each section gets up to 2 attempts before the whole
  *     generation is aborted and refunded.
  *
- * Same shared-Supabase-project / shared-JWT-secret pattern as before —
+ * Same shared-Supabase-project / shared-JWT-secret pattern as before -
  * see README_INTEGRATION.md for the full env var list.
  * ═══════════════════════════════════════════════════════════════════
  */
@@ -59,24 +59,29 @@ const AI_MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/ge
 // premium lesson = one AI call. This app makes one AI call per SECTION
 // (that's the whole point of the section-by-section reliability fix), so
 // at the same 0.5-per-call rate, a typical 2-3 section exam costs 1-1.5
-// units — matching real Ghana market economics: at COIN_PACKAGES' actual
+// units - matching real Ghana market economics: at COIN_PACKAGES' actual
 // GHS/coin rates (see functions/api/exam-payment), that's roughly
 // GHS 0.50-1.50 for a WHOLE CLASS's exam, versus GHS 25-55 PER STUDENT
 // from an external mock-exam vendor.
 const CREDIT_COST_PER_SECTION_WITH_MARKING = 0.5;
-const CREDIT_COST_PER_SECTION_QUESTIONS_ONLY = 0.35; // shorter output (no marking-guide prose) — genuinely cheaper to generate, priced accordingly
+const CREDIT_COST_PER_SECTION_QUESTIONS_ONLY = 0.35; // shorter output (no marking-guide prose) - genuinely cheaper to generate, priced accordingly
 
 // Free tier is deliberately a smaller "quiz" product, not a stripped-down
-// exam: capped section count/size, objective+structured only (no essay —
+// exam: capped section count/size, objective+structured only (no essay -
 // that's the most "premium"-feeling deliverable), and always Questions
 // Only (no marking scheme) regardless of what the client requests. This
 // keeps free-tier quota burn predictable (each section = 1 AI call against
 // a shared free-key pool) and gives free→paid a clear, honest value story.
-// Limits imported from freeTierLimits.js — single source of truth shared
+// Limits imported from freeTierLimits.js - single source of truth shared
 // with the client, so the two can't silently drift apart.
-const MAX_TOKENS_PER_SECTION = 4000; // small on purpose — see file header
-const SECTION_TIMEOUT_MS = 30000;
-const MAX_SECTION_ATTEMPTS = 2;
+// FIX: Gemini 2.5/3.x "thinking" tokens count against maxOutputTokens. At 4000 the
+// model could burn the whole budget thinking and return empty/truncated JSON, and
+// 30s was too short for a section with marking guide + SVG. Both made every
+// attempt fail, so the user saw a frozen bar and then the generic error.
+const MAX_TOKENS_PER_SECTION = 16000;
+const SECTION_TIMEOUT_MS = 90000;
+const FALLBACK_MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const MAX_SECTION_ATTEMPTS = 3;
 
 const RATE_LIMIT_SHORT = { windowSeconds: 120, max: 3 };   // 3 generations / 2 min
 const RATE_LIMIT_DAILY = { windowSeconds: 86400, max: 30 }; // 30 generations / day
@@ -126,12 +131,12 @@ async function requireUser(request, env) {
   return verifyJWT(token, env.JWT_SECRET);
 }
 
-/* ── SHARED coins wallet — same `coins` table, same RPCs as
+/* ── SHARED coins wallet - same `coins` table, same RPCs as
       generate-premium.js's deductCoins()/refundCoins()/getBalance(),
-      ported verbatim (not reimplemented) so behavior — including the
-      exact "insufficient_coins" and RPC-missing-fallback handling —
+      ported verbatim (not reimplemented) so behavior - including the
+      exact "insufficient_coins" and RPC-missing-fallback handling -
       matches byte-for-byte. deductCoins THROWS on failure (does not
-      return {ok:false}) — the caller below is written to match. ── */
+      return {ok:false}) - the caller below is written to match. ── */
 async function getBalance(env, userId) {
   try {
     const rows = await sb(env, `/coins?user_id=eq.${userId}&select=balance`);
@@ -174,7 +179,7 @@ async function deductCoins(env, userId, amount) {
     // Fallback: read-then-write
     const balance = await getBalance(env, userId);
     if (balance < amount) {
-      // Don't quote a raw balance here — the UI multiplies real balances by
+      // Don't quote a raw balance here - the UI multiplies real balances by
       // DISPLAY_CREDIT_MULTIPLIER (30x) before showing them to the user, and
       // that constant only exists client-side, so a raw number here would
       // show the wrong (much smaller) figure than what the user sees on screen.
@@ -208,7 +213,7 @@ async function refundCoins(env, userId, amount) {
   }
 }
 
-/* ── Rate limiting, off exam_generations timestamps — no new table ── */
+/* ── Rate limiting, off exam_generations timestamps - no new table ── */
 async function checkRateLimit(env, userId) {
   const now = Date.now();
   const shortSince = new Date(now - RATE_LIMIT_SHORT.windowSeconds * 1000).toISOString();
@@ -228,7 +233,7 @@ async function checkRateLimit(env, userId) {
   return { ok: true };
 }
 
-/** Free tier's own, stricter daily cap — separate from the general rate limit above. */
+/** Free tier's own, stricter daily cap - separate from the general rate limit above. */
 async function checkFreeTierLimit(env, userId) {
   const todaySince = new Date(Date.now() - 86400 * 1000).toISOString();
   const rows = await sb(env, `/exam_generations?user_id=eq.${userId}&tier=eq.free&created_at=gte.${todaySince}&select=id`);
@@ -255,10 +260,10 @@ async function logExamGeneration(env, userId, meta, creditCost, tier) {
   }).catch(() => {});
 
   // Also log into the SAME shared `/generations` table the Lesson Planner
-  // writes to (generate-premium.js's logGen / generate.js's equivalent) —
+  // writes to (generate-premium.js's logGen / generate.js's equivalent) -
   // this is what makes exam activity show up in the existing admin panel's
   // stats/activity views with zero admin-code changes. Uses "exam-premium"/
-  // "exam-free" as the tier value, NOT "premium"/"free" — the Lesson
+  // "exam-free" as the tier value, NOT "premium"/"free" - the Lesson
   // Planner's own free-tier daily-limit check filters this table on
   // tier=eq.free (see functions/api/generate.js), and reusing that exact
   // value would silently inflate a teacher's LESSON PLANNER free-tier count
@@ -275,7 +280,7 @@ async function logExamGeneration(env, userId, meta, creditCost, tier) {
   }).catch(() => {});
 }
 
-/* ── Extract text from Gemini response — Gemini 2.5+/3.x Flash may return
+/* ── Extract text from Gemini response - Gemini 2.5+/3.x Flash may return
       thinking tokens as separate parts with thought:true; collect only the
       non-thought parts. Identical logic to generate-premium.js's helper. ── */
 function extractGeminiText(data) {
@@ -291,14 +296,10 @@ function extractJSON(raw) {
   if (objMatch) cleaned = objMatch[0];
   return JSON.parse(cleaned);
 }
-async function callAI(env, systemPrompt, userPrompt, maxTokens, timeoutMs, expectJSON = true) {
-  if (!env.GEMINI_API_KEY) throw new Error("Server misconfigured: GEMINI_API_KEY not set for this environment.");
-  const res = await fetch(`${AI_MODEL_URL}?key=${env.GEMINI_API_KEY}`, {
+async function callGeminiOnce(url, env, systemPrompt, userPrompt, maxTokens, timeoutMs, expectJSON, withThinkingCap) {
+  const res = await fetch(`${url}?key=${env.GEMINI_API_KEY}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // AbortSignal cancels the network connection at the OS level when the timeout
-    // fires — matches generate-premium.js's withTimeout()/AbortSignal.timeout() pattern,
-    // so a timed-out request doesn't keep consuming the Worker's CPU slot.
     signal: AbortSignal.timeout(timeoutMs),
     body: JSON.stringify({
       system_instruction: { parts: [{ text: systemPrompt }] },
@@ -307,20 +308,53 @@ async function callAI(env, systemPrompt, userPrompt, maxTokens, timeoutMs, expec
         temperature: 0.2,
         maxOutputTokens: maxTokens,
         topP: 0.9,
-        // JSON mode — this app's prompts require strict structured output
-        // (exam schema), so unlike generate-premium.js's free-text lesson
-        // plans, constraining Gemini's own output format here meaningfully
-        // reduces malformed/truncated-JSON risk on top of the section-by-
-        // section splitting already in place.
         ...(expectJSON ? { responseMimeType: "application/json" } : {}),
+        // Keep thinking small so it can't eat the output budget.
+        ...(withThinkingCap ? { thinkingConfig: { thinkingBudget: 1024 } } : {}),
       },
     }),
   });
-  if (!res.ok) throw new Error(`AI provider returned HTTP ${res.status}`);
-  const data = await res.json();
+  const raw = await res.text();
+  let data = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch {}
+  if (!res.ok) {
+    const e = new Error(`AI provider HTTP ${res.status}: ${data?.error?.message || raw.slice(0, 300)}`);
+    e.status = res.status;
+    throw e;
+  }
+  const finish = data?.candidates?.[0]?.finishReason;
   const text = extractGeminiText(data);
-  if (!text) throw new Error("AI provider returned empty text");
+  if (!text) throw new Error(`AI provider returned empty text (finishReason=${finish || data?.promptFeedback?.blockReason || "unknown"})`);
+  if (finish === "MAX_TOKENS") throw new Error("AI output was cut off (MAX_TOKENS), JSON incomplete");
   return text;
+}
+
+async function callAI(env, systemPrompt, userPrompt, maxTokens, timeoutMs, expectJSON = true) {
+  if (!env.GEMINI_API_KEY) throw new Error("Server misconfigured: GEMINI_API_KEY not set for this environment.");
+  // Try: primary model → primary without thinking cap (if it rejected the field) → fallback model.
+  const plans = [
+    [AI_MODEL_URL, true],
+    [AI_MODEL_URL, false],
+    [FALLBACK_MODEL_URL, true],
+  ];
+  let lastErr;
+  for (const [url, cap] of plans) {
+    try {
+      return await callGeminiOnce(url, env, systemPrompt, userPrompt, maxTokens, timeoutMs, expectJSON, cap);
+    } catch (e) {
+      lastErr = e;
+      console.error(`[generate-exam] AI call failed (${url.split("/models/")[1]}, cap=${cap}):`, e.message);
+      // 400 = bad request shape (e.g. thinkingConfig unsupported) → next plan. 401/403 = key problem → stop.
+      if (e.status === 401 || e.status === 403) break;
+    }
+  }
+  throw lastErr;
+}
+
+/** Safety net: the model sometimes still emits em dashes despite the prompt rule. Swap them for plain punctuation. */
+function stripEmDashes(obj) {
+  const D = "\u2014";
+  return JSON.parse(JSON.stringify(obj).split(" " + D + " ").join(", ").split(D).join("-"));
 }
 
 /** Generates ONE section, retrying up to MAX_SECTION_ATTEMPTS on parse/shape failure. */
@@ -331,12 +365,12 @@ async function generateSection(env, cfg, section, isFirstSection, aiStrategy) {
     try {
       const prompt = buildSectionPrompt(cfg, section, isFirstSection);
       const raw = await aiStrategy(env, prompt, "Generate this section now, following every rule exactly. Return only the JSON object.", MAX_TOKENS_PER_SECTION, SECTION_TIMEOUT_MS);
-      const parsed = extractJSON(raw);
+      const parsed = stripEmDashes(extractJSON(raw));
       const questions = parsed.section?.questions;
       if (!parsed.section || !Array.isArray(questions) || questions.length !== Number(section.questionCount)) {
         throw new Error(`Section ${section.id} returned ${questions?.length ?? 0} question(s), expected ${section.questionCount}.`);
       }
-      // Marks-integrity check — same rule the client re-verifies with
+      // Marks-integrity check - same rule the client re-verifies with
       // validateExamData(), but checked HERE, before the section is
       // accepted, so a bad total triggers a retry instead of surfacing an
       // error to the teacher after credits have already been committed.
@@ -352,6 +386,7 @@ async function generateSection(env, cfg, section, isFirstSection, aiStrategy) {
       return parsed;
     } catch (e) {
       lastErr = e;
+      console.error(`[generate-exam] section ${section.id} attempt ${attempt}/${MAX_SECTION_ATTEMPTS} failed:`, e.message);
       if (attempt < MAX_SECTION_ATTEMPTS) continue;
     }
   }
@@ -398,7 +433,7 @@ async function handleSuggestTopics(body, env) {
 async function handleGenerateExamStreaming(body, env, user) {
   const { subject, className, sections, schoolName = "", pastedSyllabus = "", topics = [] } = body;
   const tier = body.tier === "free" ? "free" : "premium";
-  // Free tier always generates Questions Only — see FREE_TIER_* constants' comment for why.
+  // Free tier always generates Questions Only - see FREE_TIER_* constants' comment for why.
   const includeMarkingScheme = tier === "free" ? false : (body.includeMarkingScheme !== false);
 
   // ── Validation ──
@@ -434,10 +469,10 @@ async function handleGenerateExamStreaming(body, env, user) {
     if (!freeLimit.ok) return jsonResp({ error: freeLimit.message }, 429);
   }
 
-  // ── Deduct coins — free tier costs 0, nothing to deduct/refund ──
+  // ── Deduct coins - free tier costs 0, nothing to deduct/refund ──
   // Scales with section count = actual AI call count, matching how coins
   // scale with actual generations in the Lesson Planner (see cost comment
-  // above). Rounded to 2 decimals — the shared coins wallet already
+  // above). Rounded to 2 decimals - the shared coins wallet already
   // supports fractional amounts, same as the Lesson Planner's 0.5-coin
   // lessons (COINS_PER_LESSON in generate-premium.js).
   const perSectionRate = includeMarkingScheme ? CREDIT_COST_PER_SECTION_WITH_MARKING : CREDIT_COST_PER_SECTION_QUESTIONS_ONLY;
@@ -464,7 +499,13 @@ async function handleGenerateExamStreaming(body, env, user) {
           const section = sections[i];
           send({ type: "progress", sectionId: section.id, sectionLabel: section.label, index: i + 1, total: sections.length });
 
-          const result = await generateSection(env, bodyWithTierDefaults, section, i === 0, aiStrategy);
+          const ping = setInterval(() => { try { send({ type: "ping" }); } catch {} }, 8000);
+          let result;
+          try {
+            result = await generateSection(env, bodyWithTierDefaults, section, i === 0, aiStrategy);
+          } finally {
+            clearInterval(ping);
+          }
           if (i === 0) { examData.title = result.title || ""; examData.instructions = result.instructions || []; }
           examData.sections.push(result.section);
           if (section.type === "objective") {
@@ -491,7 +532,7 @@ async function handleGenerateExamStreaming(body, env, user) {
           type: "error",
           message: tier === "free"
             ? (err.message?.includes("temporarily at capacity") ? err.message : "Free generation failed. Please try again, or use Premium.")
-            : "Couldn't generate the exam. Please try again — you have not been charged.",
+            : "Couldn't generate the exam. Please try again. You have not been charged.",
           creditsRemaining,
         });
       } finally {
@@ -500,5 +541,5 @@ async function handleGenerateExamStreaming(body, env, user) {
     },
   });
 
-  return new Response(stream, { status: 200, headers: { "Content-Type": "application/x-ndjson; charset=utf-8" } });
+  return new Response(stream, { status: 200, headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" } });
 }

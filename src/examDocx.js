@@ -3,15 +3,15 @@
  * ─────────────────────────────────────────────────────────────────
  * Generates a real, valid .docx (Microsoft Word 2007+) file from the same
  * examData shape examTemplate.js's renderExamHTML() consumes. This is a
- * PARALLEL implementation, not a conversion of the HTML — Word's object
+ * PARALLEL implementation, not a conversion of the HTML - Word's object
  * model (paragraphs, runs, tables) doesn't map cleanly from print CSS, so
  * building it natively against the `docx` library is more reliable than
  * trying to convert HTML→Word after the fact.
  *
  * Uses the `docx` npm package (MIT licensed, works via any bundler in the
  * browser, producing a Blob instead of a Node Buffer). Verified against the
- * real library before writing this — including the tab-stop mark-alignment
- * and borderless-table MCQ-option-grid APIs used below — not assumed.
+ * real library before writing this - including the tab-stop mark-alignment
+ * and borderless-table MCQ-option-grid APIs used below - not assumed.
  *
  * Runs entirely client-side: no server round-trip, no extra AI call, no
  * extra credit cost. Same "your edits flow straight through to every
@@ -41,7 +41,7 @@ function marksRun(marks) {
 }
 
 function optionsTable(options) {
-  // Two-column borderless table — same layout intent as the HTML's .opt-grid.
+  // Two-column borderless table - same layout intent as the HTML's .opt-grid.
   const rows = [];
   for (let i = 0; i < options.length; i += 2) {
     rows.push(new TableRow({
@@ -107,7 +107,7 @@ function headerParagraphs(examData, meta) {
   const { schoolName = "", className = "", subject = "", term = "", examType = "Exam", durationMinutes = 60, examVersion = "" } = meta;
   return [
     new Paragraph({ heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, children: [new TextRun({ text: schoolName || "________________________________", bold: true })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `${examData.title || examType.toUpperCase()}${examVersion ? ` — VERSION ${examVersion}` : ""}`, bold: true })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `${examData.title || examType.toUpperCase()}${examVersion ? ` - VERSION ${examVersion}` : ""}`, bold: true })] }),
     new Paragraph({ children: [new TextRun(`Subject: ${subject}    Class: ${className}    Term: ${term}    Duration: ${durationMinutes} mins`)] }),
     new Paragraph({ spacing: { before: 150 }, children: [new TextRun({ text: "Instructions:", bold: true })] }),
     ...(examData.instructions || []).map((ins, i) => new Paragraph({ text: `${i + 1}. ${ins}`, indent: { left: 360 } })),
@@ -121,14 +121,14 @@ function answerKeyParagraphs(examData) {
   const hasAnyGuide = (examData.sections || []).some(s => (s.questions || []).some(q => q.markingGuide?.trim()));
   if (!key.length && !hasAnyGuide) {
     out.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("MARKING SCHEME")] }));
-    out.push(new Paragraph("This paper was generated in Questions Only mode — no answer key or marking scheme was requested."));
+    out.push(new Paragraph("This paper was generated in Questions Only mode, so no answer key or marking scheme was requested."));
     return out;
   }
   if (key.length) {
-    out.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("SECTION A — ANSWER KEY")] }));
+    out.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("SECTION A: ANSWER KEY")] }));
     out.push(new Paragraph(key.map(k => `${k.number}. ${k.answer}`).join("    ")));
   }
-  out.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300 }, children: [new TextRun("MARKING SCHEME — SECTIONS B & C")] }));
+  out.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300 }, children: [new TextRun("MARKING SCHEME: SECTIONS B & C")] }));
   (examData.sections || []).filter(s => s.type !== "objective").forEach(s => {
     out.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(s.label)] }));
     (s.questions || []).forEach(q => {
@@ -141,7 +141,7 @@ function answerKeyParagraphs(examData) {
 
 /**
  * @param {Object} examData
- * @param {Object} meta — same shape as renderExamHTML's meta
+ * @param {Object} meta - same shape as renderExamHTML's meta
  * @param {"paper"|"answerKey"} mode
  * @returns {Promise<Blob>} a real .docx file, ready to download
  */
@@ -151,7 +151,7 @@ export async function generateExamDocx(examData, meta = {}, mode = "paper") {
     : [
         ...headerParagraphs(examData, meta),
         ...(examData.sections || []).flatMap(sectionParagraphs),
-        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 300 }, children: [new TextRun({ text: "— END OF PAPER —", bold: true })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 300 }, children: [new TextRun({ text: "END OF PAPER", bold: true })] }),
       ];
 
   const doc = new Document({

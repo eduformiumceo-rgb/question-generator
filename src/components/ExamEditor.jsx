@@ -1,15 +1,15 @@
 /**
  * ExamEditor
- * Inline, structured editing of a generated exam — every question's text,
+ * Inline, structured editing of a generated exam - every question's text,
  * marks, MCQ options/correct answer, and marking guide are editable, and
  * every edit writes straight back into examData. Because print, PDF, Word
  * export, and Share all read from that same examData, an edit here
- * immediately flows into every export format — there's no separate
+ * immediately flows into every export format - there's no separate
  * "editable copy" to keep in sync.
  *
  * Deliberately a structured editor, not a freeform drag/resize canvas:
  * real exam-editing tools (Word, Google Docs, every mock-exam vendor) work
- * as an editable DOCUMENT — fix wording, adjust a mark, swap a distractor —
+ * as an editable DOCUMENT - fix wording, adjust a mark, swap a distractor -
  * not a design canvas with repositionable elements. A freeform canvas would
  * be solving a problem teachers don't actually have here.
  */
@@ -23,7 +23,7 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
         return { ...s, questions: s.questions.map((q, qi) => qi === qIdx ? { ...q, ...patch } : q) };
       }) };
       // Keep the top-level answerKey in sync if an objective question's
-      // correct option changed — the print/PDF/Word answer-key page reads
+      // correct option changed - the print/PDF/Word answer-key page reads
       // from examData.answerKey, not from re-deriving it on the fly.
       const objSection = next.sections.find(s => s.id === next.sections[sectionIdx].id);
       if (objSection?.type === "objective") {
@@ -51,7 +51,7 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
     <div style={S.card}>
       <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Edit Exam</h3>
       <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
-        Edit wording, marks, or options directly — every change here updates the print, PDF, Word, and share output immediately.
+        Edit wording, marks, or options directly. Every change here updates the print, PDF, Word, and share output immediately.
       </p>
 
       {examData.sections.map((section, sIdx) => (

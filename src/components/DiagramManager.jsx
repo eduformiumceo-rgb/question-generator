@@ -13,7 +13,7 @@
  */
 import React, { useRef } from "react";
 
-const MAX_DIAGRAM_BYTES = 1.5 * 1024 * 1024; // 1.5MB per image — print-friendly, keeps PDF export fast
+const MAX_DIAGRAM_BYTES = 1.5 * 1024 * 1024; // 1.5MB per image - print-friendly, keeps PDF export fast
 
 function fileToDataURL(file) {
   return new Promise((resolve, reject) => {
@@ -49,8 +49,8 @@ export default function DiagramManager({ questionsNeedingDiagrams, diagramImages
         Diagrams &amp; Images
       </h3>
       <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.55 }}>
-        The AI flagged these questions as needing a figure. Upload your own diagram for any of them —
-        otherwise a clean, print-friendly description box is used instead.
+        The AI flagged these questions as needing a figure. Upload your own diagram for any of them.
+        Otherwise a clean, print-friendly description box is used instead.
       </p>
 
       {questionsNeedingDiagrams.map(q => (
