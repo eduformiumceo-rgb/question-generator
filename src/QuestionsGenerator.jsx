@@ -41,6 +41,8 @@ import { getUser, getToken, completePendingGoogleSignIn, signOut } from "./auth.
 import AuthModal from "./AuthModal_upgraded.jsx";
 import { goToHubSignIn } from "./hubSignIn.js";
 import AppHeader from "./components/AppHeader.jsx";
+import SavedExams from "./components/SavedExams.jsx";
+import { ExamHistory, MAX_SAVED_EXAMS, metaForSave } from "./examHistory.js";
 import InstallPrompt from "./components/InstallPrompt.jsx";
 import { usePwaInstall } from "./pwaInstall.js";
 
@@ -279,6 +281,7 @@ function QuestionsGeneratorInner() {
   const [notice, setNotice] = useState(!!savedPrefs.notice);
   const [turnOver, setTurnOver] = useState(savedPrefs.turnOver !== false);
   const presetChosenByUser = useRef(!!savedPrefs.paperPreset);
+  const lastIdMode = useRef(null); // remembers Boxes/Line while the index-number switch is off
   const applyPreset = (id, byUser = true) => {
     const p = PAPER_PRESETS[id];
     if (!p) return;
@@ -325,6 +328,81 @@ function QuestionsGeneratorInner() {
     } catch { /* balance display is non-critical - fail quietly */ }
   }, []);
   React.useEffect(() => { fetchBalance(); }, [fetchBalance]);
+
+  // ── My Exams (saved papers) ────────────────────────────────────────────
+  // Same model as the Lesson Planner's "My Plans": every generated exam is
+  // saved automatically, up to MAX_SAVED_EXAMS per teacher; the server evicts
+  // the oldest on the next save so Supabase storage stays bounded.
+  const [view, setView] = useState("generate"); // "generate" | "saved"
+  const [savedCount, setSavedCount] = useState(null);
+  const [savedRefresh, setSavedRefresh] = useState(0);
+  const [openedMeta, setOpenedMeta] = useState(null); // header details of a paper re-opened from My Exams
+  const [saveToast, setSaveToast] = useState(null); // { type: "info" | "warn", msg }
+  const toastTimer = useRef(null);
+  const showSaveToast = (type, msg) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setSaveToast({ type, msg });
+    toastTimer.current = setTimeout(() => setSaveToast(null), 5000);
+  };
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+  const refreshSavedCount = useCallback(async () => {
+    try { if (getToken && getToken()) setSavedCount((await ExamHistory.list()).length); else setSavedCount(null); }
+    catch { /* count is a nicety - fail quietly */ }
+  }, []);
+  useEffect(() => { refreshSavedCount(); }, [refreshSavedCount, user]);
+
+  // Retry with backoff (1s, 2s) - teachers are often on unstable mobile data.
+  const saveExamToHistory = async (generated, metaToSave) => {
+    const entry = {
+      title: generated.title || `${metaToSave.subject || ""} ${metaToSave.examType || "Exam"}`.trim(),
+      subject: metaToSave.subject, class: metaToSave.className, exam_type: metaToSave.examType,
+      exam_json: generated, meta_json: metaToSave,
+    };
+    let lastErr;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const r = await ExamHistory.save(entry);
+        setSavedRefresh(n => n + 1);
+        const max = r?.max || MAX_SAVED_EXAMS;
+        const list = await ExamHistory.list().catch(() => null);
+        if (list) setSavedCount(list.length);
+        if (r?.deletedCount > 0) {
+          showSaveToast("warn", `${r.deletedCount > 1 ? `${r.deletedCount} oldest exams were` : "Your oldest exam was"} removed to make room. You can save up to ${max} exams.`);
+        } else if (list && list.length >= max - 1) {
+          showSaveToast("info", `${list.length} of ${max} exam slots used. Next save will remove your oldest exam.`);
+        } else {
+          showSaveToast("info", "Saved to My Exams.");
+        }
+        return;
+      } catch (e) {
+        lastErr = e;
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
+    }
+    console.error("[save exam] failed after retries:", lastErr);
+    showSaveToast("warn", "Couldn't save this exam to My Exams. It's still on screen, but won't be saved for later.");
+  };
+
+  const handleOpenSaved = async (id) => {
+    const row = await ExamHistory.get(id);
+    if (!row?.exam_json) throw new Error("That exam has no saved content.");
+    const m = row.meta_json || {};
+    setExamData(row.exam_json);
+    setExamVersion("A");
+    setExamHasMarkingScheme(m.hasMarkingScheme !== false);
+    setShowAnswerKey(false);
+    setEditMode(false);
+    setDiagramImages({}); // uploaded diagrams aren't stored (storage cap); AI-drawn ones live inside the exam itself
+    setOpenedMeta({
+      schoolName: m.schoolName, className: row.class || m.className, subject: row.subject || m.subject,
+      term: m.term, examType: row.exam_type || m.examType, durationMinutes: m.durationMinutes,
+      idMode: m.idMode, idDigits: m.idDigits, idLabel: m.idLabel, notice: m.notice, turnOver: m.turnOver, schoolMotto: m.schoolMotto,
+    });
+    if (typeof m.landscape === "boolean") setLandscape(m.landscape);
+    if (["vertical", "two", "row"].includes(m.optionsLayout)) setOptionsLayout(m.optionsLayout);
+    setView("generate");
+    window.scrollTo?.({ top: 0 });
+  };
 
   // "X/5 left" on the Free button - same proactive-remaining-count pattern
   // as the real App.jsx's Free button badge, not just a failure message.
@@ -412,6 +490,7 @@ function QuestionsGeneratorInner() {
     setLoading(true);
     setLoadingTier(tierArg);
     setExamData(null);
+    setOpenedMeta(null);
     setProgress({ index: 0, total: activeSections.length, sectionLabel: "", sectionsDone: new Set() });
     try {
       const payload = {
@@ -439,6 +518,8 @@ function QuestionsGeneratorInner() {
       setExamHasMarkingScheme(result.includeMarkingScheme !== false);
       setShowAnswerKey(false);
       setDiagramImages({});
+      // Save to My Exams in the background - never blocks showing the paper.
+      saveExamToHistory(result.examData, metaForSave(meta, { hasMarkingScheme: result.includeMarkingScheme !== false }));
       // Server already deducted from the shared coins wallet and returns the
       // fresh raw balance - trust that over a client-side guess so the
       // header never drifts from reality.
@@ -495,11 +576,13 @@ function QuestionsGeneratorInner() {
     return examVersion === "A" ? examData : createExamVariant(examData, examVersion);
   }, [examData, examVersion]);
 
+  const openedOverride = openedMeta ? Object.fromEntries(Object.entries(openedMeta).filter(([, v]) => v !== undefined && v !== null && v !== "")) : {};
   const meta = {
     schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages, schoolLogo, optionsLayout,
     examVersion: examVersion === "A" ? "" : examVersion,
     schoolMotto: schoolMotto.trim(), emblem, idMode, idDigits: clampIdDigits(idDigits), idLabel: idLabel.trim(),
     notice, noticeText: DEFAULT_NOTICE, turnOver,
+    ...openedOverride,
   };
 
   const [downloadingWord, setDownloadingWord] = useState(false);
@@ -607,16 +690,44 @@ function QuestionsGeneratorInner() {
       onSignOut={handleSignOut}
       canInstall={pwa.canReopen}
       onInstall={pwa.reopen}
+      savedCount={savedCount}
+      onOpenSaved={() => { setView("saved"); window.scrollTo?.({ top: 0 }); }}
     />
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px 16px 60px", fontFamily: F }}>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>
-          AI Questions Generator
-        </h1>
-        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>
-          Build a print-ready exam paper from your curriculum in minutes.
-        </p>
-      </div>
+      {view === "generate" && (
+        <div style={{ marginBottom: 22, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>
+              AI Questions Generator
+            </h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>
+              Build a print-ready exam paper from your curriculum in minutes.
+            </p>
+          </div>
+          <button type="button" style={S.sm} onClick={requireLogin(() => setView("saved"))}>
+            My Exams{savedCount ? ` (${savedCount})` : ""}
+          </button>
+        </div>
+      )}
+
+      {view === "saved" && (
+        <SavedExams
+          user={user} refreshKey={savedRefresh} S={S} F={F}
+          onOpen={handleOpenSaved}
+          onBack={() => setView("generate")}
+          onSignIn={() => setShowAuthModal(true)}
+          onCount={setSavedCount}
+        />
+      )}
+
+      {saveToast && (
+        <div role="status" style={{
+          position: "fixed", left: 12, right: 12, bottom: "max(16px, env(safe-area-inset-bottom, 16px))", margin: "0 auto", maxWidth: 420, zIndex: 200,
+          padding: "11px 14px", borderRadius: 12, fontFamily: F, fontSize: 13, lineHeight: 1.45,
+          background: "var(--card-bg)", color: saveToast.type === "warn" ? "var(--orange-text)" : "var(--text)",
+          border: `1px solid ${saveToast.type === "warn" ? "var(--orange-text)" : "var(--border-strong)"}`, boxShadow: "0 8px 24px rgba(0,0,0,.18)",
+        }}>{saveToast.msg}</div>
+      )}
 
       {showAuthModal && (
         <AuthModal
@@ -637,6 +748,8 @@ function QuestionsGeneratorInner() {
         />
       )}
 
+      {/* Wizard + result stay mounted (just hidden) while My Exams is open, so nothing the teacher typed is lost */}
+      <div style={{ display: view === "saved" ? "none" : undefined }}>
       {/* ── Curriculum + Topics (GES / NaCCA) - CLASS FIRST, matching
            the real Lesson Planner's flow exactly. Everything else in the
            form follows from this, so it comes first on the page too. ── */}
@@ -961,13 +1074,32 @@ function QuestionsGeneratorInner() {
               })}
               {paperPreset === "custom" && <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F }}>Custom</span>}
             </div>
+            {/* One clear switch for the index number; style/boxes/label only appear while it's on. */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", fontFamily: F }}>Include candidate index number</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>
+                  {idMode === "none" ? "Off: no index number on the paper." : "On: candidates write their index number at the top."}
+                </div>
+              </div>
+              <Toggle
+                checked={idMode !== "none"}
+                label="Include candidate index number"
+                onChange={(on) => {
+                  if (on) customise(setIdMode)(lastIdMode.current || (paperPreset === "public" ? "boxes" : "line"));
+                  else { if (idMode !== "none") lastIdMode.current = idMode; customise(setIdMode)("none"); }
+                }}
+              />
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, alignItems: "end" }}>
+              {idMode !== "none" && (
               <div>
-                <label style={{ ...S.lbl, marginBottom: 4 }}>Candidate ID</label>
+                <label style={{ ...S.lbl, marginBottom: 4 }}>Index number style</label>
                 <select value={idMode} onChange={e => customise(setIdMode)(e.target.value)} style={{ ...S.sel, minHeight: 40, padding: "8px 34px 8px 12px", fontSize: 13 }}>
-                  {ID_MODES.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                  {ID_MODES.filter(m => m.id !== "none").map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                 </select>
               </div>
+              )}
               {idMode === "boxes" && (
                 <div>
                   <label style={{ ...S.lbl, marginBottom: 4 }}>Boxes (digits)</label>
@@ -1008,6 +1140,7 @@ function QuestionsGeneratorInner() {
           )}
         </div>
       )}
+      </div>
     </div>
     </>
   );
