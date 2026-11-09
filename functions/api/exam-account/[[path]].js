@@ -8,6 +8,7 @@
  *   GET  /api/exam-account/history          → [{ id, title, subject, class, exam_type, created_at }]
  *   GET  /api/exam-account/history/:id      → full saved exam (exam_json + meta_json)
  *   POST /api/exam-account/history          → save a generated exam { title, subject, class, exam_type, exam_json, meta_json }
+ *   PUT  /api/exam-account/history/:id      → rename and/or save edits { title?, exam_json?, meta_json? }
  *   DEL  /api/exam-account/history/:id      → delete a saved exam
  *   DEL  /api/exam-account/history          → delete ALL of this user's saved exams ("Clear All")
  *   GET  /api/exam-account/free-usage       → { used, limit, remaining } - for the "X/5 left" badge on the Free button
@@ -34,7 +35,7 @@ function resolveEnv(raw, request) {
 function corsHeaders(env) {
   return {
     "Access-Control-Allow-Origin": env.ALLOWED_ORIGIN || "*",
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
 }
@@ -87,6 +88,7 @@ export async function onRequest(context) {
     else if (request.method === "GET" && path === "/sol-lookup") response = await lookupScheme(env, user, url);
     else if (request.method === "GET" && path === "/free-usage") response = await getFreeUsage(env, user);
     else if (request.method === "POST" && path === "/history") response = await saveHistory(request, env, user);
+    else if (request.method === "PUT" && path.startsWith("/history/")) response = await updateHistory(request, env, user, path.split("/")[2]);
     else if (request.method === "DELETE" && path === "/history") response = await clearHistory(env, user);
     else if (request.method === "DELETE" && path.startsWith("/history/")) response = await deleteHistory(env, user, path.split("/")[2]);
     else response = jsonResp({ error: "Not found." }, 404);
@@ -158,6 +160,23 @@ async function saveHistory(request, env, user) {
   const row = saved?.[0];
   if (!row) return jsonResp({ error: "Save failed." }, 500);
   return jsonResp({ id: row.id, created_at: row.created_at, deletedCount, max: MAX_EXAM_HISTORY_PER_USER });
+}
+
+async function updateHistory(request, env, user, id) {
+  if (!id) return jsonResp({ error: "Missing id." }, 400);
+  const body = await request.json();
+  const patch = {};
+  if (typeof body.title === "string") patch.title = (body.title.trim() || "Untitled Exam").slice(0, 200);
+  if (body.exam_json !== undefined) {
+    if (!body.exam_json || typeof body.exam_json !== "object") return jsonResp({ error: "Invalid exam data." }, 400);
+    if (JSON.stringify(body.exam_json).length > MAX_EXAM_JSON_BYTES) return jsonResp({ error: "This exam is too large to save." }, 413);
+    patch.exam_json = body.exam_json;
+  }
+  if (body.meta_json && typeof body.meta_json === "object") patch.meta_json = body.meta_json;
+  if (!Object.keys(patch).length) return jsonResp({ error: "Nothing to update." }, 400);
+  const rows = await sb(env, `/exam_history?id=eq.${id}&user_id=eq.${user.sub}`, { method: "PATCH", body: JSON.stringify(patch) });
+  if (!rows?.length) return jsonResp({ error: "That exam is no longer in My Exams." }, 404);
+  return jsonResp({ ok: true, id: rows[0].id, title: rows[0].title });
 }
 
 async function clearHistory(env, user) {

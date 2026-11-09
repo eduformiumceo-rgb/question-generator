@@ -37,6 +37,7 @@ export const ExamHistory = {
   list: async () => (await call())?.exams || [],
   get: (id) => call(`/${encodeURIComponent(id)}`),
   save: (entry) => call("", { method: "POST", body: JSON.stringify(entry) }), // → { id, deletedCount, max }
+  update: (id, patch) => call(`/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(patch) }),
   del: (id) => call(`/${encodeURIComponent(id)}`, { method: "DELETE" }),
   clear: () => call("", { method: "DELETE" }),
 };
