@@ -39,6 +39,44 @@ async function extractText(blob) {
   return buf;
 }
 
+// 1x1 transparent PNG - small but a genuinely valid image the docx library can embed.
+const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+// Count the pictures actually placed in the document body (not just stored in the zip).
+async function drawingCount(blob) {
+  const JSZip = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const xml = await zip.file("word/document.xml").async("string");
+  return (xml.match(/<w:drawing>/g) || []).length;
+}
+
+describe("question images in the Word export", () => {
+  const exam = (sIdx, qIdx, image) => {
+    const e = JSON.parse(JSON.stringify(SAMPLE_EXAM));
+    e.sections[sIdx].questions[qIdx].image = image;
+    return e;
+  };
+
+  it("embeds a picture for a question that was never flagged for a diagram", async () => {
+    const blob = await generateExamDocx(exam(0, 1, { src: PNG, size: "medium", caption: "Figure 1" }), META, "paper");
+    expect(await drawingCount(blob)).toBe(1);
+  });
+
+  it("embeds the picture once, not once per same-numbered question", async () => {
+    // Section A Q1 and Section B Q1 share number 1 - only the chosen one gets the picture.
+    const blob = await generateExamDocx(exam(1, 0, { src: PNG, size: "small", caption: "" }), META, "paper");
+    expect(await drawingCount(blob)).toBe(1);
+    expect(await drawingCount(await generateExamDocx(SAMPLE_EXAM, META, "paper"))).toBe(0);
+  });
+
+  it("accepts every size and falls back quietly on an unusable image", async () => {
+    for (const size of ["small", "medium", "large"]) {
+      expect(await drawingCount(await generateExamDocx(exam(0, 0, { src: PNG, size, caption: "Figure" }), META, "paper"))).toBe(1);
+    }
+    expect(await drawingCount(await generateExamDocx(exam(0, 0, { src: "not-an-image", size: "medium", caption: "" }), META, "paper"))).toBe(0);
+  });
+});
+
 describe("generateExamDocx", () => {
   it("produces a valid docx Blob with the correct MIME type", async () => {
     const blob = await generateExamDocx(SAMPLE_EXAM, META, "paper");

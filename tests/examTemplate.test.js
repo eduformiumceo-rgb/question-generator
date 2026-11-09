@@ -223,8 +223,62 @@ describe("renderExamHTML", () => {
   it("uses an uploaded diagram image over a placeholder when provided", () => {
     const withDiagram = JSON.parse(JSON.stringify(SAMPLE_EXAM));
     withDiagram.sections[0].questions[0].diagram = { needed: true, description: "A triangle", generatable: false, svg: null };
-    const html = renderExamHTML(withDiagram, { diagramImages: { 1: "data:image/png;base64,abc123" } }, "paper");
+    withDiagram.sections[0].questions[0].image = { src: "data:image/png;base64,abc123", size: "medium", caption: "" };
+    const html = renderExamHTML(withDiagram, {}, "paper");
     expect(html).toContain("data:image/png;base64,abc123");
+    expect(html).not.toContain("DIAGRAM: A triangle");
+  });
+
+  describe("question images", () => {
+    const IMG = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ";
+    const withImage = (sectionIdx, qIdx, image) => {
+      const e = JSON.parse(JSON.stringify(SAMPLE_EXAM));
+      e.sections[sectionIdx].questions[qIdx].image = image;
+      return e;
+    };
+
+    it("puts the image on ONLY the question it belongs to when two sections reuse the same number", () => {
+      // Section A question 1 and Section B question 1 both have number 1.
+      const exam = withImage(1, 0, { src: IMG, size: "medium", caption: "" });
+      const html = renderExamHTML(exam, {}, "paper");
+      expect(html.split(IMG).length - 1).toBe(1); // exactly one <img>
+      const idxImg = html.indexOf(IMG);
+      const idxSecB = html.indexOf("Section B: Structured");
+      expect(idxImg).toBeGreaterThan(idxSecB); // it is under Section B, not Section A
+    });
+
+    it("works on a question the AI never flagged for a diagram", () => {
+      const exam = withImage(0, 2, { src: IMG, size: "small", caption: "" });
+      expect(exam.sections[0].questions[2].diagram).toBeNull();
+      expect(renderExamHTML(exam, {}, "paper")).toContain(IMG);
+    });
+
+    it("applies the chosen size and renders an escaped caption", () => {
+      const exam = withImage(0, 0, { src: IMG, size: "large", caption: "Figure <1>" });
+      const html = renderExamHTML(exam, {}, "paper");
+      expect(html).toContain("max-height:300px");
+      expect(html).toContain("<figcaption>Figure &lt;1&gt;</figcaption>");
+      const small = renderExamHTML(withImage(0, 0, { src: IMG, size: "small", caption: "" }), {}, "paper");
+      expect(small).toContain("max-height:130px");
+      expect(small).not.toContain("<figcaption>");
+    });
+
+    it("never lets an unsafe image source reach the page", () => {
+      for (const bad of ['javascript:alert(1)', 'https://evil.example/x.png', 'data:image/svg+xml;base64,PHN2Zz4=', `${IMG}" onerror="alert(1)`]) {
+        const html = renderExamHTML(withImage(0, 0, { src: bad, size: "medium", caption: "" }), {}, "paper");
+        expect(html).not.toContain(bad);
+      }
+    });
+
+    it("keeps each picture on its question in a shuffled Version B", () => {
+      const exam = JSON.parse(JSON.stringify(SAMPLE_EXAM));
+      exam.sections[0].questions.forEach((q, i) => { q.image = { src: `data:image/png;base64,Q${i}Q${i}`, size: "medium", caption: `Fig ${i}` }; });
+      const variant = createExamVariant(exam, "B");
+      variant.sections[0].questions.forEach(q => {
+        const original = exam.sections[0].questions.find(o => o.text === q.text);
+        expect(q.image).toEqual(original.image);
+      });
+    });
   });
 
   it("falls back to a text placeholder when no image or SVG is available", () => {

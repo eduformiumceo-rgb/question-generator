@@ -255,7 +255,6 @@ function QuestionsGeneratorInner() {
   // ── Diagrams ─────────────────────────────────────────────────────
   const [allowDiagrams, setAllowDiagrams] = useState(true);
   const [includeMarkingScheme, setIncludeMarkingScheme] = useState(true);
-  const [diagramImages, setDiagramImages] = useState({}); // { [questionNumber]: dataURL }
 
   // ── Generation state ─────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -421,7 +420,6 @@ function QuestionsGeneratorInner() {
     setExamHasMarkingScheme(m.hasMarkingScheme !== false);
     setShowAnswerKey(false);
     setEditMode(false);
-    setDiagramImages({}); // uploaded diagrams aren't stored (storage cap); AI-drawn ones live inside the exam itself
     setOpenedMeta({
       schoolName: m.schoolName, className: row.class || m.className, subject: row.subject || m.subject,
       term: m.term, examType: row.exam_type || m.examType, durationMinutes: m.durationMinutes,
@@ -556,7 +554,6 @@ function QuestionsGeneratorInner() {
       setExamVersion("A");
       setExamHasMarkingScheme(result.includeMarkingScheme !== false);
       setShowAnswerKey(false);
-      setDiagramImages({});
       // Save to My Exams in the background - never blocks showing the paper.
       saveExamToHistory(result.examData, metaForSave(meta, { hasMarkingScheme: result.includeMarkingScheme !== false }));
       // Server already deducted from the shared coins wallet and returns the
@@ -601,11 +598,12 @@ function QuestionsGeneratorInner() {
   const questionsNeedingDiagrams = useMemo(() => {
     if (!examData) return [];
     const out = [];
-    (examData.sections || []).forEach(sec => (sec.questions || []).forEach(q => {
+    (examData.sections || []).forEach((sec, sIdx) => (sec.questions || []).forEach((q, qIdx) => {
       // Only prompt for a manual upload when the AI COULDN'T draw it itself
       // (generatable=false/no svg) - a clean AI-generated SVG needs no
-      // teacher action, though DiagramManager still lets them override it.
-      if (q.diagram?.needed && !(q.diagram.generatable && q.diagram.svg)) out.push(q);
+      // teacher action. Any other question can still get a picture from Edit.
+      // sIdx/qIdx identify the question: numbers restart in every section.
+      if (q.diagram?.needed && !(q.diagram.generatable && q.diagram.svg)) out.push({ sIdx, qIdx, section: sec, q });
     }));
     return out;
   }, [examData]);
@@ -618,7 +616,7 @@ function QuestionsGeneratorInner() {
 
   const openedOverride = openedMeta ? Object.fromEntries(Object.entries(openedMeta).filter(([, v]) => v !== undefined && v !== null && v !== "")) : {};
   const meta = {
-    schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages, schoolLogo, optionsLayout,
+    schoolName, className, subject, term, examType, durationMinutes, landscape, schoolLogo, optionsLayout,
     examVersion: examVersion === "A" ? "" : examVersion,
     schoolMotto: schoolMotto.trim(), emblem, idMode, idDigits: clampIdDigits(idDigits), idLabel: idLabel.trim(),
     notice, noticeText: DEFAULT_NOTICE, turnOver,
@@ -642,7 +640,7 @@ function QuestionsGeneratorInner() {
       } catch (e) { console.warn("Seal render skipped:", e); }
       for (const sec of activeExamData.sections || []) {
         for (const q of sec.questions || []) {
-          if (q.diagram?.needed && q.diagram.generatable && q.diagram.svg && !diagramImages[q.number]) {
+          if (q.diagram?.needed && q.diagram.generatable && q.diagram.svg && !q.image?.src) {
             try { docMeta.svgPngs[`${sec.id}:${q.number}`] = await svgToPngDataUrl(q.diagram.svg, 900); }
             catch (e) { console.warn("Diagram render skipped:", e); }
           }
@@ -1059,9 +1057,9 @@ function QuestionsGeneratorInner() {
       {/* ── Diagram uploads (post-generation) ──────────────────── */}
       {examData && (
         <DiagramManager
-          questionsNeedingDiagrams={questionsNeedingDiagrams}
-          diagramImages={diagramImages}
-          setDiagramImages={setDiagramImages}
+          items={questionsNeedingDiagrams}
+          examData={examData}
+          setExamData={setExamData}
           S={S} F={F}
         />
       )}

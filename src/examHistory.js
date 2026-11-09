@@ -23,13 +23,15 @@ async function call(path = "", opts = {}) {
 }
 
 /**
- * Only small, re-creatable settings are stored. The school logo and uploaded
- * diagram images are base64 data URLs (hundreds of KB each) - keeping them out
- * of the database is the whole point of the storage cap. The logo is already
- * remembered in this browser, so reopened papers pick it up again from there.
+ * Only small, re-creatable settings go in meta_json. The school logo is a
+ * base64 data URL - keeping it out of the database protects the storage cap,
+ * and it is already remembered in this browser, so reopened papers pick it up
+ * again from there. Question pictures are different: they are compressed to
+ * ~150 KB each, capped per exam (MAX_EXAM_IMAGE_CHARS) and saved inside
+ * exam_json on the question they belong to, so a reopened paper keeps them.
  */
 export function metaForSave(meta, extras = {}) {
-  const { schoolLogo, diagramImages, svgPngs, examVersion, noticeText, ...rest } = meta || {}; // eslint-disable-line no-unused-vars
+  const { schoolLogo, svgPngs, examVersion, noticeText, ...rest } = meta || {}; // eslint-disable-line no-unused-vars
   return { ...rest, ...extras };
 }
 

@@ -15,6 +15,7 @@
  * and consistent no matter what the model returns.
  * ═══════════════════════════════════════════════════════════════════
  */
+import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
 
 /* ────────────────────────────────────────────────────────────────
    1. SYSTEM PROMPT
@@ -239,7 +240,7 @@ const OPT_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 /**
  * @param {Object} examData  - parsed JSON matching the schema above
- * @param {Object} meta      - { schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages: {questionNumber: dataURL} }
+ * @param {Object} meta      - { schoolName, className, subject, term, examType, durationMinutes, landscape, each question may carry image: { src, size, caption } }
  * @param {"paper"|"answerKey"} mode
  */
 /**
@@ -552,7 +553,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const {
     schoolName = "", className = "", subject = "", term = "",
     examType = "Exam", durationMinutes = 60, landscape = false,
-    diagramImages = {}, schoolLogo = null, examVersion = "",
+    schoolLogo = null, examVersion = "",
     optionsLayout = "vertical",
     schoolMotto = "", emblem = "auto",
     idMode = "line", idDigits = 10, idLabel = "",
@@ -578,15 +579,16 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const blk = (html, cls = "", keep = false) =>
     `<div class="blk${cls ? " " + cls : ""}"${keep ? ' data-keep="1"' : ""}>${html}</div>`;
 
+  // Priority: teacher-supplied picture (any question) > AI-generated SVG
+  // (geometric/graph figures the model can draw precisely) > text placeholder
+  // (anything needing real illustration that a human should supply).
   const renderDiagram = (q) => {
-    if (!q.diagram || !q.diagram.needed) return "";
-    const img = diagramImages[q.number];
-    // Priority: teacher-uploaded image > AI-generated SVG (geometric/graph figures
-    // the model can draw precisely) > text placeholder (anything needing real
-    // illustration - a cell diagram, a map - that a human should supply).
-    if (img) {
-      return `<div class="diagram-box"><img src="${img}" alt="Diagram for question ${q.number}" class="diagram-img"/></div>`;
+    if (q.image && isSafeImageDataUrl(q.image.src)) {
+      const { maxW, maxH } = IMAGE_SIZES[imageSizeKey(q.image)];
+      const caption = String(q.image.caption || "").trim();
+      return `<figure class="q-figure"><img class="q-fig-img" src="${q.image.src}" alt="${caption ? esc(caption) : `Figure for question ${q.number}`}" style="max-width:min(100%,${maxW}px);max-height:${maxH}px"/>${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
     }
+    if (!q.diagram || !q.diagram.needed) return "";
     if (q.diagram.generatable && q.diagram.svg) {
       return `<div class="diagram-box diagram-svg-wrap">${q.diagram.svg}</div>`;
     }
@@ -877,7 +879,9 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
 
   .diagram-box{ margin:10px 0; }
   .diagram-placeholder{ border:1.5px dashed #888; padding:18px; font-size:10.5pt; color:#444; text-align:center; background:#F7F7F8; font-style:italic; }
-  .diagram-img{ max-width:100%; max-height:200px; display:block; margin:0 auto; border:1px solid #BBB; }
+  .q-figure{ margin:10px 0; text-align:center; }
+  .q-fig-img{ display:block; margin:0 auto; width:auto; height:auto; border:1px solid #BBB; }
+  .q-figure figcaption{ margin-top:4px; font-size:9.5pt; font-style:italic; color:#333; }
   .diagram-svg-wrap{ display:flex; justify-content:center; }
   .diagram-svg-wrap svg{ max-width:100%; max-height:230px; }
 

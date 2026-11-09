@@ -127,11 +127,37 @@ async function getHistoryItem(env, user, id) {
 // Hard ceiling on one saved paper's JSON, so a single oversized payload can't
 // eat the Supabase storage the 10-exam cap exists to protect.
 const MAX_EXAM_JSON_BYTES = 600 * 1024;
+// Teacher pictures are stored on their questions (question.image.src, a data
+// URL the client has already shrunk to ~150 KB). They get their own budget so
+// they can't crowd out the paper's text, and the 600 KB text limit above is
+// measured WITHOUT them. Keep in sync with imageUtils.js on the client.
+const MAX_IMAGE_CHARS_EACH = 300 * 1024;
+const MAX_IMAGE_CHARS_TOTAL = 1024 * 1024;
+const SAFE_IMAGE_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+/** Returns an error Response if the exam is too big or carries a bad image, else null. */
+function checkExamPayload(exam_json) {
+  let imageChars = 0;
+  for (const s of Array.isArray(exam_json.sections) ? exam_json.sections : []) {
+    for (const q of Array.isArray(s?.questions) ? s.questions : []) {
+      if (q?.image === undefined || q?.image === null) continue;
+      const src = q.image?.src;
+      if (typeof src !== "string" || !SAFE_IMAGE_RE.test(src)) return jsonResp({ error: "One of the question images isn't a valid picture." }, 400);
+      if (src.length > MAX_IMAGE_CHARS_EACH) return jsonResp({ error: "One of the images is too large to save. Please use a smaller picture." }, 413);
+      imageChars += src.length;
+    }
+  }
+  if (imageChars > MAX_IMAGE_CHARS_TOTAL) return jsonResp({ error: "The pictures in this exam are too large to save. Remove one or use smaller pictures." }, 413);
+  const textOnly = JSON.stringify(exam_json, (k, v) => (k === "image" && v && typeof v === "object" ? { ...v, src: "" } : v));
+  if (textOnly.length > MAX_EXAM_JSON_BYTES) return jsonResp({ error: "This exam is too large to save." }, 413);
+  return null;
+}
 
 async function saveHistory(request, env, user) {
   const { title, subject, class: cls, exam_type, exam_json, meta_json } = await request.json();
   if (!exam_json || typeof exam_json !== "object") return jsonResp({ error: "Missing exam data." }, 400);
-  if (JSON.stringify(exam_json).length > MAX_EXAM_JSON_BYTES) return jsonResp({ error: "This exam is too large to save." }, 413);
+  const tooBig = checkExamPayload(exam_json);
+  if (tooBig) return tooBig;
 
   // Enforce the per-user cap server-side - a client-supplied count can't be trusted.
   // Same eviction rule as the Lesson Planner's plans endpoint: oldest first,
@@ -169,7 +195,8 @@ async function updateHistory(request, env, user, id) {
   if (typeof body.title === "string") patch.title = (body.title.trim() || "Untitled Exam").slice(0, 200);
   if (body.exam_json !== undefined) {
     if (!body.exam_json || typeof body.exam_json !== "object") return jsonResp({ error: "Invalid exam data." }, 400);
-    if (JSON.stringify(body.exam_json).length > MAX_EXAM_JSON_BYTES) return jsonResp({ error: "This exam is too large to save." }, 413);
+    const tooBig = checkExamPayload(body.exam_json);
+    if (tooBig) return tooBig;
     patch.exam_json = body.exam_json;
   }
   if (body.meta_json && typeof body.meta_json === "object") patch.meta_json = body.meta_json;

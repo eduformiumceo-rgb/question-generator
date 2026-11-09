@@ -26,6 +26,7 @@ import {
   XmlComponent, HeightRule,
 } from "docx";
 import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
+import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
 
 const FONT = "Times New Roman";
 const OPT_LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -359,9 +360,22 @@ function optionParagraphs(options, layout, W) {
   return [table(widths, rows, { indent: { size: startIndent, type: WidthType.DXA } })];
 }
 
+/** Same size presets as the printable page, so a "medium" figure matches in both. */
 function diagramParagraphs(q, meta, sectionId) {
+  if (q.image && isSafeImageDataUrl(q.image.src)) {
+    const { maxW, maxH } = IMAGE_SIZES[imageSizeKey(q.image)];
+    const run = imageRun(q.image.src, maxW, maxH);
+    if (run) {
+      const caption = String(q.image.caption || "").trim();
+      const out = [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: caption ? 40 : 100 }, keepNext: !!caption, keepLines: true, children: [run] })];
+      if (caption) {
+        out.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 100 }, children: [new TextRun({ text: caption, italics: true, size: 19 })] }));
+      }
+      return out;
+    }
+  }
   if (!q.diagram?.needed) return [];
-  const raw = (meta.diagramImages || {})[q.number] || (meta.svgPngs || {})[`${sectionId}:${q.number}`];
+  const raw = (meta.svgPngs || {})[`${sectionId}:${q.number}`];
   const run = raw ? imageRun(raw, 400, 250) : null;
   if (run) {
     return [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, keepNext: false, children: [run] })];
@@ -401,7 +415,7 @@ function questionParagraphs(q, section, meta, layout, W) {
   const hasParts = Array.isArray(q.parts) && q.parts.length > 0;
   const hasOptions = Array.isArray(q.options) && q.options.length > 0;
   const out = [new Paragraph({
-    keepNext: hasOptions || hasParts || !!q.diagram?.needed, keepLines: true,
+    keepNext: hasOptions || hasParts || !!q.diagram?.needed || !!q.image?.src, keepLines: true,
     spacing: { before: 220, after: 40 },
     tabStops: [marksTab(W)],
     indent: { left: NUM_INDENT, hanging: NUM_INDENT },
