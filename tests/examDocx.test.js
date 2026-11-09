@@ -106,3 +106,25 @@ describe("generateExamDocx: layout options", () => {
     await expect(generateExamDocx(exam, META, "answerKey")).resolves.toBeTruthy();
   });
 });
+
+
+describe("generateExamDocx: index boxes and Turn over", () => {
+  it("writes a conditional Turn over field into the footer (hidden by Word on the last page)", async () => {
+    const JSZip = (await import("jszip")).default;
+    const blob = await generateExamDocx(SAMPLE_EXAM, { ...META, idMode: "boxes", idDigits: 10, notice: true, schoolMotto: "Truth" }, "paper");
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const footer = await zip.file("word/footer1.xml").async("string");
+    expect(footer).toContain("IF ");
+    expect(footer).toContain("NUMPAGES");
+    expect(footer).toContain("Turn over");
+    const doc = await zip.file("word/document.xml").async("string");
+    expect(doc).toContain("Index Number");
+  });
+  it("omits Turn over when switched off and on the marking scheme", async () => {
+    const JSZip = (await import("jszip")).default;
+    for (const [m, mode] of [[{ turnOver: false }, "paper"], [{}, "answerKey"]]) {
+      const zip = await JSZip.loadAsync(await (await generateExamDocx(SAMPLE_EXAM, { ...META, ...m }, mode)).arrayBuffer());
+      expect(await zip.file("word/footer1.xml").async("string")).not.toContain("Turn over");
+    }
+  });
+});

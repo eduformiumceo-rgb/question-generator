@@ -23,7 +23,9 @@ import {
   Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
   Table, TableRow, TableCell, WidthType, BorderStyle, TabStopType, LeaderType,
   ShadingType, VerticalAlign, PageOrientation, Footer, PageNumber, TableLayoutType, LineRuleType,
+  XmlComponent, HeightRule,
 } from "docx";
+import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 
 const FONT = "Times New Roman";
 const OPT_LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -41,6 +43,37 @@ const PAGE_W = 11906, PAGE_H = 16838, MARGIN = 1134;
 const NUM_INDENT = 567;   // question number column (1 cm)
 
 /* ── helpers ─────────────────────────────────────────────────── */
+
+/** Emits a hand-written WordprocessingML fragment (the docx library has no nested-field API). */
+class RawXml extends XmlComponent {
+  constructor(obj) { super("w:raw"); this.obj = obj; }
+  prepForXml() { return this.obj; }
+}
+
+/**
+ * "Turn over" that Word itself hides on the last page: the field
+ *   { IF { PAGE } < { NUMPAGES } "Turn over" "" }
+ * is re-evaluated by Word each time the document is paginated or printed, so
+ * it is correct whatever the final page count turns out to be after edits.
+ * (The cached result is empty, so a viewer that never recalculates fields
+ * shows nothing rather than a wrong "Turn over" on the final page.)
+ */
+export function turnOverField(text = "Turn over", size = 20) {
+  const rPr = { "w:rPr": [{ "w:b": {} }, { "w:i": {} }, { "w:sz": { _attr: { "w:val": size } } }, { "w:szCs": { _attr: { "w:val": size } } }] };
+  const run = (...kids) => new RawXml({ "w:r": [rPr, ...kids] });
+  const fld = (type) => ({ "w:fldChar": { _attr: { "w:fldCharType": type } } });
+  const instr = (t) => ({ "w:instrText": [{ _attr: { "xml:space": "preserve" } }, t] });
+  const cached = (t) => ({ "w:t": [{ _attr: { "xml:space": "preserve" } }, t] });
+  const safe = String(text).replace(/["\\]/g, "");
+  return [
+    run(fld("begin")), run(instr(" IF ")),
+    run(fld("begin")), run(instr(" PAGE ")), run(fld("separate")), run(cached("1")), run(fld("end")),
+    run(instr(" < ")),
+    run(fld("begin")), run(instr(" NUMPAGES ")), run(fld("separate")), run(cached("1")), run(fld("end")),
+    run(instr(` "${safe}" "" `)),
+    run(fld("separate")), run(cached("")), run(fld("end")),
+  ];
+}
 
 /** Text -> runs, turning "\n" into real line breaks (Word ignores raw \n). */
 function textRuns(text, opts = {}) {
@@ -119,12 +152,15 @@ function table(widths, rows, extra = {}) {
 /* ── letterhead & header ─────────────────────────────────────── */
 
 function letterhead(meta, titleText, W) {
-  const { schoolName = "", schoolLogo = null, examVersion = "" } = meta;
-  const logo = schoolLogo ? imageRun(schoolLogo, 78, 78) : null;
+  const { schoolName = "", schoolLogo = null, examVersion = "", schoolMotto = "" } = meta;
+  const logo = schoolLogo ? imageRun(schoolLogo, 84, 84) : null;
   const name = new Paragraph({
     alignment: AlignmentType.CENTER,
     children: [new TextRun({ text: (schoolName || "________________________________").toUpperCase(), bold: true, size: 36, characterSpacing: 24 })],
   });
+  const motto = schoolMotto
+    ? new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 40 }, children: [new TextRun({ text: schoolMotto, italics: true, size: 21 })] })
+    : null;
 
   const out = [];
   if (logo) {
@@ -132,12 +168,13 @@ function letterhead(meta, titleText, W) {
     out.push(table([side, W - 2 * side, side], [new TableRow({
       children: [
         cell(side, [new Paragraph({ spacing: { line: 240, lineRule: LineRuleType.AUTO }, children: [logo] })], { verticalAlign: VerticalAlign.CENTER, margins: { top: 0, bottom: 0, left: 0, right: 0 } }),
-        cell(W - 2 * side, [name], { verticalAlign: VerticalAlign.CENTER }),
+        cell(W - 2 * side, motto ? [name, motto] : [name], { verticalAlign: VerticalAlign.CENTER }),
         cell(side, [new Paragraph("")]),
       ],
     })]));
   } else {
     out.push(name);
+    if (motto) out.push(motto);
   }
   // Heavy-over-light double rule under the letterhead.
   out.push(new Paragraph({
@@ -171,27 +208,56 @@ function metaGrid(items, W) {
   })], { borders: NO_BORDERS });
 }
 
-function candidateRow(totalMarks, W) {
-  const scoreW = 1500;
-  const rest = W - scoreW;
-  const widths = [Math.round(rest * 0.46), Math.round(rest * 0.28), 0, scoreW];
-  widths[2] = rest - widths[0] - widths[1];
-  const field = (label, w) => cell(w, [new Paragraph({
+function scoreCell(totalMarks, w) {
+  return cell(w, [
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "SCORE", bold: true, size: 15, color: GREY, characterSpacing: 20 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `/ ${totalMarks || ""}`, bold: true, size: 22 })] }),
+  ], { borders: BOX, margins: { top: 50, bottom: 60, left: 80, right: 80 } });
+}
+
+function fieldCell(label, w) {
+  return cell(w, [new Paragraph({
     tabStops: [{ type: TabStopType.LEFT, position: w - 260, leader: LeaderType.UNDERSCORE }],
     children: [new TextRun({ text: `${label} `, bold: true, size: 22 }), new TextRun({ text: "\t", size: 22 })],
   })], { verticalAlign: VerticalAlign.BOTTOM, margins: { top: 40, bottom: 40, left: 0, right: 160 } });
-  return table(widths, [new TableRow({
+}
+
+/** One box per digit of the candidate's index number, like the front of a public-exam paper. */
+function indexBoxesRow(label, digits, W) {
+  const box = 454;                                  // 8 mm
+  const labelW = Math.min(2300, Math.max(1500, label.length * 150 + 300));
+  const widths = [labelW, ...Array.from({ length: digits }, () => box)];
+  const cells = [
+    cell(labelW, [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 22 })] })], { verticalAlign: VerticalAlign.CENTER, margins: { top: 0, bottom: 0, left: 0, right: 160 } }),
+    ...Array.from({ length: digits }, () => cell(box, [new Paragraph("")], { borders: BOX, margins: { top: 0, bottom: 0, left: 0, right: 0 } })),
+  ];
+  return table(widths, [new TableRow({ cantSplit: true, height: { value: 544, rule: HeightRule.EXACT }, children: cells })]);
+}
+
+function candidateRows(meta, totalMarks, W) {
+  const mode = ["line", "boxes", "none"].includes(meta.idMode) ? meta.idMode : "line";
+  const label = meta.idLabel || (mode === "boxes" ? "Index Number" : "Index No.");
+  const scoreW = 1500;
+  const rest = W - scoreW;
+  if (mode === "line") {
+    const widths = [Math.round(rest * 0.46), Math.round(rest * 0.28), 0, scoreW];
+    widths[2] = rest - widths[0] - widths[1];
+    return [table(widths, [new TableRow({
+      cantSplit: true,
+      children: [fieldCell("Name:", widths[0]), fieldCell(`${label}:`, widths[1]), fieldCell("Date:", widths[2]), scoreCell(totalMarks, widths[3])],
+    })])];
+  }
+  const dateW = Math.round(rest * 0.30);
+  const widths = [rest - dateW, dateW, scoreW];
+  const out = [table(widths, [new TableRow({
     cantSplit: true,
-    children: [
-      field("Name:", widths[0]),
-      field("Index No.:", widths[1]),
-      field("Date:", widths[2]),
-      cell(widths[3], [
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "SCORE", bold: true, size: 15, color: GREY, characterSpacing: 20 })] }),
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `/ ${totalMarks || ""}`, bold: true, size: 22 })] }),
-      ], { borders: BOX, margins: { top: 50, bottom: 60, left: 80, right: 80 } }),
-    ],
-  })]);
+    children: [fieldCell(mode === "boxes" ? "Candidate's Name:" : "Name:", widths[0]), fieldCell("Date:", widths[1]), scoreCell(totalMarks, widths[2])],
+  })])];
+  if (mode === "boxes") {
+    out.push(new Paragraph({ spacing: { before: 160 }, children: [] }));
+    out.push(indexBoxesRow(label, clampIdDigits(meta.idDigits), W));
+  }
+  return out;
 }
 
 function instructionsBox(instructions, W) {
@@ -211,15 +277,23 @@ function instructionsBox(instructions, W) {
   return table([W], [new TableRow({ children: [cell(W, kids, { borders: BOX, margins: { top: 90, bottom: 90, left: 200, right: 200 } })] })]);
 }
 
+function noticeBox(text, W) {
+  return table([W], [new TableRow({ children: [cell(W, [new Paragraph({
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: String(text).toUpperCase(), bold: true, size: 19, characterSpacing: 30 })],
+  })], { borders: BOX, margins: { top: 70, bottom: 70, left: 120, right: 120 } })] })]);
+}
+
 function headerBlock(examData, meta, totalMarks, W) {
   const { className = "", subject = "", term = "", examType = "Exam", durationMinutes = 60 } = meta;
   const items = [["Subject", subject], ["Class", className], ["Term", term], ["Duration", `${durationMinutes} mins`]];
   if (totalMarks) items.push(["Total Marks", totalMarks]);
   const out = [
     ...letterhead(meta, examData.title || examType, W),
+    ...(meta.notice ? [noticeBox(meta.noticeText || DEFAULT_NOTICE, W), new Paragraph({ spacing: { before: 120 }, children: [] })] : []),
     metaGrid(items, W),
     new Paragraph({ spacing: { before: 200 }, children: [] }),
-    candidateRow(totalMarks, W),
+    ...candidateRows(meta, totalMarks, W),
   ];
   if ((examData.instructions || []).length) {
     out.push(new Paragraph({ spacing: { before: 200 }, children: [] }));
@@ -449,17 +523,27 @@ export async function generateExamDocx(examData, meta = {}, mode = "paper") {
         }),
       ];
 
-  const footerLeft = [meta.schoolName, meta.subject].filter(Boolean).join("  |  ");
+  const footerLeft = [meta.schoolName, meta.subject, meta.examVersion ? `Version ${meta.examVersion}` : ""].filter(Boolean).join("  |  ");
+  const showTurnOver = mode === "paper" && meta.turnOver !== false;
+  // Three fixed columns (school | page x of y | Turn over) so a long school name wraps instead of pushing the page number off its tab stop.
+  const fw = [Math.round(W * 0.4), Math.round(W * 0.2), 0];
+  fw[2] = W - fw[0] - fw[1];
+  const fcell = (w, align, kids) => cell(w, [new Paragraph({ alignment: align, children: kids })], {
+    borders: { top: line(4, "999999"), bottom: NONE, left: NONE, right: NONE },
+    margins: { top: 60, bottom: 0, left: 0, right: 0 },
+  });
   const footer = new Footer({
-    children: [new Paragraph({
-      tabStops: [{ type: TabStopType.RIGHT, position: W }],
-      border: { top: line(4, "999999"), },
-      spacing: { before: 80 },
-      children: [
-        new TextRun({ text: footerLeft, size: 17, color: GREY }),
-        new TextRun({ children: ["\tPage ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], size: 17, color: GREY }),
-      ],
-    })],
+    children: [
+      table(fw, [new TableRow({
+        cantSplit: true,
+        children: [
+          fcell(fw[0], AlignmentType.LEFT, [new TextRun({ text: footerLeft, size: 17, color: GREY })]),
+          fcell(fw[1], AlignmentType.CENTER, [new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], size: 17, color: GREY })]),
+          fcell(fw[2], AlignmentType.RIGHT, showTurnOver ? turnOverField("Turn over", 20) : []),
+        ],
+      })]),
+      new Paragraph({ spacing: { before: 0, after: 0, line: 20, lineRule: LineRuleType.EXACT }, children: [] }),
+    ],
   });
 
   const doc = new Document({

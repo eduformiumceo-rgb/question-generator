@@ -547,3 +547,15 @@ timeout/malformed JSON/section mismatch → refunded, no charge, clear error.
 Unsafe AI-generated SVG → stripped before render, falls back to text
 placeholder. Stream interrupted mid-generation → clear message telling the
 teacher to check their balance rather than assuming success or failure.
+
+
+---
+
+## Paper format upgrade (index boxes, "Turn over", school crest)
+
+- **Real A4 pagination** (`examTemplate.js`): the paper is measured and laid onto fixed A4 sheets inside the generated document, so "Page X of Y" and a **"Turn over" note on every page except the last** work in every browser (CSS page-margin boxes only work in Chromium and cannot skip the last page). Preview, Print and PDF are now identical, and the browser's own URL/date header and footer no longer print (`@page` margin is 0).
+- **Candidate ID**: Line, **Boxes** (one per digit, 4 to 15, default 10, label editable) or None. Works in print/PDF and Word.
+- **Paper style presets**: "School exam" and "BECE / WASSCE style" (boxes + "Do not open until told to" notice). Everything stays individually editable, so non-public-exam papers are unaffected. A Mock Exam for Basic 9 / JHS 3 / SHS 3 picks the public style by default until the teacher chooses.
+- **School crest**: replaces the initials placeholder. A generic, greyscale crest (school name on the arcs, open book, initials) that never imitates any real school or examining-body seal. Can be switched off. An optional motto/address line sits under the school name.
+- **Remembered locally**: school name, motto, logo and paper format are saved in the browser (localStorage, failure-safe).
+- **Word**: matching index boxes, notice, motto, and a `{ IF {PAGE} < {NUMPAGES} "Turn over" "" }` footer field. Word recalculates it on pagination; LibreOffice does not, so it may show "Turn over" on the last page there.

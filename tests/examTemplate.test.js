@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildExamSystemPrompt, buildSectionPrompt, renderExamHTML,
   validateExamData, isSafeGeneratedSVG, createExamVariant,
+  schoolCrestSVG, splitSchoolName, clampIdDigits, PAPER_PRESETS,
 } from "../src/examTemplate.js";
 
 const BASE_CFG = {
@@ -333,5 +334,90 @@ describe("renderExamHTML: professional layout", () => {
     const html = renderExamHTML(SAMPLE_EXAM, { schoolName: "Achimota School" }, "answerKey");
     expect(html).toContain("Achimota School");
     expect(html).toContain("MARKING SCHEME");
+  });
+});
+
+
+describe("candidate ID: index-number boxes", () => {
+  it("renders one box per digit in boxes mode", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { idMode: "boxes", idDigits: 10 }, "paper");
+    expect(html.match(/<i><\/i>/g).length).toBeGreaterThanOrEqual(10);
+    expect(html).toContain('class="idcells"');
+    expect(html).toContain("Index Number");
+  });
+  it("honours a custom digit count and label, and clamps absurd values", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { idMode: "boxes", idDigits: 7, idLabel: "Student ID" }, "paper");
+    const cells = html.split('class="idcells"')[1].split("</div>")[0].match(/<i><\/i>/g);
+    expect(cells.length).toBe(7);
+    expect(html).toContain("Student ID");
+    expect(clampIdDigits(999)).toBe(15);
+    expect(clampIdDigits(1)).toBe(4);
+    expect(clampIdDigits("abc")).toBe(10);
+  });
+  it("keeps the plain line by default and drops the field entirely for 'none'", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).toContain("Index No.:");
+    const none = renderExamHTML(SAMPLE_EXAM, { idMode: "none" }, "paper");
+    expect(none).not.toContain("Index No.:");
+    expect(none).not.toContain('class="idcells"');
+  });
+  it("escapes the ID label", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { idMode: "line", idLabel: "<b>x</b>" }, "paper")).not.toContain("<b>x</b>");
+  });
+});
+
+describe("pagination and 'Turn over'", () => {
+  it("enables Turn over by default on the question paper and carries the paginator", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, {}, "paper");
+    expect(html).toContain('data-turn-over="1"');
+    expect(html).toContain('id="sheets"');
+    expect(html).toContain("Page \" + (idx + 1) + \" of \"");
+  });
+  it("can switch Turn over off, and never shows it on the marking scheme", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { turnOver: false }, "paper")).toContain('data-turn-over="0"');
+    expect(renderExamHTML(SAMPLE_EXAM, {}, "answerKey")).toContain('data-turn-over="0"');
+  });
+  it("prints edge to edge on A4 with no browser margins", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).toMatch(/@page \{ size: A4 portrait; margin: 0; \}/);
+  });
+  it("glues a section heading to its first question", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, {}, "paper");
+    expect(html).toContain('class="blk sec" data-keep="1"');
+  });
+});
+
+describe("sealed-paper notice and letterhead", () => {
+  it("shows the notice only when asked", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).not.toContain('class="notice"');
+    expect(renderExamHTML(SAMPLE_EXAM, { notice: true }, "paper")).toContain("until you are told to do so");
+  });
+  it("prints the motto line, escaped", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { schoolMotto: "Light & <Truth>" }, "paper");
+    expect(html).toContain("Light &amp; &lt;Truth&gt;");
+  });
+  it("lets a school switch the generated emblem off", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { schoolName: "Achimota School", emblem: "none" }, "paper")).not.toContain("school-logo school-seal");
+  });
+});
+
+describe("generated school crest", () => {
+  it("splits names into distinctive part and school type", () => {
+    expect(splitSchoolName("St. Mary's Junior High School")).toEqual(["ST. MARY'S", "JUNIOR HIGH SCHOOL"]);
+    expect(splitSchoolName("Achimota School")).toEqual(["ACHIMOTA", "SCHOOL"]);
+    expect(splitSchoolName("Sunrise")).toEqual(["SUNRISE", ""]);
+  });
+  it("returns nothing without a name and escapes markup in the name", () => {
+    expect(schoolCrestSVG("")).toBe("");
+    expect(schoolCrestSVG("<script>x</script> School")).not.toContain("<script>");
+  });
+  it("is a safe, self-contained SVG even for very long names", () => {
+    const svg = schoolCrestSVG("Nana Kwame Asante Memorial Preparatory & Junior High School");
+    expect(isSafeGeneratedSVG(svg)).toBe(true);
+  });
+});
+
+describe("paper presets", () => {
+  it("BECE / WASSCE style uses boxes, notice and Turn over; school style stays simple", () => {
+    expect(PAPER_PRESETS.public).toMatchObject({ idMode: "boxes", notice: true, turnOver: true });
+    expect(PAPER_PRESETS.school).toMatchObject({ idMode: "line", notice: false });
   });
 });

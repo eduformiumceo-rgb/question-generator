@@ -20,7 +20,7 @@ import ExamStructureBuilder, { DEFAULT_SECTIONS } from "./components/ExamStructu
 import TopicSelector from "./components/TopicSelector.jsx";
 import DiagramManager from "./components/DiagramManager.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
-import { renderExamHTML, validateExamData, createExamVariant, schoolMonogramSVG, OPTIONS_LAYOUTS } from "./examTemplate.js";
+import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
@@ -67,6 +67,16 @@ const DISPLAY_CREDIT_MULTIPLIER = 30;
 const toDisplayCredits = (raw) => Math.round(raw * DISPLAY_CREDIT_MULTIPLIER);
 const formatCredits = (raw) => toDisplayCredits(raw);
 
+
+// ── Remembered school identity + paper format (this browser only) ──────────
+// A teacher prints dozens of papers a term for the same school, so the school
+// name, motto, logo and paper format are saved locally and pre-filled next time.
+// Every access is wrapped: private windows / blocked storage must never break the page.
+const PREFS_KEY = "eduq.paperPrefs.v1";
+const LOGO_KEY = "eduq.schoolLogo.v1";
+const readPrefs = () => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") || {}; } catch { return {}; } };
+const readLogo = () => { try { return localStorage.getItem(LOGO_KEY) || null; } catch { return null; } };
+const isPublicExamClass = (cls) => /^(JHS\s*3|SHS\s*3|Basic\s*9)\b/i.test(String(cls || "").trim());
 
 /** Accessible on/off switch. A single <button> - no hidden checkbox inside a <label>,
  *  which previously fired twice per tap (span onClick + label→input onChange) and
@@ -216,8 +226,11 @@ function QuestionsGeneratorInner() {
   const pwa = usePwaInstall();
 
   // ── Basic Information ──────────────────────────────────────────
-  const [schoolName, setSchoolName] = useState("");
-  const [schoolLogo, setSchoolLogo] = useState(null); // data URL - printed in the paper header
+  const savedPrefs = useRef(readPrefs()).current;
+  const [schoolName, setSchoolName] = useState(savedPrefs.schoolName || "");
+  const [schoolMotto, setSchoolMotto] = useState(savedPrefs.schoolMotto || "");
+  const [emblem, setEmblem] = useState(savedPrefs.emblem === "none" ? "none" : "auto"); // "auto" = generated crest when there's no logo
+  const [schoolLogo, setSchoolLogo] = useState(() => readLogo()); // data URL - printed in the paper header
   const logoInputRef = useRef(null);
   const [className, setClassName] = useState("");
   const [term, setTerm] = useState("Term 1");
@@ -253,7 +266,46 @@ function QuestionsGeneratorInner() {
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [landscape, setLandscape] = useState(false);
-  const [optionsLayout, setOptionsLayout] = useState("vertical"); // MCQ options: "vertical" | "two" | "row"
+  const [optionsLayout, setOptionsLayout] = useState(["vertical", "two", "row"].includes(savedPrefs.optionsLayout) ? savedPrefs.optionsLayout : "vertical"); // MCQ options: "vertical" | "two" | "row"
+
+  // ── Paper format: candidate details, sealed-paper notice, "Turn over" ───
+  // Presets are shortcuts (everyday school exam vs BECE/WASSCE-style paper);
+  // every control stays individually editable, so a class test, a mock for
+  // external candidates or a plain worksheet all print the way the teacher wants.
+  const [paperPreset, setPaperPreset] = useState(savedPrefs.paperPreset || "school"); // "school" | "public" | "custom"
+  const [idMode, setIdMode] = useState(["line", "boxes", "none"].includes(savedPrefs.idMode) ? savedPrefs.idMode : PAPER_PRESETS.school.idMode);
+  const [idDigits, setIdDigits] = useState(clampIdDigits(savedPrefs.idDigits ?? PAPER_PRESETS.school.idDigits));
+  const [idLabel, setIdLabel] = useState(typeof savedPrefs.idLabel === "string" ? savedPrefs.idLabel : PAPER_PRESETS.school.idLabel);
+  const [notice, setNotice] = useState(!!savedPrefs.notice);
+  const [turnOver, setTurnOver] = useState(savedPrefs.turnOver !== false);
+  const presetChosenByUser = useRef(!!savedPrefs.paperPreset);
+  const applyPreset = (id, byUser = true) => {
+    const p = PAPER_PRESETS[id];
+    if (!p) return;
+    if (byUser) presetChosenByUser.current = true;
+    setPaperPreset(id); setIdMode(p.idMode); setIdDigits(p.idDigits); setIdLabel(p.idLabel); setNotice(p.notice); setTurnOver(p.turnOver);
+  };
+  const customise = (setter) => (v) => { presetChosenByUser.current = true; setPaperPreset("custom"); setter(v); };
+
+  // Sensible default: a mock exam for a final-year class (JHS 3 / SHS 3) gets the
+  // public-exam look. Only until the teacher picks a style themselves.
+  useEffect(() => {
+    if (presetChosenByUser.current) return;
+    applyPreset(examType === "Mock Exam" && isPublicExamClass(className) ? "public" : "school", false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examType, className]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ schoolName, schoolMotto, emblem, optionsLayout, paperPreset: presetChosenByUser.current ? paperPreset : undefined, idMode, idDigits, idLabel, notice, turnOver }));
+    } catch { /* storage unavailable: nothing to remember, nothing breaks */ }
+  }, [schoolName, schoolMotto, emblem, optionsLayout, paperPreset, idMode, idDigits, idLabel, notice, turnOver]);
+  useEffect(() => {
+    try {
+      if (schoolLogo && schoolLogo.length < 900000) localStorage.setItem(LOGO_KEY, schoolLogo);
+      else if (!schoolLogo) localStorage.removeItem(LOGO_KEY);
+    } catch { /* ignore */ }
+  }, [schoolLogo]);
   const [showTopUp, setShowTopUp] = useState(false);
   const printFrameRef = useRef(null);
 
@@ -443,7 +495,12 @@ function QuestionsGeneratorInner() {
     return examVersion === "A" ? examData : createExamVariant(examData, examVersion);
   }, [examData, examVersion]);
 
-  const meta = { schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages, schoolLogo, optionsLayout, examVersion: examVersion === "A" ? "" : examVersion };
+  const meta = {
+    schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages, schoolLogo, optionsLayout,
+    examVersion: examVersion === "A" ? "" : examVersion,
+    schoolMotto: schoolMotto.trim(), emblem, idMode, idDigits: clampIdDigits(idDigits), idLabel: idLabel.trim(),
+    notice, noticeText: DEFAULT_NOTICE, turnOver,
+  };
 
   const [downloadingWord, setDownloadingWord] = useState(false);
   const handleDownloadWord = async (mode) => {
@@ -455,9 +512,9 @@ function QuestionsGeneratorInner() {
       // diagrams into PNGs first. Failures just fall back to the text placeholder.
       const docMeta = { ...meta, svgPngs: {} };
       try {
-        if (!docMeta.schoolLogo) {
-          const seal = schoolMonogramSVG(schoolName);
-          if (seal) docMeta.schoolLogo = await svgToPngDataUrl(seal, 300);
+        if (!docMeta.schoolLogo && emblem !== "none") {
+          const seal = schoolCrestSVG(schoolName);
+          if (seal) docMeta.schoolLogo = await svgToPngDataUrl(seal, 400);
         }
       } catch (e) { console.warn("Seal render skipped:", e); }
       for (const sec of activeExamData.sections || []) {
@@ -512,8 +569,16 @@ function QuestionsGeneratorInner() {
     w.document.open();
     w.document.write(html);
     w.document.close();
-    // Give web fonts / images a beat to load before invoking the print dialog.
-    setTimeout(() => w.print(), 350);
+    // The paper lays itself out onto A4 pages once its images and fonts are in
+    // (it sets __paperReady when done): print only then, or the dialog would
+    // show an unpaginated page. The 6 s cap means a stuck image can't block printing.
+    const t0 = Date.now();
+    const tick = () => {
+      if (w.closed) return;
+      if (w.__paperReady || Date.now() - t0 > 6000) setTimeout(() => w.print(), 150);
+      else setTimeout(tick, 80);
+    };
+    tick();
   };
 
   // Same pattern as the Lesson Planner's own onLoginRequired: don't hard-wall
@@ -638,6 +703,19 @@ function QuestionsGeneratorInner() {
             ) : (
               <button type="button" style={{ ...S.sm, height: 48 }} onClick={() => logoInputRef.current?.click()}>Upload</button>
             )}
+          </div>
+        </div>
+        <div className="eduq-grid-2" style={{ marginBottom: 14 }}>
+          <div>
+            <label style={S.lbl}>Motto or address line <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional)</span></label>
+            <input value={schoolMotto} maxLength={90} onChange={e => setSchoolMotto(e.target.value)} placeholder="e.g. Knowledge, Discipline, Service" style={S.inp} />
+          </div>
+          <div>
+            <label style={S.lbl}>Emblem when no logo</label>
+            <select value={emblem} onChange={e => setEmblem(e.target.value)} style={S.sel} disabled={!!schoolLogo} title={schoolLogo ? "Your uploaded logo is used" : ""}>
+              <option value="auto">Generated school crest</option>
+              <option value="none">No emblem</option>
+            </select>
           </div>
         </div>
         <div className="eduq-grid-2">
@@ -863,6 +941,58 @@ function QuestionsGeneratorInner() {
               <button style={S.sm} onClick={handleShare} title="Share as a file. Works with WhatsApp, email, Drive, etc. on mobile">
                 Share
               </button>
+            </div>
+          </div>
+
+          {/* ── Paper format: live preview below updates as these change ── */}
+          <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", fontFamily: F, marginRight: 4 }}>Paper style</span>
+              {Object.values(PAPER_PRESETS).map(p => {
+                const active = paperPreset === p.id;
+                return (
+                  <button key={p.id} type="button" onClick={() => applyPreset(p.id)} aria-pressed={active} style={{
+                    padding: "7px 14px", borderRadius: 99, fontFamily: F, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                    border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
+                    background: active ? "var(--accent-soft)" : "var(--card-bg)",
+                    color: active ? "var(--accent)" : "var(--text-secondary)",
+                  }}>{p.label}</button>
+                );
+              })}
+              {paperPreset === "custom" && <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F }}>Custom</span>}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, alignItems: "end" }}>
+              <div>
+                <label style={{ ...S.lbl, marginBottom: 4 }}>Candidate ID</label>
+                <select value={idMode} onChange={e => customise(setIdMode)(e.target.value)} style={{ ...S.sel, minHeight: 40, padding: "8px 34px 8px 12px", fontSize: 13 }}>
+                  {ID_MODES.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              </div>
+              {idMode === "boxes" && (
+                <div>
+                  <label style={{ ...S.lbl, marginBottom: 4 }}>Boxes (digits)</label>
+                  <input type="number" min={4} max={15} value={idDigits}
+                    onChange={e => customise(setIdDigits)(e.target.value === "" ? "" : Number(e.target.value))}
+                    onBlur={() => setIdDigits(clampIdDigits(idDigits))}
+                    style={{ ...S.inp, minHeight: 40, padding: "8px 12px", fontSize: 13 }} />
+                </div>
+              )}
+              {idMode !== "none" && (
+                <div>
+                  <label style={{ ...S.lbl, marginBottom: 4 }}>ID label</label>
+                  <input value={idLabel} maxLength={24} onChange={e => customise(setIdLabel)(e.target.value)} placeholder={idMode === "boxes" ? "Index Number" : "Index No."} style={{ ...S.inp, minHeight: 40, padding: "8px 12px", fontSize: 13 }} />
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 22px", marginTop: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F, cursor: "pointer" }}>
+                <input type="checkbox" checked={turnOver} onChange={e => customise(setTurnOver)(e.target.checked)} style={{ accentColor: "#0D9488" }} />
+                "Turn over" on every page except the last
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F, cursor: "pointer" }}>
+                <input type="checkbox" checked={notice} onChange={e => customise(setNotice)(e.target.checked)} style={{ accentColor: "#0D9488" }} />
+                "Do not open until told to" notice
+              </label>
             </div>
           </div>
 
