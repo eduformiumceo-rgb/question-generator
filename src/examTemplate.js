@@ -15,7 +15,6 @@
  * and consistent no matter what the model returns.
  * ═══════════════════════════════════════════════════════════════════
  */
-import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
 
 /* ────────────────────────────────────────────────────────────────
    1. SYSTEM PROMPT
@@ -240,7 +239,7 @@ const OPT_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 /**
  * @param {Object} examData  - parsed JSON matching the schema above
- * @param {Object} meta      - { schoolName, className, subject, term, examType, durationMinutes, landscape, each question may carry image: { src, size, caption } }
+ * @param {Object} meta      - { schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages: {questionNumber: dataURL} }
  * @param {"paper"|"answerKey"} mode
  */
 /**
@@ -306,11 +305,7 @@ function seededRandom(seed) {
   };
 }
 
-/* ────────────────────────────────────────────────────────────────
-   SCHOOL EMBLEM (generated fallback when no logo is uploaded)
-   ──────────────────────────────────────────────────────────────── */
-
-/** Initials for the generated emblem, e.g. "St. Mary's JHS" -> "SMJ". */
+/** Initials for the fallback school seal, e.g. "St. Mary's JHS" -> "SMJ". */
 function schoolInitials(name) {
   const skip = new Set(["of", "the", "and", "for", "&"]);
   return String(name || "")
@@ -322,95 +317,55 @@ function schoolInitials(name) {
     .slice(0, 3);
 }
 
-// Words that start the "type of school" part of a name ("... Junior High School").
-const SCHOOL_TYPE_WORDS = new Set([
-  "junior", "senior", "basic", "primary", "preparatory", "prep", "international", "technical",
-  "high", "school", "academy", "college", "complex", "montessori", "nursery", "kindergarten",
-  "day", "boarding", "vocational", "institute", "centre", "center", "learning", "jhs", "shs", "jss", "sss", "shts", "tvet", "stem",
-]);
-
 /**
- * Splits a school name into the distinctive part and the "type of school"
- * part so a crest can set them on the top and bottom arcs:
- *   "St. Mary's Junior High School" -> ["ST. MARY'S", "JUNIOR HIGH SCHOOL"]
- *   "Achimota School"               -> ["ACHIMOTA", "SCHOOL"]
- *   "Sunrise Learning Centre"       -> ["SUNRISE LEARNING CENTRE", ""]
+ * Clean, print-safe monogram seal (double ring + initials) used in the paper
+ * header when the school hasn't uploaded a logo, so the letterhead never
+ * looks bare. Returns "" when there is no school name to take initials from.
  */
-export function splitSchoolName(name) {
-  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
-  const idx = words.findIndex((w, i) => i > 0 && SCHOOL_TYPE_WORDS.has(w.replace(/[^A-Za-z]/g, "").toLowerCase()));
-  const core = (idx === -1 ? words : words.slice(0, idx)).join(" ").toUpperCase();
-  const tail = idx === -1 ? "" : words.slice(idx).join(" ").toUpperCase();
-  return [core, tail];
-}
-
-const xmlEsc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-/**
- * Print-safe, greyscale school crest used in the letterhead when no logo has
- * been uploaded: double ring, school name set on the arcs, an open book and
- * the school's initials in the centre. It is a neutral generic design, never
- * an imitation of any real institution's or examining body's seal, so it is
- * safe for any school, class test or mock paper. Returns "" without a name.
- */
-export function schoolCrestSVG(name) {
+export function schoolMonogramSVG(name) {
   const letters = schoolInitials(name);
-  const clean = String(name || "").trim();
-  if (!clean) return "";
-  const [core, tail] = splitSchoolName(clean);
-
-  const CHAR_W = 0.8;           // average width of a bold capital incl. letter-spacing, in em
-  const ARC = 128;              // usable arc length (viewBox units) before the side stars
-  const R_TOP = 44.5;           // baseline radius of the top arc text
-
-  /** Largest size that fits the arc; drops words (never squeezes below legibility) when it can't. */
-  const fitArc = (text, base, min, fromEnd) => {
-    let words = text.split(" ").filter(Boolean);
-    while (words.length) {
-      const t = words.join(" ");
-      const size = Math.min(base, ARC / (t.length * CHAR_W));
-      if (size >= min || words.length === 1) {
-        const est = t.length * size * CHAR_W;
-        return { text: t, size: Math.max(size, min * 0.85), len: Math.min(est, ARC) };
-      }
-      words = fromEnd ? words.slice(1).filter((w, i) => i > 0 || w !== "&") : words.slice(0, -1);
-    }
-    return null;
-  };
-
-  const top = core.length > 2 ? fitArc(core, 11, 8, false) : null;
-  const bot = tail ? fitArc(tail, 9.5, 7.6, true) : null;
-  const R_BOT = R_TOP + (bot ? bot.size * 0.7 : 6);   // bottom text hangs from its outer edge
-
-  const topPath = `M ${60 - R_TOP},60 A ${R_TOP},${R_TOP} 0 0,1 ${60 + R_TOP},60`;
-  const botPath = `M ${60 - R_BOT},60 A ${R_BOT},${R_BOT} 0 0,0 ${60 + R_BOT},60`;
-  const font = `font-family="Georgia, 'Times New Roman', serif" fill="#111111"`;
-  const initialsSize = letters.length >= 3 ? 25 : letters.length === 2 ? 31 : 38;
-  const arcText = (id, t, ls) =>
-    `<text ${font} font-weight="700" font-size="${t.size.toFixed(1)}"><textPath href="#${id}" xlink:href="#${id}" startOffset="50%" text-anchor="middle" textLength="${t.len.toFixed(1)}" lengthAdjust="spacing">${xmlEsc(t.text)}</textPath></text>`;
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="${xmlEsc(clean)} emblem">` +
-    `<defs><path id="eduTop" d="${topPath}"/><path id="eduBot" d="${botPath}"/></defs>` +
-    `<circle cx="60" cy="60" r="58" fill="#ffffff" stroke="#111111" stroke-width="3"/>` +
-    `<circle cx="60" cy="60" r="54.5" fill="none" stroke="#111111" stroke-width="0.8"/>` +
-    `<circle cx="60" cy="60" r="38" fill="none" stroke="#111111" stroke-width="1.4"/>` +
-    `<circle cx="60" cy="60" r="35.5" fill="none" stroke="#111111" stroke-width="0.6"/>` +
-    (top ? arcText("eduTop", top) : "") +
-    (bot ? arcText("eduBot", bot) : "") +
-    // Separator stars where the two arcs meet (a star pair also fills the ring when there is no text).
-    `<text x="7.2" y="63.6" font-size="9" text-anchor="middle" ${font}>&#9733;</text>` +
-    `<text x="112.8" y="63.6" font-size="9" text-anchor="middle" ${font}>&#9733;</text>` +
-    (!bot ? `<text x="60" y="108" font-size="8" text-anchor="middle" letter-spacing="6" ${font}>&#9733;&#9733;&#9733;</text>` : "") +
-    `<text x="60" y="${letters ? 63 : 70}" text-anchor="middle" ${font} font-weight="700" font-size="${letters ? initialsSize : 30}">${letters || "&#9733;"}</text>` +
-    // Open book beneath the initials.
-    `<g fill="none" stroke="#111111" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">` +
-    `<path d="M41,76 Q50.5,71 60,76 Q69.5,71 79,76 L79,89 Q69.5,84 60,89 Q50.5,84 41,89 Z"/>` +
-    `<path d="M60,76 L60,89"/></g>` +
+  if (!letters) return "";
+  const fs = letters.length >= 3 ? 27 : letters.length === 2 ? 33 : 40;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">` +
+    `<circle cx="50" cy="50" r="47" fill="#ffffff" stroke="#111111" stroke-width="3"/>` +
+    `<circle cx="50" cy="50" r="41" fill="none" stroke="#111111" stroke-width="1"/>` +
+    `<text x="50" y="${50 + fs * 0.35}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="${fs}" fill="#111111">${letters}</text>` +
     `</svg>`;
 }
 
-/** Kept for backwards compatibility: older code imported the placeholder under this name. */
-export const schoolMonogramSVG = schoolCrestSVG;
+export const ACCENTS = {
+  black:  { label: "Black (best for photocopying)", ink: "111111", tint: "EDEEF1" },
+  navy:   { label: "Navy blue",  ink: "1F3A5F", tint: "E8EDF4" },
+  maroon: { label: "Maroon",     ink: "7A1F2B", tint: "F4E9EB" },
+  green:  { label: "Green",      ink: "1E5B3A", tint: "E6F0EA" },
+};
+export const FONT_STYLES = {
+  serif: { label: "Classic serif",  css: '"Times New Roman",Times,"Liberation Serif",Georgia,serif', docx: "Times New Roman" },
+  sans:  { label: "Modern sans",    css: 'Arial,"Helvetica Neue",Helvetica,"Liberation Sans",sans-serif', docx: "Arial" },
+};
+export const CANDIDATE_STYLES = [
+  { id: "lines",   label: "Name, Index No. & Date" },
+  { id: "boxes",   label: "Name + Index boxes" },
+  { id: "minimal", label: "Name & Date only" },
+];
+
+/**
+ * Splits a marking guide into mark-point rows: [{ text, marks|null }].
+ * Understands "[2] text", "(b) [2] text", "text [2]" and "text (2 marks)".
+ * Returns null unless at least two lines carry marks, so free-form guides
+ * (model answers, essay bands) keep their original paragraph layout.
+ */
+export function parseMarkingRows(guide) {
+  const lines = String(guide || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const rows = lines.map(l => {
+    let m = /^((?:\([a-z]{1,4}\)\s*)*)\[(\d+(?:\.\d+)?)\]\s*(.*)$/i.exec(l);
+    if (m) return { text: `${m[1]}${m[3]}`.trim(), marks: m[2] };
+    m = /^(.*?)\s*[\[(](\d+(?:\.\d+)?)\s*(?:marks?|mks?)?[\])]\s*[.;]?$/i.exec(l);
+    if (m && m[1]) return { text: m[1].trim(), marks: m[2] };
+    return { text: l, marks: null };
+  });
+  return rows.filter(r => r.marks !== null).length >= 2 ? rows : null;
+}
 
 export const OPTIONS_LAYOUTS = [
   { id: "vertical", label: "Vertical (A, B, C, D stacked)" },
@@ -418,177 +373,41 @@ export const OPTIONS_LAYOUTS = [
   { id: "row", label: "One row" },
 ];
 
-/** Candidate-ID styles for the paper header. */
-export const ID_MODES = [
-  { id: "line", label: "Line (Index No.: ______)" },
-  { id: "boxes", label: "Boxes (one per digit, WAEC style)" },
-  { id: "none", label: "None" },
-];
-
-/**
- * One-tap paper-format presets for the UI. "school" is the everyday class
- * test / term exam; "public" mirrors the conventions of public examination
- * papers (BECE, WASSCE and mock papers set for them): index-number boxes, a
- * sealed-paper notice and "Turn over" on every page but the last.
- * Everything stays individually adjustable after a preset is applied.
- */
-export const PAPER_PRESETS = {
-  school: { id: "school", label: "School exam", idMode: "line", idDigits: 10, idLabel: "Index No.", notice: false, turnOver: true },
-  public: { id: "public", label: "BECE / WASSCE style", idMode: "boxes", idDigits: 10, idLabel: "Index Number", notice: true, turnOver: true },
-};
-
-export const DEFAULT_NOTICE = "Do not open this question paper until you are told to do so";
-
-/** Clamps the number of index-number boxes to something that fits an A4 line. */
-export function clampIdDigits(n) {
-  const v = Math.round(Number(n));
-  if (!Number.isFinite(v)) return 10;
-  return Math.min(15, Math.max(4, v));
-}
-
-/* ────────────────────────────────────────────────────────────────
-   Paginator: runs inside the generated document. It measures every block
-   of the paper at the real page width and lays them onto fixed A4 sheets,
-   which is the only way to get the same "Page X of Y" and a "Turn over" note
-   on every page except the last in EVERY browser (CSS page-margin boxes are
-   Chromium-only and cannot skip the final page). Preview, print and PDF all
-   come from the same sheets, so what you see is what you print.
-   ──────────────────────────────────────────────────────────────── */
-const PAGINATE_SCRIPT = `
-(function () {
-  var doc = document, root = doc.documentElement, started = false;
-  function txt(id) { var n = doc.getElementById(id); return n ? n.textContent : ""; }
-  function make(tag, cls, text) { var n = doc.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n; }
-
-  function paginate() {
-    var src = doc.getElementById("src"), out = doc.getElementById("sheets");
-    if (!src || !out) return;
-    var blocks = Array.prototype.slice.call(src.children);
-    var turnOver = root.getAttribute("data-turn-over") === "1";
-    var footLeft = txt("foot-left"), turnText = txt("foot-turn") || "Turn over";
-
-    root.classList.add("measuring");
-    var probe = make("section", "sheet probe"), probeBody = make("div", "sheet-body");
-    probe.appendChild(probeBody); doc.body.appendChild(probe);
-    var cap = probeBody.getBoundingClientRect().height;
-    var sheetW = probe.getBoundingClientRect().width;
-    doc.body.removeChild(probe);
-
-    blocks.forEach(function (b) {
-      b._h = b.getBoundingClientRect().height;
-      b._pt = parseFloat(getComputedStyle(b).paddingTop) || 0;
-    });
-
-    var pages = [[]], used = 0, EPS = 0.75;
-    function page() { return pages[pages.length - 1]; }
-    function newPage() { pages.push([]); used = 0; }
-    function place(b) {
-      var top = page().length === 0;
-      var need = top ? b._h - b._pt : b._h;
-      if (!top && used + need > cap + EPS) { newPage(); top = true; need = b._h - b._pt; }
-      if (top) b.classList.add("at-top");
-      page().push(b); used += need;
-    }
-
-    var i = 0;
-    while (i < blocks.length) {
-      var chain = [blocks[i]];
-      while (chain[chain.length - 1].getAttribute("data-keep") === "1" && i + chain.length < blocks.length) {
-        chain.push(blocks[i + chain.length]);
-      }
-      i += chain.length;
-      var sum = 0; chain.forEach(function (b) { sum += b._h; });
-      var topSum = sum - chain[0]._pt, atTop = page().length === 0;
-      if (atTop ? topSum <= cap + EPS : used + sum <= cap + EPS) { chain.forEach(place); continue; }
-      if (!atTop && topSum <= cap + EPS) { newPage(); chain.forEach(place); continue; }
-      chain.forEach(place);   // taller than a page: break between its blocks
-    }
-
-    out.innerHTML = "";
-    var total = pages.length;
-    pages.forEach(function (pg, idx) {
-      var sheet = make("section", "sheet"), body = make("div", "sheet-body"), foot = make("div", "sheet-foot");
-      pg.forEach(function (b) { body.appendChild(b); });
-      foot.appendChild(make("span", "f-left", footLeft));
-      foot.appendChild(make("span", "f-mid", "Page " + (idx + 1) + " of " + total));
-      foot.appendChild(make("span", "f-right", turnOver && idx < total - 1 ? turnText : ""));
-      sheet.appendChild(body); sheet.appendChild(foot); out.appendChild(sheet);
-    });
-    root.classList.remove("measuring");
-    root.classList.add("paginated");
-    root._sheetW = sheetW;
-    fit();
-  }
-
-  // Screens narrower than an A4 sheet see the whole page scaled down; print is never scaled.
-  function fit() {
-    var out = doc.getElementById("sheets"), w = root._sheetW;
-    if (!out || !w) return;
-    var z = Math.min(1, (root.clientWidth - 16) / w);
-    out.style.zoom = z < 1 ? String(z) : "";
-  }
-
-  function start() {
-    if (started) return; started = true;
-    try { paginate(); }
-    catch (e) { root.classList.remove("measuring"); root.classList.add("nopaginate"); if (window.console) console.error("Pagination failed", e); }
-    window.__paperReady = true;
-  }
-
-  var pending = Array.prototype.filter.call(doc.images, function (im) { return !im.complete; });
-  var left = pending.length;
-  var fonts = (doc.fonts && doc.fonts.ready) ? doc.fonts.ready : Promise.resolve();
-  function afterImages() { fonts.then(start, start); }
-  if (!left) afterImages();
-  else pending.forEach(function (im) {
-    function done() { if (--left === 0) afterImages(); }
-    im.addEventListener("load", done); im.addEventListener("error", done);
-  });
-  setTimeout(start, 4000);
-  window.addEventListener("resize", fit);
-})();
-`;
-
 export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const {
     schoolName = "", className = "", subject = "", term = "",
     examType = "Exam", durationMinutes = 60, landscape = false,
-    schoolLogo = null, examVersion = "",
+    diagramImages = {}, schoolLogo = null, examVersion = "",
     optionsLayout = "vertical",
-    schoolMotto = "", emblem = "auto",
-    idMode = "line", idDigits = 10, idLabel = "",
-    turnOver = true, notice = false, noticeText = DEFAULT_NOTICE,
+    schoolMotto = "", schoolAddress = "", headerStyle = "classic", answerLines = false,
+    academicYear = "", candidateStyle = "lines", fontStyle = "serif", accent = "black",
   } = meta;
+  const ACC = ACCENTS[accent] || ACCENTS.black;
+  const FONT = FONT_STYLES[fontStyle] || FONT_STYLES.serif;
+  const centeredHead = headerStyle === "centered";
   const layout = ["vertical", "two", "row"].includes(optionsLayout) ? optionsLayout : "vertical";
-  const candidateId = ["line", "boxes", "none"].includes(idMode) ? idMode : "line";
-  const idCount = clampIdDigits(idDigits);
 
   const esc = (s) => String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const nl = (t) => esc(t).replace(/\n/g, "<br/>");
+  // Safe for use inside a CSS string literal (page footer text).
+  const cssStr = (s) => String(s ?? "").replace(/[\\"\n\r]/g, " ").replace(/</g, "").slice(0, 80);
 
   const sections = examData.sections || [];
   const sumMarks = (qs) => (qs || []).reduce((s, q) => s + (Number(q.marks) || 0), 0);
   const computedTotal = sections.reduce((s, sec) => s + sumMarks(sec.questions), 0);
   const totalMarks = computedTotal || Number(examData.totalMarks) || 0;
 
-  // A "block" is the smallest unit the paginator will never split. keep=true
-  // glues a block to the one after it (a heading to its first question, a
-  // question stem to its first part) so a page never ends on an orphan.
-  const blk = (html, cls = "", keep = false) =>
-    `<div class="blk${cls ? " " + cls : ""}"${keep ? ' data-keep="1"' : ""}>${html}</div>`;
-
-  // Priority: teacher-supplied picture (any question) > AI-generated SVG
-  // (geometric/graph figures the model can draw precisely) > text placeholder
-  // (anything needing real illustration that a human should supply).
   const renderDiagram = (q) => {
-    if (q.image && isSafeImageDataUrl(q.image.src)) {
-      const { maxW, maxH } = IMAGE_SIZES[imageSizeKey(q.image)];
-      const caption = String(q.image.caption || "").trim();
-      return `<figure class="q-figure"><img class="q-fig-img" src="${q.image.src}" alt="${caption ? esc(caption) : `Figure for question ${q.number}`}" style="max-width:min(100%,${maxW}px);max-height:${maxH}px"/>${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
-    }
     if (!q.diagram || !q.diagram.needed) return "";
+    const img = diagramImages[q.number];
+    // Priority: teacher-uploaded image > AI-generated SVG (geometric/graph figures
+    // the model can draw precisely) > text placeholder (anything needing real
+    // illustration - a cell diagram, a map - that a human should supply).
+    if (img) {
+      return `<div class="diagram-box"><img src="${img}" alt="Diagram for question ${q.number}" class="diagram-img"/></div>`;
+    }
     if (q.diagram.generatable && q.diagram.svg) {
       return `<div class="diagram-box diagram-svg-wrap">${q.diagram.svg}</div>`;
     }
@@ -604,26 +423,35 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     ).join("")}</div>`;
   };
 
-  const renderSubparts = (subparts) => {
+  // Ruled answer lines (one per mark, 1-12) for written questions, when requested.
+  const lines = (marks, secType) => {
+    if (!answerLines || secType === "objective") return "";
+    const n = Math.max(1, Math.min(12, Math.round(Number(marks) || 1)));
+    return `<div class="ans-lines">${"<i></i>".repeat(n)}</div>`;
+  };
+
+  const renderSubparts = (subparts, secType) => {
     if (!subparts || !subparts.length) return "";
     return `<div class="subparts">${subparts.map(sp =>
-      `<div class="row sub-row"><span class="lbl">(${esc(sp.label)})</span><span class="txt">${nl(sp.text)}</span><span class="marks">[${sp.marks}]</span></div>`
+      `<div class="row sub-row"><span class="lbl">(${esc(sp.label)})</span><span class="txt">${nl(sp.text)}</span><span class="marks">[${sp.marks}]</span></div>${lines(sp.marks, secType)}`
     ).join("")}</div>`;
   };
 
-  const renderPart = (p) => `
-      <div class="row has-parts part-wrap"><span></span>
-        <div class="q-body"><div class="part">
-          <div class="row part-row"><span class="lbl">(${esc(p.label)})</span><span class="txt">${nl(p.text)}</span><span class="marks">[${p.marks}]</span></div>
-          ${renderSubparts(p.subparts)}
-        </div></div>
+  const renderParts = (parts, secType) => {
+    if (!parts || !parts.length) return "";
+    return `<div class="parts">${parts.map(p => {
+      const hasSub = Array.isArray(p.subparts) && p.subparts.length > 0;
+      return `
+      <div class="part">
+        <div class="row part-row"><span class="lbl">(${esc(p.label)})</span><span class="txt">${nl(p.text)}</span><span class="marks">[${p.marks}]</span></div>
+        ${hasSub ? renderSubparts(p.subparts, secType) : lines(p.marks, secType)}
       </div>`;
+    }).join("")}</div>`;
+  };
 
-  /** One question -> one or more blocks (a multi-part question may break between its parts). */
-  const renderQuestionBlocks = (q, keepNext) => {
-    const parts = Array.isArray(q.parts) ? q.parts : [];
-    const hasParts = parts.length > 0;
-    const stem = `
+  const renderQuestion = (q, secType) => {
+    const hasParts = Array.isArray(q.parts) && q.parts.length > 0;
+    return `
     <div class="question" data-qnum="${q.number}">
       <div class="row q-row${hasParts ? " has-parts" : ""}">
         <span class="lbl q-num">${q.number}.</span>
@@ -631,47 +459,53 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
           <div class="q-text">${nl(q.text)}</div>
           ${renderDiagram(q)}
           ${renderOptions(q)}
+          ${renderParts(q.parts, secType)}
+          ${hasParts || (q.options && q.options.length) ? "" : lines(q.marks, secType)}
         </div>
         ${hasParts ? "" : `<span class="marks">[${q.marks}]</span>`}
       </div>
     </div>`;
-    if (!hasParts) return [blk(stem, "q", keepNext)];
-    return [
-      blk(stem, "q q-stem", true),
-      ...parts.map((p, i) => blk(renderPart(p), `q-part${i === parts.length - 1 ? " q-last" : ""}`, keepNext && i === parts.length - 1)),
-    ];
   };
 
-  const renderSectionBlocks = (s) => {
+  const renderSection = (s) => {
     const secMarks = sumMarks(s.questions);
     const qs = s.questions || [];
-    const header = blk(`
+    return `
+    <div class="section">
+      <div class="section-start">
       <div class="section-header">
         <div class="section-line">
           <span class="section-title">${esc(s.label)}</span>
           ${secMarks ? `<span class="section-marks">${secMarks} marks</span>` : ""}
         </div>
         ${s.instructions ? `<div class="section-instructions">${esc(s.instructions)}</div>` : ""}
-      </div>`, "sec", qs.length > 0);
-    return [header, ...qs.flatMap(q => renderQuestionBlocks(q, false))];
+      </div>
+      ${qs.length ? renderQuestion(qs[0], s.type) : ""}
+      </div>
+      ${qs.slice(1).map(q => renderQuestion(q, s.type)).join("")}
+    </div>`;
   };
 
-  // ── Letterhead (shared by the question paper and the marking scheme) ──
-  // Priority: uploaded logo > generated crest (unless switched off) > nothing.
-  const crest = emblem !== "none" ? schoolCrestSVG(schoolName) : "";
+  // Letterhead shared by the question paper and the marking scheme.
   const logoMarkup = schoolLogo
     ? `<img src="${schoolLogo}" alt="School logo" class="school-logo"/>`
-    : (crest ? `<div class="school-logo school-seal">${crest}</div>` : "");
+    : (schoolMonogramSVG(schoolName) ? `<div class="school-logo school-seal">${schoolMonogramSVG(schoolName)}</div>` : "");
 
+  const identity = `
+          <div class="school-name">${esc(schoolName || "________________________________")}</div>
+          ${schoolMotto ? `<div class="school-motto">&ldquo;${esc(schoolMotto)}&rdquo;</div>` : ""}
+          ${schoolAddress ? `<div class="school-address">${esc(schoolAddress)}</div>` : ""}`;
   const letterhead = (titleText) => `
+      ${centeredHead ? `
+      <div class="lh-center">
+        ${logoMarkup ? `<div class="lh-logo-c">${logoMarkup}</div>` : ""}
+        ${identity}
+      </div>` : `
       <div class="lh-row">
         <div class="lh-side">${logoMarkup}</div>
-        <div class="lh-text">
-          <div class="school-name">${esc(schoolName || "________________________________")}</div>
-          ${schoolMotto ? `<div class="school-motto">${esc(schoolMotto)}</div>` : ""}
-        </div>
+        <div class="lh-text">${identity}</div>
         <div class="lh-side"></div>
-      </div>
+      </div>`}
       <div class="lh-rule"></div>
       <div class="exam-title">${titleText}</div>`;
 
@@ -680,54 +514,51 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const metaCell = (label, value) =>
     `<td><div class="meta-label">${label}</div><div class="meta-value">${esc(value) || "&nbsp;"}</div></td>`;
 
-  const idLabelText = idLabel || (candidateId === "boxes" ? "Index Number" : "Index No.");
-  const scoreBox = `<div class="score-box"><span>Score</span><b>/ ${totalMarks || ""}</b></div>`;
-  const candidateBlock = candidateId === "boxes" ? `
-      <div class="candidate">
-        <div class="cand-row">
-          <div class="cand-field grow"><span>Candidate's Name:</span><i></i></div>
-          <div class="cand-field w-date"><span>Date:</span><i></i></div>
-          ${scoreBox}
-        </div>
-        <div class="cand-row id-row">
-          <span class="id-label">${esc(idLabelText)}</span>
-          <div class="idcells" role="presentation">${"<i></i>".repeat(idCount)}</div>
-        </div>
-      </div>` : `
-      <div class="candidate">
-        <div class="cand-row">
-          <div class="cand-field grow"><span>Name:</span><i></i></div>
-          ${candidateId === "line" ? `<div class="cand-field w-index"><span>${esc(idLabelText)}:</span><i></i></div>` : ""}
-          <div class="cand-field w-date"><span>Date:</span><i></i></div>
-          ${scoreBox}
-        </div>
-      </div>`;
-
-  const headerBlock = blk(`
+  const headerBlock = `
     <div class="paper-header">
       ${letterhead(titleText)}
-      ${notice ? `<div class="notice">${esc(noticeText || DEFAULT_NOTICE)}</div>` : ""}
       <table class="meta-grid">
         <tr>
           ${metaCell("Subject", subject)}
           ${metaCell("Class", className)}
           ${metaCell("Term", term)}
+          ${academicYear ? metaCell("Academic Year", academicYear) : ""}
           ${metaCell("Duration", `${durationMinutes} mins`)}
           ${totalMarks ? metaCell("Total Marks", totalMarks) : ""}
         </tr>
       </table>
-      ${candidateBlock}
+      ${candidateStyle === "boxes" ? `
+      <div class="candidate">
+        <div class="cand-field grow"><span>Name:</span><i></i></div>
+        <div class="cand-field w-date"><span>Date:</span><i></i></div>
+        <div class="score-box"><span>Score</span><b>/ ${totalMarks || ""}</b></div>
+      </div>
+      <div class="candidate idx-row">
+        <span class="idx-label">Index Number:</span>
+        <div class="idx-boxes">${"<i></i>".repeat(10)}</div>
+      </div>` : candidateStyle === "minimal" ? `
+      <div class="candidate">
+        <div class="cand-field grow"><span>Name:</span><i></i></div>
+        <div class="cand-field w-date"><span>Date:</span><i></i></div>
+        <div class="score-box"><span>Score</span><b>/ ${totalMarks || ""}</b></div>
+      </div>` : `
+      <div class="candidate">
+        <div class="cand-field grow"><span>Name:</span><i></i></div>
+        <div class="cand-field w-index"><span>Index No.:</span><i></i></div>
+        <div class="cand-field w-date"><span>Date:</span><i></i></div>
+        <div class="score-box"><span>Score</span><b>/ ${totalMarks || ""}</b></div>
+      </div>`}
       ${(examData.instructions || []).length ? `
       <div class="instructions">
         <div class="instr-title">Instructions to Candidates</div>
         <ol>${examData.instructions.map(i => `<li>${esc(i)}</li>`).join("")}</ol>
       </div>` : ""}
-    </div>`, "hdr");
+    </div>`;
 
-  const renderAnswerKeyBlocks = () => {
+  const renderAnswerKey = () => {
     const key = examData.answerKey || [];
     const hasAnyMarkingGuide = sections.some(s => (s.questions || []).some(q => q.markingGuide && q.markingGuide.trim()));
-    const keyHeader = blk(`
+    const keyHeader = `
       <div class="paper-header answer-header">
         ${letterhead(`MARKING SCHEME${examVersion ? ` <span class="exam-version">VERSION ${esc(examVersion)}</span>` : ""}`)}
         <table class="meta-grid">
@@ -735,130 +566,119 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
             ${metaCell("Subject", subject)}
             ${metaCell("Class", className)}
             ${metaCell("Term", term)}
+            ${academicYear ? metaCell("Academic Year", academicYear) : ""}
             ${totalMarks ? metaCell("Total Marks", totalMarks) : ""}
           </tr>
         </table>
-      </div>`, "hdr");
+      </div>`;
     if (!key.length && !hasAnyMarkingGuide) {
-      return [keyHeader, blk(`
+      return `
+        ${keyHeader}
         <div class="answer-page">
           <h2>MARKING SCHEME</h2>
           <p class="no-marking-scheme">This paper was generated in <b>Questions Only</b> mode - no answer key or marking
           scheme was requested. Regenerate with "Questions + Marking Scheme" enabled to get one.</p>
-        </div>`, "ak")];
+        </div>`;
     }
-    const out = [keyHeader];
-    if (key.length) {
-      out.push(blk(`<div class="answer-page"><h2>SECTION A: ANSWER KEY</h2>
+    return `
+      ${keyHeader}
+      <div class="answer-page">
+        ${key.length ? `
+        <h2>SECTION A: ANSWER KEY</h2>
         <div class="key-grid">
           ${key.map(k => `<div class="key-cell"><b>${k.number}.</b> ${esc(k.answer)}</div>`).join("")}
-        </div></div>`, "ak"));
-    }
-    out.push(blk(`<div class="answer-page"><h2>MARKING SCHEME - SECTIONS B &amp; C</h2></div>`, "ak", true));
-    sections.filter(s => s.type !== "objective").forEach(s => {
-      const qs = s.questions || [];
-      out.push(blk(`<div class="answer-page"><h3>${esc(s.label)}</h3></div>`, "ak", qs.length > 0));
-      qs.forEach(q => out.push(blk(`
-        <div class="answer-page"><div class="mark-block">
-          <div class="mark-qnum"><span>Question ${q.number}</span><span class="marks">[${q.marks}]</span></div>
-          <div class="mark-guide">${nl(q.markingGuide)}</div>
-        </div></div>`, "ak")));
-    });
-    return out;
+        </div>` : ""}
+        <h2>MARKING SCHEME - SECTIONS B &amp; C</h2>
+        ${sections.filter(s => s.type !== "objective").map(s => `
+          <h3>${esc(s.label)}</h3>
+          ${(s.questions || []).map(q => `
+            <div class="mark-block">
+              <div class="mark-qnum"><span>Question ${q.number}</span><span class="marks">[${q.marks}]</span></div>
+              ${(() => {
+                const rows = parseMarkingRows(q.markingGuide);
+                if (!rows) return `<div class="mark-guide">${nl(q.markingGuide)}</div>`;
+                return `<table class="mark-table"><thead><tr><th>Marking point</th><th class="mk">Marks</th></tr></thead><tbody>${
+                  rows.map(r => `<tr><td>${esc(r.text)}</td><td class="mk">${r.marks ?? ""}</td></tr>`).join("")
+                }<tr class="tot"><td>Total</td><td class="mk">${esc(q.marks)}</td></tr></tbody></table>`;
+              })()}
+            </div>`).join("")}
+        `).join("")}
+      </div>`;
   };
 
-  const blocks = mode === "answerKey"
-    ? renderAnswerKeyBlocks()
-    : [headerBlock, ...sections.flatMap(renderSectionBlocks), blk(`<div class="end-mark"><span>END OF PAPER</span></div>`, "endmark")];
+  const body = mode === "answerKey"
+    ? renderAnswerKey()
+    : `${headerBlock}${sections.map(renderSection).join("")}
+       <div class="end-mark"><span>END OF PAPER</span></div>`;
 
-  const footerLeft = [schoolName, subject, examVersion ? `Version ${examVersion}` : ""].filter(Boolean).join("  |  ");
-  const showTurnOver = mode === "paper" && turnOver !== false;
-  const PW = landscape ? 297 : 210, PH = landscape ? 210 : 297;
+  const footerLeft = cssStr([schoolName, subject].filter(Boolean).join("  |  "));
 
   return `<!DOCTYPE html>
-<html data-turn-over="${showTurnOver ? "1" : "0"}">
+<html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(examData.title || examType)} - ${esc(subject)}</title>
 <style>
-  :root{ --pw:${PW}mm; --ph:${PH}mm; --mx:16mm; --mt:14mm; --mb:22mm; --bw:calc(var(--pw) - 2 * var(--mx)); --bh:calc(var(--ph) - var(--mt) - var(--mb)); color-scheme: light only; }
   * { box-sizing: border-box; }
-  html,body{ margin:0; padding:0; background:#E9EBEF; font-family:"Times New Roman",Times,"Liberation Serif",Georgia,serif; color:#111; }
-
-  /* ── Source blocks + A4 sheets ───────────────────────────── */
-  #src{ width:var(--bw); max-width:100%; margin:24px auto; background:#fff; padding:14mm 16mm; font-size:11.5pt; line-height:1.5; }
-  .measuring #src{ position:absolute; left:0; top:0; margin:0; padding:0; visibility:hidden; width:var(--bw); max-width:none; }
-  .paginated #src{ display:none; }
-  #sheets{ padding:8px 0 24px; }
-  .sheet{ position:relative; width:var(--pw); height:var(--ph); margin:0 auto 16px; padding:var(--mt) var(--mx) 0; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.16); font-size:11.5pt; line-height:1.5; overflow:hidden; }
-  .sheet-body{ width:var(--bw); height:var(--bh); }
-  .sheet.probe{ position:absolute; left:0; top:0; visibility:hidden; margin:0; }
-  .sheet-foot{ position:absolute; left:var(--mx); right:var(--mx); bottom:9mm; display:grid; grid-template-columns:1fr auto 1fr; align-items:baseline; column-gap:10px; border-top:.75pt solid #777; padding-top:4px; font-size:8.5pt; color:#444; line-height:1.2; }
-  .sheet-foot .f-left{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sheet-foot .f-mid{ text-align:center; white-space:nowrap; }
-  .sheet-foot .f-right{ text-align:right; font-style:italic; font-weight:700; font-size:10pt; color:#111; white-space:nowrap; }
-  html:not(.paginated):not(.nopaginate) #sheets:empty{ display:none; }
-  .blk{ display:flow-root; }
-  .blk.at-top{ padding-top:0 !important; }
+  :root{ --acc:#${ACC.ink}; --tint:#${ACC.tint}; }
+  html,body{ margin:0; padding:0; background:#E9EBEF; font-family:${FONT.css}; color:#111; }
+  .page{ max-width:794px; margin:24px auto; background:#fff; padding:44px 52px 52px; box-shadow:0 1px 4px rgba(0,0,0,.12); font-size:12pt; line-height:1.5; }
 
   /* ── Letterhead ─────────────────────────────────────────── */
-  .paper-header{ margin-bottom:6px; }
+  .paper-header{ margin-bottom:20px; }
   .lh-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
-  .lh-side{ width:92px; flex-shrink:0; display:flex; align-items:center; justify-content:flex-start; }
+  .lh-side{ width:84px; flex-shrink:0; display:flex; align-items:center; justify-content:flex-start; }
   .lh-text{ flex:1; text-align:center; }
-  .school-logo{ width:92px; height:92px; object-fit:contain; display:block; }
+  .school-logo{ width:84px; height:84px; object-fit:contain; display:block; }
   .school-seal svg{ width:100%; height:100%; display:block; }
-  .school-name{ font-size:21pt; font-weight:700; text-transform:uppercase; letter-spacing:.06em; line-height:1.2; }
-  .school-motto{ margin-top:3px; font-size:10.5pt; font-style:italic; letter-spacing:.03em; color:#222; }
-  .lh-rule{ margin:10px 0 0; border-top:3px solid #111; border-bottom:1px solid #111; height:5px; }
-  .exam-title{ text-align:center; font-size:14pt; font-weight:700; text-transform:uppercase; letter-spacing:.12em; margin:12px 0 10px; }
+  .lh-center{ text-align:center; }
+  .lh-logo-c{ display:flex; justify-content:center; margin-bottom:6px; }
+  .lh-center .school-logo{ width:96px; height:96px; }
+  .school-motto{ font-style:italic; font-size:11.5pt; margin-top:3px; color:#222; }
+  .school-address{ font-size:9.5pt; margin-top:3px; color:#333; letter-spacing:.02em; line-height:1.35; }
+  .school-name{ color:var(--acc); font-size:21pt; font-weight:700; text-transform:uppercase; letter-spacing:.06em; line-height:1.2; }
+  .lh-rule{ margin:10px 0 0; border-top:3px solid var(--acc); border-bottom:1px solid var(--acc); height:8px; }
+  .exam-title{ color:var(--acc); text-align:center; font-size:14pt; font-weight:700; text-transform:uppercase; letter-spacing:.12em; margin:12px 0 10px; }
   .exam-version{ font-weight:600; letter-spacing:.06em; border:1px solid #111; padding:1px 7px; margin-left:8px; font-size:10pt; vertical-align:middle; }
-  .notice{ margin:0 0 10px; border:1.5px solid #111; text-align:center; font-weight:700; text-transform:uppercase; letter-spacing:.09em; font-size:9.5pt; padding:5px 10px; }
 
-  .meta-grid{ width:100%; border-collapse:collapse; border:1.5px solid #111; table-layout:fixed; }
-  .meta-grid td{ border-right:1px solid #111; padding:5px 9px 6px; vertical-align:top; }
+  .meta-grid{ width:100%; border-collapse:collapse; border:1.5px solid var(--acc); table-layout:fixed; }
+  .meta-grid td{ border-right:1px solid var(--acc); padding:5px 9px 6px; vertical-align:top; }
   .meta-grid td:last-child{ border-right:none; }
   .meta-label{ font-size:7.5pt; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#444; line-height:1.3; }
   .meta-value{ font-size:11pt; font-weight:700; line-height:1.35; }
 
-  .candidate{ margin-top:16px; font-size:11pt; }
-  .cand-row{ display:flex; align-items:flex-end; gap:18px; }
-  .cand-row + .cand-row{ margin-top:12px; }
+  .candidate{ display:flex; align-items:flex-end; gap:18px; margin-top:16px; font-size:11pt; }
   .cand-field{ display:flex; align-items:flex-end; gap:6px; }
   .cand-field.grow{ flex:1; }
   .cand-field.w-index{ width:30%; }
   .cand-field.w-date{ width:20%; }
   .cand-field span{ white-space:nowrap; font-weight:700; }
   .cand-field i{ flex:1; border-bottom:1px solid #111; height:1.1em; }
-  .score-box{ border:1.5px solid #111; padding:3px 12px 4px; min-width:84px; text-align:center; line-height:1.25; }
+  .score-box{ border:1.5px solid var(--acc); padding:3px 12px 4px; min-width:84px; text-align:center; line-height:1.25; }
+  .idx-row{ margin-top:12px; align-items:center; }
+  .idx-label{ font-weight:700; white-space:nowrap; }
+  .idx-boxes{ display:flex; }
+  .idx-boxes i{ display:block; width:26px; height:26px; border:1.2px solid var(--acc); margin-right:-1.2px; }
   .score-box span{ display:block; font-size:7.5pt; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#444; }
   .score-box b{ font-size:11pt; }
-  .id-row{ align-items:center; gap:12px; }
-  .id-label{ font-weight:700; white-space:nowrap; }
-  .idcells{ display:inline-flex; }
-  .idcells i{ display:block; width:8.4mm; height:9.6mm; border:1.4px solid #111; margin-left:-1.4px; background:#fff; }
-  .idcells i:first-child{ margin-left:0; }
 
-  .instructions{ margin-top:16px; border:1px solid #111; padding:8px 14px 8px; font-size:10.5pt; line-height:1.55; }
-  .instr-title{ font-weight:700; text-transform:uppercase; letter-spacing:.1em; font-size:9.5pt; border-bottom:1px solid #999; padding-bottom:3px; margin-bottom:4px; }
+  .instructions{ margin-top:16px; border:1px solid var(--acc); padding:8px 14px 8px; font-size:10.5pt; line-height:1.55; }
+  .instr-title{ color:var(--acc); font-weight:700; text-transform:uppercase; letter-spacing:.1em; font-size:9.5pt; border-bottom:1px solid #999; padding-bottom:3px; margin-bottom:4px; }
   .instructions ol{ margin:4px 0 0 18px; padding:0; }
   .instructions li{ margin:1px 0; }
 
   /* ── Sections ───────────────────────────────────────────── */
-  .blk.sec{ padding-top:22px; padding-bottom:14px; }
-  .section-header{ background:#EDEEF1; border-top:1.5px solid #111; border-bottom:1.5px solid #111; padding:6px 10px 6px; }
+  .section{ margin-top:22px; }
+  .section-header{ background:var(--tint); border-top:1.5px solid var(--acc); border-bottom:1.5px solid var(--acc); padding:6px 10px 6px; margin-bottom:14px; }
+  .section-start{ break-inside:avoid; page-break-inside:avoid; }
   .section-line{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
-  .section-title{ font-size:12pt; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+  .section-title{ color:var(--acc); font-size:12pt; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
   .section-marks{ font-size:10pt; font-weight:700; white-space:nowrap; }
   .section-instructions{ font-size:10.5pt; font-style:italic; color:#222; margin-top:2px; line-height:1.45; }
 
   /* ── Questions ──────────────────────────────────────────── */
-  .blk.q{ padding-bottom:16px; }
-  .blk.q-stem{ padding-bottom:4px; }
-  .blk.q-part{ padding-bottom:6px; }
-  .blk.q-last{ padding-bottom:16px; }
-  .question{ font-size:11.5pt; line-height:1.5; }
+  .question{ margin-bottom:16px; font-size:12pt; line-height:1.5; page-break-inside:avoid; }
   .row{ display:grid; grid-template-columns:2.3em 1fr 3.4em; column-gap:4px; align-items:start; }
   .row.has-parts{ grid-template-columns:2.3em 1fr; }
   .lbl{ font-weight:700; }
@@ -871,57 +691,61 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   .opts-vertical .opt{ margin:3px 0; }
   .opts-two, .opts-row{ display:grid; column-gap:20px; row-gap:5px; }
 
-  .part-wrap{ font-size:11.5pt; line-height:1.5; }
-  .part{ margin-top:2px; }
+  .parts{ margin-top:8px; }
+  .part{ margin-top:6px; }
   .part-row{ grid-template-columns:2.3em 1fr 3.4em; }
   .subparts{ margin:4px 0 0 2.3em; }
   .sub-row{ grid-template-columns:2.3em 1fr 3.4em; margin-top:3px; font-size:11.5pt; }
 
+  .ans-lines{ margin:2px 0 4px 0; break-inside:avoid; }
+  .q-body > .ans-lines{ margin-right:calc(-3.4em - 4px); }
+  .subparts .ans-lines{ margin-left:-2.3em; }
+  .ans-lines i{ display:block; height:1.9em; border-bottom:1px dotted #555; }
   .diagram-box{ margin:10px 0; }
   .diagram-placeholder{ border:1.5px dashed #888; padding:18px; font-size:10.5pt; color:#444; text-align:center; background:#F7F7F8; font-style:italic; }
-  .q-figure{ margin:10px 0; text-align:center; }
-  .q-fig-img{ display:block; margin:0 auto; width:auto; height:auto; border:1px solid #BBB; }
-  .q-figure figcaption{ margin-top:4px; font-size:9.5pt; font-style:italic; color:#333; }
+  .diagram-img{ max-width:100%; max-height:260px; display:block; margin:0 auto; border:1px solid #BBB; }
   .diagram-svg-wrap{ display:flex; justify-content:center; }
   .diagram-svg-wrap svg{ max-width:100%; max-height:230px; }
 
-  .blk.endmark{ padding-top:22px; }
-  .end-mark{ text-align:center; }
-  .end-mark span{ display:inline-block; font-weight:700; letter-spacing:.2em; font-size:11pt; border-top:1px solid #111; border-bottom:1px solid #111; padding:3px 26px; }
+  .end-mark{ text-align:center; margin-top:28px; }
+  .end-mark span{ display:inline-block; font-weight:700; letter-spacing:.2em; font-size:11pt; border-top:1px solid var(--acc); border-bottom:1px solid var(--acc); color:var(--acc); padding:3px 26px; }
 
   /* ── Marking scheme ─────────────────────────────────────── */
-  .answer-page h2{ font-size:12pt; text-transform:uppercase; letter-spacing:.06em; background:#EDEEF1; border-top:1.5px solid #111; border-bottom:1.5px solid #111; padding:6px 10px; margin:22px 0 12px; }
-  .answer-page h3{ font-size:11.5pt; margin:14px 0 2px; text-decoration:underline; }
+  .answer-page h2{ color:var(--acc); font-size:12pt; text-transform:uppercase; letter-spacing:.06em; background:var(--tint); border-top:1.5px solid var(--acc); border-bottom:1.5px solid var(--acc); padding:6px 10px; margin:24px 0 12px; }
+  .answer-page h3{ font-size:11.5pt; margin:16px 0 4px; text-decoration:underline; }
   .no-marking-scheme{ font-size:11.5pt; color:#333; line-height:1.6; background:#F7F7F8; border:1px dashed #888; padding:14px 16px; margin-top:10px; }
   .key-grid{ display:grid; grid-template-columns:repeat(10,1fr); gap:0; font-size:11pt; border-left:1px solid #111; border-top:1px solid #111; }
   .key-cell{ padding:5px 6px; text-align:center; border-right:1px solid #111; border-bottom:1px solid #111; }
-  .mark-block{ margin-top:10px; font-size:11.5pt; }
+  .mark-block{ margin-top:12px; font-size:11.5pt; page-break-inside:avoid; }
   .mark-qnum{ font-weight:700; display:flex; justify-content:space-between; border-bottom:1px solid #BBB; padding-bottom:2px; }
+  .mark-table{ width:100%; border-collapse:collapse; margin-top:6px; font-size:11pt; }
+  .mark-table th{ background:var(--tint); text-align:left; font-size:9pt; text-transform:uppercase; letter-spacing:.08em; padding:4px 8px; border:1px solid var(--acc); }
+  .mark-table td{ padding:4px 8px; border:1px solid #999; vertical-align:top; line-height:1.45; }
+  .mark-table .mk{ width:64px; text-align:center; white-space:nowrap; }
+  .mark-table tr.tot td{ font-weight:700; background:var(--tint); border-color:var(--acc); text-align:right; }
+  .mark-table tr.tot td.mk{ text-align:center; }
   .mark-guide{ margin-top:5px; line-height:1.55; color:#111; }
-  .at-top .answer-page h2, .at-top .answer-page h3{ margin-top:0; }
 
-  /* Fallback if the paginator ever fails: plain flowing page, browser-numbered. */
-  .nopaginate #sheets{ display:none; }
-
-  /* ── PRINT: sheets ARE the pages; dark-mode-safe, solid black ──── */
-  @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 0; }
+  /* ── PRINT: dark-mode-safe, solid black, correct margins ──────── */
   @media print {
+    @page {
+      size: A4 ${landscape ? "landscape" : "portrait"}; margin: 16mm 16mm 20mm;
+      @bottom-left { content: "${footerLeft}"; font-family:${FONT.css}; font-size:8.5pt; color:#444; }
+      @bottom-right { content: "Page " counter(page) " of " counter(pages); font-family:${FONT.css}; font-size:8.5pt; color:#444; }
+    }
     html { color-scheme: light only !important; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
     html, body { background:#fff !important; color:#000 !important; }
-    #sheets{ zoom:1 !important; padding:0 !important; }
-    .sheet{ margin:0 !important; box-shadow:none !important; height:calc(var(--ph) - 0.5mm); break-after:page; page-break-after:always; }
-    .sheet:last-child{ break-after:auto; page-break-after:auto; }
-    .nopaginate #src{ margin:0 auto; box-shadow:none; }
-    .blk{ break-inside:avoid; }
+    .page{ box-shadow:none !important; margin:0 !important; max-width:none !important; padding:0 !important; font-size:11.5pt; }
+    .question{ font-size:11.5pt; }
+    .diagram-img{ max-height:200px; }
+    .answer-page h2, .answer-page h3{ break-after:avoid; }
+    .question, .mark-block{ break-inside:avoid; }
+    .paper-header{ break-after:avoid; }
   }
 </style>
 </head>
 <body>
-  <div id="src">${blocks.join("")}</div>
-  <div id="sheets"></div>
-  <div id="foot-left" hidden>${esc(footerLeft)}</div>
-  <div id="foot-turn" hidden>Turn over</div>
-  <script>${PAGINATE_SCRIPT}</script>
+  <div class="page">${body}</div>
 </body>
 </html>`;
 }

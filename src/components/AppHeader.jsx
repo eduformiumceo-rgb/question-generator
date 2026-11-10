@@ -60,7 +60,7 @@ const HEADER_CSS = `
   @media (min-width:641px) and (max-width:900px) { .qh-inner { padding:0 20px; } }
 `;
 
-export default function AppHeader({ user, creditBalance, toDisplayCredits, onSignIn, onTopUp, onSignOut, canInstall, onInstall, savedCount, onOpenSaved }) {
+export default function AppHeader({ user, creditBalance, toDisplayCredits, onSignIn, onTopUp, onSignOut, canInstall, onInstall }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
 
@@ -181,12 +181,6 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                   <Coin size={16} />
                   <span style={{ flex: 1 }}>{credits} credits</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>Buy</span>
-                </button>
-              )}
-              {user && onOpenSaved && (
-                <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onOpenSaved(); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
-                  My Exams{savedCount ? ` (${savedCount})` : ""}
                 </button>
               )}
               {canInstall && (

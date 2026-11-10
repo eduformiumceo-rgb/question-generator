@@ -39,44 +39,6 @@ async function extractText(blob) {
   return buf;
 }
 
-// 1x1 transparent PNG - small but a genuinely valid image the docx library can embed.
-const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
-
-// Count the pictures actually placed in the document body (not just stored in the zip).
-async function drawingCount(blob) {
-  const JSZip = (await import("jszip")).default;
-  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
-  const xml = await zip.file("word/document.xml").async("string");
-  return (xml.match(/<w:drawing>/g) || []).length;
-}
-
-describe("question images in the Word export", () => {
-  const exam = (sIdx, qIdx, image) => {
-    const e = JSON.parse(JSON.stringify(SAMPLE_EXAM));
-    e.sections[sIdx].questions[qIdx].image = image;
-    return e;
-  };
-
-  it("embeds a picture for a question that was never flagged for a diagram", async () => {
-    const blob = await generateExamDocx(exam(0, 1, { src: PNG, size: "medium", caption: "Figure 1" }), META, "paper");
-    expect(await drawingCount(blob)).toBe(1);
-  });
-
-  it("embeds the picture once, not once per same-numbered question", async () => {
-    // Section A Q1 and Section B Q1 share number 1 - only the chosen one gets the picture.
-    const blob = await generateExamDocx(exam(1, 0, { src: PNG, size: "small", caption: "" }), META, "paper");
-    expect(await drawingCount(blob)).toBe(1);
-    expect(await drawingCount(await generateExamDocx(SAMPLE_EXAM, META, "paper"))).toBe(0);
-  });
-
-  it("accepts every size and falls back quietly on an unusable image", async () => {
-    for (const size of ["small", "medium", "large"]) {
-      expect(await drawingCount(await generateExamDocx(exam(0, 0, { src: PNG, size, caption: "Figure" }), META, "paper"))).toBe(1);
-    }
-    expect(await drawingCount(await generateExamDocx(exam(0, 0, { src: "not-an-image", size: "medium", caption: "" }), META, "paper"))).toBe(0);
-  });
-});
-
 describe("generateExamDocx", () => {
   it("produces a valid docx Blob with the correct MIME type", async () => {
     const blob = await generateExamDocx(SAMPLE_EXAM, META, "paper");
@@ -145,24 +107,27 @@ describe("generateExamDocx: layout options", () => {
   });
 });
 
-
-describe("generateExamDocx: index boxes and Turn over", () => {
-  it("writes a conditional Turn over field into the footer (hidden by Word on the last page)", async () => {
-    const JSZip = (await import("jszip")).default;
-    const blob = await generateExamDocx(SAMPLE_EXAM, { ...META, idMode: "boxes", idDigits: 10, notice: true, schoolMotto: "Truth" }, "paper");
-    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
-    const footer = await zip.file("word/footer1.xml").async("string");
-    expect(footer).toContain("IF ");
-    expect(footer).toContain("NUMPAGES");
-    expect(footer).toContain("Turn over");
-    const doc = await zip.file("word/document.xml").async("string");
-    expect(doc).toContain("Index Number");
-  });
-  it("omits Turn over when switched off and on the marking scheme", async () => {
-    const JSZip = (await import("jszip")).default;
-    for (const [m, mode] of [[{ turnOver: false }, "paper"], [{}, "answerKey"]]) {
-      const zip = await JSZip.loadAsync(await (await generateExamDocx(SAMPLE_EXAM, { ...META, ...m }, mode)).arrayBuffer());
-      expect(await zip.file("word/footer1.xml").async("string")).not.toContain("Turn over");
-    }
+describe("generateExamDocx: letterhead extras", () => {
+  it("builds with motto, address, centred header and answer lines", async () => {
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+    const blob = await generateExamDocx(SAMPLE_EXAM, { ...META, schoolMotto: "Knowledge", schoolAddress: "P.O. Box 1, Accra", headerStyle: "centered", answerLines: true, schoolLogo: png }, "paper");
+    expect(blob.size).toBeGreaterThan(1000);
   });
 });
+
+describe("generateExamDocx: style options", () => {
+  for (const candidateStyle of ["lines", "boxes", "minimal"]) {
+    it(`builds with ${candidateStyle} candidate style, navy accent and sans font`, async () => {
+      const blob = await generateExamDocx(SAMPLE_EXAM, { ...META, candidateStyle, accent: "navy", fontStyle: "sans", academicYear: "2025/2026" }, "paper");
+      expect(blob.size).toBeGreaterThan(1000);
+    });
+  }
+
+  it("builds a marking scheme with a marks table", async () => {
+    const exam = JSON.parse(JSON.stringify(SAMPLE_EXAM));
+    exam.sections.find(x => x.type !== "objective").questions[0].markingGuide = "[1] first\n[2] second";
+    const blob = await generateExamDocx(exam, { ...META, accent: "maroon" }, "answerKey");
+    expect(blob.size).toBeGreaterThan(1000);
+  });
+});
+

@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildExamSystemPrompt, buildSectionPrompt, renderExamHTML,
-  validateExamData, isSafeGeneratedSVG, createExamVariant,
-  schoolCrestSVG, splitSchoolName, clampIdDigits, PAPER_PRESETS,
+  validateExamData, isSafeGeneratedSVG, createExamVariant, parseMarkingRows,
 } from "../src/examTemplate.js";
 
 const BASE_CFG = {
@@ -223,62 +222,8 @@ describe("renderExamHTML", () => {
   it("uses an uploaded diagram image over a placeholder when provided", () => {
     const withDiagram = JSON.parse(JSON.stringify(SAMPLE_EXAM));
     withDiagram.sections[0].questions[0].diagram = { needed: true, description: "A triangle", generatable: false, svg: null };
-    withDiagram.sections[0].questions[0].image = { src: "data:image/png;base64,abc123", size: "medium", caption: "" };
-    const html = renderExamHTML(withDiagram, {}, "paper");
+    const html = renderExamHTML(withDiagram, { diagramImages: { 1: "data:image/png;base64,abc123" } }, "paper");
     expect(html).toContain("data:image/png;base64,abc123");
-    expect(html).not.toContain("DIAGRAM: A triangle");
-  });
-
-  describe("question images", () => {
-    const IMG = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ";
-    const withImage = (sectionIdx, qIdx, image) => {
-      const e = JSON.parse(JSON.stringify(SAMPLE_EXAM));
-      e.sections[sectionIdx].questions[qIdx].image = image;
-      return e;
-    };
-
-    it("puts the image on ONLY the question it belongs to when two sections reuse the same number", () => {
-      // Section A question 1 and Section B question 1 both have number 1.
-      const exam = withImage(1, 0, { src: IMG, size: "medium", caption: "" });
-      const html = renderExamHTML(exam, {}, "paper");
-      expect(html.split(IMG).length - 1).toBe(1); // exactly one <img>
-      const idxImg = html.indexOf(IMG);
-      const idxSecB = html.indexOf("Section B: Structured");
-      expect(idxImg).toBeGreaterThan(idxSecB); // it is under Section B, not Section A
-    });
-
-    it("works on a question the AI never flagged for a diagram", () => {
-      const exam = withImage(0, 2, { src: IMG, size: "small", caption: "" });
-      expect(exam.sections[0].questions[2].diagram).toBeNull();
-      expect(renderExamHTML(exam, {}, "paper")).toContain(IMG);
-    });
-
-    it("applies the chosen size and renders an escaped caption", () => {
-      const exam = withImage(0, 0, { src: IMG, size: "large", caption: "Figure <1>" });
-      const html = renderExamHTML(exam, {}, "paper");
-      expect(html).toContain("max-height:300px");
-      expect(html).toContain("<figcaption>Figure &lt;1&gt;</figcaption>");
-      const small = renderExamHTML(withImage(0, 0, { src: IMG, size: "small", caption: "" }), {}, "paper");
-      expect(small).toContain("max-height:130px");
-      expect(small).not.toContain("<figcaption>");
-    });
-
-    it("never lets an unsafe image source reach the page", () => {
-      for (const bad of ['javascript:alert(1)', 'https://evil.example/x.png', 'data:image/svg+xml;base64,PHN2Zz4=', `${IMG}" onerror="alert(1)`]) {
-        const html = renderExamHTML(withImage(0, 0, { src: bad, size: "medium", caption: "" }), {}, "paper");
-        expect(html).not.toContain(bad);
-      }
-    });
-
-    it("keeps each picture on its question in a shuffled Version B", () => {
-      const exam = JSON.parse(JSON.stringify(SAMPLE_EXAM));
-      exam.sections[0].questions.forEach((q, i) => { q.image = { src: `data:image/png;base64,Q${i}Q${i}`, size: "medium", caption: `Fig ${i}` }; });
-      const variant = createExamVariant(exam, "B");
-      variant.sections[0].questions.forEach(q => {
-        const original = exam.sections[0].questions.find(o => o.text === q.text);
-        expect(q.image).toEqual(original.image);
-      });
-    });
   });
 
   it("falls back to a text placeholder when no image or SVG is available", () => {
@@ -391,87 +336,83 @@ describe("renderExamHTML: professional layout", () => {
   });
 });
 
+describe("renderExamHTML: letterhead extras and answer lines", () => {
+  it("shows motto and address when provided", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { schoolName: "X School", schoolMotto: "Knowledge", schoolAddress: "P.O. Box 1, Accra" }, "paper");
+    expect(html).toContain("school-motto");
+    expect(html).toContain("P.O. Box 1, Accra");
+  });
 
-describe("candidate ID: index-number boxes", () => {
-  it("renders one box per digit in boxes mode", () => {
-    const html = renderExamHTML(SAMPLE_EXAM, { idMode: "boxes", idDigits: 10 }, "paper");
-    expect(html.match(/<i><\/i>/g).length).toBeGreaterThanOrEqual(10);
-    expect(html).toContain('class="idcells"');
-    expect(html).toContain("Index Number");
+  it("omits motto and address blocks when empty", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { schoolName: "X School" }, "paper");
+    expect(html).not.toContain('class="school-motto"');
+    expect(html).not.toContain('class="school-address"');
   });
-  it("honours a custom digit count and label, and clamps absurd values", () => {
-    const html = renderExamHTML(SAMPLE_EXAM, { idMode: "boxes", idDigits: 7, idLabel: "Student ID" }, "paper");
-    const cells = html.split('class="idcells"')[1].split("</div>")[0].match(/<i><\/i>/g);
-    expect(cells.length).toBe(7);
-    expect(html).toContain("Student ID");
-    expect(clampIdDigits(999)).toBe(15);
-    expect(clampIdDigits(1)).toBe(4);
-    expect(clampIdDigits("abc")).toBe(10);
+
+  it("supports the centred header style", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { schoolName: "X", headerStyle: "centered" }, "paper")).toContain('class="lh-center"');
+    expect(renderExamHTML(SAMPLE_EXAM, { schoolName: "X" }, "paper")).toContain('class="lh-row"');
   });
-  it("keeps the plain line by default and drops the field entirely for 'none'", () => {
-    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).toContain("Index No.:");
-    const none = renderExamHTML(SAMPLE_EXAM, { idMode: "none" }, "paper");
-    expect(none).not.toContain("Index No.:");
-    expect(none).not.toContain('class="idcells"');
+
+  it("adds answer lines to written questions only when asked, never to objective ones", () => {
+    const off = renderExamHTML(SAMPLE_EXAM, {}, "paper");
+    const on = renderExamHTML(SAMPLE_EXAM, { answerLines: true }, "paper");
+    expect(off).not.toContain('class="ans-lines"');
+    expect(on).toContain('class="ans-lines"');
+    const objectiveOnly = { ...SAMPLE_EXAM, sections: SAMPLE_EXAM.sections.filter(x => x.type === "objective") };
+    expect(renderExamHTML(objectiveOnly, { answerLines: true }, "paper")).not.toContain('class="ans-lines"');
   });
-  it("escapes the ID label", () => {
-    expect(renderExamHTML(SAMPLE_EXAM, { idMode: "line", idLabel: "<b>x</b>" }, "paper")).not.toContain("<b>x</b>");
+
+  it("escapes motto and address", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { schoolMotto: "<b>x</b>", schoolAddress: "<script>1</script>" }, "paper");
+    expect(html).not.toContain("<script>1</script>");
+    expect(html).toContain("&lt;b&gt;");
   });
 });
 
-describe("pagination and 'Turn over'", () => {
-  it("enables Turn over by default on the question paper and carries the paginator", () => {
-    const html = renderExamHTML(SAMPLE_EXAM, {}, "paper");
-    expect(html).toContain('data-turn-over="1"');
-    expect(html).toContain('id="sheets"');
-    expect(html).toContain("Page \" + (idx + 1) + \" of \"");
+describe("renderExamHTML: style options", () => {
+  it("draws index boxes only for the boxes candidate style", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { candidateStyle: "boxes" }, "paper")).toContain('class="idx-boxes"');
+    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).not.toContain('class="idx-boxes"');
+    expect(renderExamHTML(SAMPLE_EXAM, { candidateStyle: "minimal" }, "paper")).not.toContain("Index No.");
   });
-  it("can switch Turn over off, and never shows it on the marking scheme", () => {
-    expect(renderExamHTML(SAMPLE_EXAM, { turnOver: false }, "paper")).toContain('data-turn-over="0"');
-    expect(renderExamHTML(SAMPLE_EXAM, {}, "answerKey")).toContain('data-turn-over="0"');
+
+  it("applies accent colour and font style, falling back safely", () => {
+    const navy = renderExamHTML(SAMPLE_EXAM, { accent: "navy", fontStyle: "sans" }, "paper");
+    expect(navy).toContain("--acc:#1F3A5F");
+    expect(navy).toContain("Arial");
+    const bad = renderExamHTML(SAMPLE_EXAM, { accent: "pink", fontStyle: "comic" }, "paper");
+    expect(bad).toContain("--acc:#111111");
+    expect(bad).toContain("Times New Roman");
   });
-  it("prints edge to edge on A4 with no browser margins", () => {
-    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).toMatch(/@page \{ size: A4 portrait; margin: 0; \}/);
-  });
-  it("glues a section heading to its first question", () => {
-    const html = renderExamHTML(SAMPLE_EXAM, {}, "paper");
-    expect(html).toContain('class="blk sec" data-keep="1"');
+
+  it("shows the academic year when given", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { academicYear: "2025/2026" }, "paper")).toContain("2025/2026");
   });
 });
 
-describe("sealed-paper notice and letterhead", () => {
-  it("shows the notice only when asked", () => {
-    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).not.toContain('class="notice"');
-    expect(renderExamHTML(SAMPLE_EXAM, { notice: true }, "paper")).toContain("until you are told to do so");
+describe("parseMarkingRows", () => {
+  it("splits mark points with leading, labelled and trailing marks", () => {
+    const rows = parseMarkingRows("[1] Carbon dioxide\n(b) [2] y = 3\nAdd the fractions (2 marks)\nNo marks here");
+    expect(rows).toEqual([
+      { text: "Carbon dioxide", marks: "1" },
+      { text: "(b) y = 3", marks: "2" },
+      { text: "Add the fractions", marks: "2" },
+      { text: "No marks here", marks: null },
+    ]);
   });
-  it("prints the motto line, escaped", () => {
-    const html = renderExamHTML(SAMPLE_EXAM, { schoolMotto: "Light & <Truth>" }, "paper");
-    expect(html).toContain("Light &amp; &lt;Truth&gt;");
+
+  it("returns null for free-form guides so they keep paragraph layout", () => {
+    expect(parseMarkingRows("A model answer with no marks.")).toBeNull();
+    expect(parseMarkingRows("[3] only one scored line")).toBeNull();
+    expect(parseMarkingRows("")).toBeNull();
   });
-  it("lets a school switch the generated emblem off", () => {
-    expect(renderExamHTML(SAMPLE_EXAM, { schoolName: "Achimota School", emblem: "none" }, "paper")).not.toContain("school-logo school-seal");
+
+  it("renders a marks table in the marking scheme when points carry marks", () => {
+    const exam = JSON.parse(JSON.stringify(SAMPLE_EXAM));
+    const q = exam.sections.find(x => x.type !== "objective").questions[0];
+    q.markingGuide = "[1] first point\n[2] second point";
+    expect(renderExamHTML(exam, {}, "answerKey")).toContain('class="mark-table"');
   });
 });
 
-describe("generated school crest", () => {
-  it("splits names into distinctive part and school type", () => {
-    expect(splitSchoolName("St. Mary's Junior High School")).toEqual(["ST. MARY'S", "JUNIOR HIGH SCHOOL"]);
-    expect(splitSchoolName("Achimota School")).toEqual(["ACHIMOTA", "SCHOOL"]);
-    expect(splitSchoolName("Sunrise")).toEqual(["SUNRISE", ""]);
-  });
-  it("returns nothing without a name and escapes markup in the name", () => {
-    expect(schoolCrestSVG("")).toBe("");
-    expect(schoolCrestSVG("<script>x</script> School")).not.toContain("<script>");
-  });
-  it("is a safe, self-contained SVG even for very long names", () => {
-    const svg = schoolCrestSVG("Nana Kwame Asante Memorial Preparatory & Junior High School");
-    expect(isSafeGeneratedSVG(svg)).toBe(true);
-  });
-});
-
-describe("paper presets", () => {
-  it("BECE / WASSCE style uses boxes, notice and Turn over; school style stays simple", () => {
-    expect(PAPER_PRESETS.public).toMatchObject({ idMode: "boxes", notice: true, turnOver: true });
-    expect(PAPER_PRESETS.school).toMatchObject({ idMode: "line", notice: false });
-  });
-});

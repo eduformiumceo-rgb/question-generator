@@ -14,8 +14,6 @@
  * be solving a problem teachers don't actually have here.
  */
 import React from "react";
-import QuestionImageControl, { patchQuestionImage } from "./QuestionImageControl.jsx";
-import { examImageChars } from "../imageUtils.js";
 
 export default function ExamEditor({ examData, setExamData, S, F }) {
   const updateQuestion = (sectionIdx, qIdx, patch) => {
@@ -49,13 +47,11 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
     }));
   };
 
-  const totalImageChars = examImageChars(examData);
-
   return (
     <div style={S.card}>
       <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Edit Exam</h3>
       <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
-        Edit wording, marks, or options directly, and add a picture to any question. Every change here updates the print, PDF, Word, and share output immediately.
+        Edit wording, marks, or options directly. Every change here updates the print, PDF, Word, and share output immediately.
       </p>
 
       {examData.sections.map((section, sIdx) => (
@@ -65,7 +61,7 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
           </div>
 
           {section.questions.map((q, qIdx) => (
-            <div key={q.number} data-qcard style={{ border: "1.5px solid var(--border)", borderRadius: 12, padding: "14px 16px", marginBottom: 10 }}>
+            <div key={q.number} style={{ border: "1.5px solid var(--border)", borderRadius: 12, padding: "14px 16px", marginBottom: 10 }}>
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text-muted)", fontFamily: F, paddingTop: 8 }}>{q.number}.</span>
                 <textarea
@@ -132,13 +128,6 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
                   ))}
                 </div>
               )}
-
-              <QuestionImageControl
-                image={q.image}
-                onChange={img => patchQuestionImage(setExamData, sIdx, qIdx, img)}
-                otherImagesChars={totalImageChars - (q.image?.src?.length || 0)}
-                S={S} F={F}
-              />
 
               {q.markingGuide != null && q.markingGuide !== "" && (
                 <div style={{ marginTop: 10 }}>
