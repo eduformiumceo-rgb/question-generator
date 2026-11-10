@@ -23,26 +23,59 @@ import {
   Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
   Table, TableRow, TableCell, WidthType, BorderStyle, TabStopType, LeaderType,
   ShadingType, VerticalAlign, PageOrientation, Footer, PageNumber, TableLayoutType, LineRuleType,
+  XmlComponent, HeightRule,
 } from "docx";
-import { ACCENTS, FONT_STYLES, parseMarkingRows } from "./examTemplate.js";
+import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
+import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
+import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
 
-// Theme for the document being built. generateExamDocx() sets this before any
-// builder runs (all builders are synchronous), so the helpers can read it.
-const THEME = { font: "Times New Roman", acc: "111111", tint: "EDEEF1" };
+const FONT = "Times New Roman";
 const OPT_LETTERS = ["A", "B", "C", "D", "E", "F"];
-const INK = "111111"; // body text
+const INK = "111111";
 const GREY = "444444";
+const BAND = "EDEEF1";
 
 const NONE = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
 const NO_BORDERS = { top: NONE, bottom: NONE, left: NONE, right: NONE, insideHorizontal: NONE, insideVertical: NONE };
-const line = (size = 8, color) => ({ style: BorderStyle.SINGLE, size, color: color || THEME.acc });
-const box = () => ({ top: line(10), bottom: line(10), left: line(10), right: line(10) });
+const line = (size = 8, color = INK) => ({ style: BorderStyle.SINGLE, size, color });
+const BOX = { top: line(10), bottom: line(10), left: line(10), right: line(10) };
 
 // A4, 2 cm margins.
 const PAGE_W = 11906, PAGE_H = 16838, MARGIN = 1134;
 const NUM_INDENT = 567;   // question number column (1 cm)
 
 /* ── helpers ─────────────────────────────────────────────────── */
+
+/** Emits a hand-written WordprocessingML fragment (the docx library has no nested-field API). */
+class RawXml extends XmlComponent {
+  constructor(obj) { super("w:raw"); this.obj = obj; }
+  prepForXml() { return this.obj; }
+}
+
+/**
+ * "Turn over" that Word itself hides on the last page: the field
+ *   { IF { PAGE } < { NUMPAGES } "Turn over" "" }
+ * is re-evaluated by Word each time the document is paginated or printed, so
+ * it is correct whatever the final page count turns out to be after edits.
+ * (The cached result is empty, so a viewer that never recalculates fields
+ * shows nothing rather than a wrong "Turn over" on the final page.)
+ */
+export function turnOverField(text = "Turn over", size = 20) {
+  const rPr = { "w:rPr": [{ "w:b": {} }, { "w:i": {} }, { "w:sz": { _attr: { "w:val": size } } }, { "w:szCs": { _attr: { "w:val": size } } }] };
+  const run = (...kids) => new RawXml({ "w:r": [rPr, ...kids] });
+  const fld = (type) => ({ "w:fldChar": { _attr: { "w:fldCharType": type } } });
+  const instr = (t) => ({ "w:instrText": [{ _attr: { "xml:space": "preserve" } }, t] });
+  const cached = (t) => ({ "w:t": [{ _attr: { "xml:space": "preserve" } }, t] });
+  const safe = String(text).replace(/["\\]/g, "");
+  return [
+    run(fld("begin")), run(instr(" IF ")),
+    run(fld("begin")), run(instr(" PAGE ")), run(fld("separate")), run(cached("1")), run(fld("end")),
+    run(instr(" < ")),
+    run(fld("begin")), run(instr(" NUMPAGES ")), run(fld("separate")), run(cached("1")), run(fld("end")),
+    run(instr(` "${safe}" "" `)),
+    run(fld("separate")), run(cached("")), run(fld("end")),
+  ];
+}
 
 /** Text -> runs, turning "\n" into real line breaks (Word ignores raw \n). */
 function textRuns(text, opts = {}) {
@@ -121,42 +154,41 @@ function table(widths, rows, extra = {}) {
 /* ── letterhead & header ─────────────────────────────────────── */
 
 function letterhead(meta, titleText, W) {
-  const { schoolName = "", schoolLogo = null, examVersion = "", schoolMotto = "", schoolAddress = "", headerStyle = "classic" } = meta;
-  const centered = headerStyle === "centered";
-  const logo = schoolLogo ? imageRun(schoolLogo, centered ? 92 : 78, centered ? 92 : 78) : null;
-  const identity = [
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: (schoolName || "________________________________").toUpperCase(), bold: true, size: 36, characterSpacing: 24, color: THEME.acc })],
-    }),
-    ...(schoolMotto ? [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 30 }, children: [new TextRun({ text: `\u201C${schoolMotto}\u201D`, italics: true, size: 23 })] })] : []),
-    ...(schoolAddress ? [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 40 }, children: [new TextRun({ text: schoolAddress, size: 19, color: "333333" })] })] : []),
-  ];
+  const { schoolName = "", schoolLogo = null, examVersion = "", schoolMotto = "" } = meta;
+  const logo = schoolLogo ? imageRun(schoolLogo, 84, 84) : null;
+  const name = new Paragraph({
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: (schoolName || "________________________________").toUpperCase(), bold: true, size: 36, characterSpacing: 24 })],
+  });
+  const motto = schoolMotto
+    ? new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 40 }, children: [new TextRun({ text: schoolMotto, italics: true, size: 21 })] })
+    : null;
 
   const out = [];
-  if (logo && centered) {
-    out.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { line: 240, lineRule: LineRuleType.AUTO, after: 80 }, children: [logo] }));
-    out.push(...identity);
-  } else if (logo) {
+  if (logo) {
     const side = 1500;
     out.push(table([side, W - 2 * side, side], [new TableRow({
       children: [
         cell(side, [new Paragraph({ spacing: { line: 240, lineRule: LineRuleType.AUTO }, children: [logo] })], { verticalAlign: VerticalAlign.CENTER, margins: { top: 0, bottom: 0, left: 0, right: 0 } }),
-        cell(W - 2 * side, identity, { verticalAlign: VerticalAlign.CENTER }),
+        cell(W - 2 * side, motto ? [name, motto] : [name], { verticalAlign: VerticalAlign.CENTER }),
         cell(side, [new Paragraph("")]),
       ],
     })]));
   } else {
-    out.push(...identity);
+    out.push(name);
+    if (motto) out.push(motto);
   }
-  // Heavy-over-light double rule under the letterhead (two explicit rules render identically in every Word version).
-  out.push(new Paragraph({ spacing: { before: 120, after: 0, line: 20, lineRule: LineRuleType.EXACT }, border: { bottom: line(24) }, children: [] }));
-  out.push(new Paragraph({ spacing: { before: 0, after: 160, line: 60, lineRule: LineRuleType.EXACT }, border: { bottom: line(6) }, children: [] }));
+  // Heavy-over-light double rule under the letterhead.
+  out.push(new Paragraph({
+    spacing: { before: 120, after: 160 },
+    border: { bottom: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 1 } },
+    children: [],
+  }));
   out.push(new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { after: 160 },
     children: [
-      new TextRun({ text: titleText.toUpperCase(), bold: true, size: 28, characterSpacing: 40, color: THEME.acc }),
+      new TextRun({ text: titleText.toUpperCase(), bold: true, size: 28, characterSpacing: 40 }),
       ...(examVersion ? [new TextRun({ text: `     VERSION ${examVersion}`, bold: true, size: 20, color: GREY })] : []),
     ],
   }));
@@ -178,42 +210,54 @@ function metaGrid(items, W) {
   })], { borders: NO_BORDERS });
 }
 
-function candidateBlock(style, totalMarks, W) {
-  const scoreW = 1500;
-  const rest = W - scoreW;
-  const field = (label, w) => cell(w, [new Paragraph({
+function scoreCell(totalMarks, w) {
+  return cell(w, [
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "SCORE", bold: true, size: 15, color: GREY, characterSpacing: 20 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `/ ${totalMarks || ""}`, bold: true, size: 22 })] }),
+  ], { borders: BOX, margins: { top: 50, bottom: 60, left: 80, right: 80 } });
+}
+
+function fieldCell(label, w) {
+  return cell(w, [new Paragraph({
     tabStops: [{ type: TabStopType.LEFT, position: w - 260, leader: LeaderType.UNDERSCORE }],
     children: [new TextRun({ text: `${label} `, bold: true, size: 22 }), new TextRun({ text: "\t", size: 22 })],
   })], { verticalAlign: VerticalAlign.BOTTOM, margins: { top: 40, bottom: 40, left: 0, right: 160 } });
-  const score = (w) => cell(w, [
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "SCORE", bold: true, size: 15, color: GREY, characterSpacing: 20 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `/ ${totalMarks || ""}`, bold: true, size: 22 })] }),
-  ], { borders: box(), margins: { top: 50, bottom: 60, left: 80, right: 80 } });
+}
 
-  let widths, cells;
-  if (style === "lines") {
-    widths = [Math.round(rest * 0.46), Math.round(rest * 0.28), 0, scoreW];
+/** One box per digit of the candidate's index number, like the front of a public-exam paper. */
+function indexBoxesRow(label, digits, W) {
+  const box = 454;                                  // 8 mm
+  const labelW = Math.min(2300, Math.max(1500, label.length * 150 + 300));
+  const widths = [labelW, ...Array.from({ length: digits }, () => box)];
+  const cells = [
+    cell(labelW, [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 22 })] })], { verticalAlign: VerticalAlign.CENTER, margins: { top: 0, bottom: 0, left: 0, right: 160 } }),
+    ...Array.from({ length: digits }, () => cell(box, [new Paragraph("")], { borders: BOX, margins: { top: 0, bottom: 0, left: 0, right: 0 } })),
+  ];
+  return table(widths, [new TableRow({ cantSplit: true, height: { value: 544, rule: HeightRule.EXACT }, children: cells })]);
+}
+
+function candidateRows(meta, totalMarks, W) {
+  const mode = ["line", "boxes", "none"].includes(meta.idMode) ? meta.idMode : "line";
+  const label = meta.idLabel || (mode === "boxes" ? "Index Number" : "Index No.");
+  const scoreW = 1500;
+  const rest = W - scoreW;
+  if (mode === "line") {
+    const widths = [Math.round(rest * 0.46), Math.round(rest * 0.28), 0, scoreW];
     widths[2] = rest - widths[0] - widths[1];
-    cells = [field("Name:", widths[0]), field("Index No.:", widths[1]), field("Date:", widths[2]), score(widths[3])];
-  } else {
-    widths = [Math.round(rest * 0.68), 0, scoreW];
-    widths[1] = rest - widths[0];
-    cells = [field("Name:", widths[0]), field("Date:", widths[1]), score(widths[2])];
-  }
-  const out = [table(widths, [new TableRow({ cantSplit: true, children: cells })])];
-
-  if (style === "boxes") {
-    const labelW = 1700, boxW = 440, n = 10;
-    const tw = [labelW, ...Array(n).fill(boxW), W - labelW - boxW * n];
-    out.push(new Paragraph({ spacing: { before: 120 }, children: [] }));
-    out.push(table(tw, [new TableRow({
+    return [table(widths, [new TableRow({
       cantSplit: true,
-      children: [
-        cell(labelW, [new Paragraph({ children: [new TextRun({ text: "Index Number:", bold: true, size: 22 })] })], { verticalAlign: VerticalAlign.CENTER, margins: { top: 0, bottom: 0, left: 0, right: 100 } }),
-        ...Array.from({ length: n }, () => cell(boxW, [new Paragraph({ spacing: { line: 440, lineRule: LineRuleType.EXACT }, children: [] })], { borders: box(), margins: { top: 0, bottom: 0, left: 0, right: 0 } })),
-        cell(tw[tw.length - 1], [new Paragraph("")]),
-      ],
-    })], { borders: NO_BORDERS }));
+      children: [fieldCell("Name:", widths[0]), fieldCell(`${label}:`, widths[1]), fieldCell("Date:", widths[2]), scoreCell(totalMarks, widths[3])],
+    })])];
+  }
+  const dateW = Math.round(rest * 0.30);
+  const widths = [rest - dateW, dateW, scoreW];
+  const out = [table(widths, [new TableRow({
+    cantSplit: true,
+    children: [fieldCell(mode === "boxes" ? "Candidate's Name:" : "Name:", widths[0]), fieldCell("Date:", widths[1]), scoreCell(totalMarks, widths[2])],
+  })])];
+  if (mode === "boxes") {
+    out.push(new Paragraph({ spacing: { before: 160 }, children: [] }));
+    out.push(indexBoxesRow(label, clampIdDigits(meta.idDigits), W));
   }
   return out;
 }
@@ -223,7 +267,7 @@ function instructionsBox(instructions, W) {
     new Paragraph({
       spacing: { after: 60 },
       border: { bottom: line(4, "999999") },
-      children: [new TextRun({ text: "INSTRUCTIONS TO CANDIDATES", bold: true, size: 19, characterSpacing: 30, color: THEME.acc })],
+      children: [new TextRun({ text: "INSTRUCTIONS TO CANDIDATES", bold: true, size: 19, characterSpacing: 30 })],
     }),
     ...instructions.map((ins, i) => new Paragraph({
       spacing: { before: 20, after: 20 },
@@ -232,20 +276,26 @@ function instructionsBox(instructions, W) {
       children: [new TextRun({ text: `${i + 1}.\t${ins}`, size: 21 })],
     })),
   ];
-  return table([W], [new TableRow({ children: [cell(W, kids, { borders: box(), margins: { top: 90, bottom: 90, left: 200, right: 200 } })] })]);
+  return table([W], [new TableRow({ children: [cell(W, kids, { borders: BOX, margins: { top: 90, bottom: 90, left: 200, right: 200 } })] })]);
+}
+
+function noticeBox(text, W) {
+  return table([W], [new TableRow({ children: [cell(W, [new Paragraph({
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: String(text).toUpperCase(), bold: true, size: 19, characterSpacing: 30 })],
+  })], { borders: BOX, margins: { top: 70, bottom: 70, left: 120, right: 120 } })] })]);
 }
 
 function headerBlock(examData, meta, totalMarks, W) {
   const { className = "", subject = "", term = "", examType = "Exam", durationMinutes = 60 } = meta;
-  const items = [["Subject", subject], ["Class", className], ["Term", term]];
-  if (meta.academicYear) items.push(["Academic Year", meta.academicYear]);
-  items.push(["Duration", `${durationMinutes} mins`]);
+  const items = [["Subject", subject], ["Class", className], ["Term", term], ["Duration", `${durationMinutes} mins`]];
   if (totalMarks) items.push(["Total Marks", totalMarks]);
   const out = [
     ...letterhead(meta, examData.title || examType, W),
+    ...(meta.notice ? [noticeBox(meta.noticeText || DEFAULT_NOTICE, W), new Paragraph({ spacing: { before: 120 }, children: [] })] : []),
     metaGrid(items, W),
     new Paragraph({ spacing: { before: 200 }, children: [] }),
-    ...candidateBlock(meta.candidateStyle || "lines", totalMarks, W),
+    ...candidateRows(meta, totalMarks, W),
   ];
   if ((examData.instructions || []).length) {
     out.push(new Paragraph({ spacing: { before: 200 }, children: [] }));
@@ -266,10 +316,10 @@ function sectionBand(section, W) {
     keepNext: true, keepLines: true,
     spacing: { before: 360, after: 200 },
     tabStops: [marksTab(W)],
-    shading: { type: ShadingType.CLEAR, fill: THEME.tint, color: "auto" },
+    shading: { type: ShadingType.CLEAR, fill: BAND, color: "auto" },
     border: { top: line(12), bottom: line(12) },
     children: [
-      new TextRun({ text: String(section.label || "").toUpperCase(), bold: true, size: 24, characterSpacing: 20, color: THEME.acc }),
+      new TextRun({ text: String(section.label || "").toUpperCase(), bold: true, size: 24, characterSpacing: 20 }),
       ...(secMarks ? [new TextRun({ text: `\t${secMarks} marks`, bold: true, size: 20 })] : []),
       ...(section.instructions ? [new TextRun({ text: String(section.instructions), italics: true, size: 21, break: 1 })] : []),
     ],
@@ -311,9 +361,29 @@ function optionParagraphs(options, layout, W) {
   return [table(widths, rows, { indent: { size: startIndent, type: WidthType.DXA } })];
 }
 
-function diagramParagraphs(q, meta, sectionId) {
+/** The teacher's picture for a question, as Word paragraphs (same size presets and alignment as print). */
+function imageParagraphs(q, labels) {
+  if (!(q.image && isSafeImageDataUrl(q.image.src))) return [];
+  const { maxW, maxH } = IMAGE_SIZES[imageSizeKey(q.image)];
+  const run = imageRun(q.image.src, maxW, maxH);
+  if (!run) return [];
+  const al = imageAlign(q.image);
+  const alignment = al === "left" ? AlignmentType.LEFT : al === "right" ? AlignmentType.RIGHT : AlignmentType.CENTER;
+  const indent = al === "left" ? { left: NUM_INDENT } : undefined;
+  const caption = captionText(q.image, labels.get(q));
+  const out = [new Paragraph({ alignment, indent, spacing: { before: 100, after: caption ? 40 : 100 }, keepNext: !!caption, keepLines: true, children: [run] })];
+  if (caption) out.push(new Paragraph({ alignment, indent, spacing: { before: 0, after: 100 }, children: [new TextRun({ text: caption, italics: true, size: 19 })] }));
+  return out;
+}
+
+function diagramParagraphs(q, meta, sectionId, labels) {
+  if (q.image && isSafeImageDataUrl(q.image.src)) {
+    if (imagePlacement(q) >= 0) return []; // goes under one of its parts
+    const img = imageParagraphs(q, labels);
+    if (img.length) return img;
+  }
   if (!q.diagram?.needed) return [];
-  const raw = (meta.diagramImages || {})[q.number] || (meta.svgPngs || {})[`${sectionId}:${q.number}`];
+  const raw = diagramDrawing(q) ? (meta.svgPngs || {})[`${sectionId}:${q.number}`] : null;
   const run = raw ? imageRun(raw, 400, 250) : null;
   if (run) {
     return [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, keepNext: false, children: [run] })];
@@ -328,21 +398,9 @@ function diagramParagraphs(q, meta, sectionId) {
   })];
 }
 
-function answerLines(marks, indentLeft, W, meta, secType) {
-  if (!meta.answerLines || secType === "objective") return [];
-  const n = Math.max(1, Math.min(12, Math.round(Number(marks) || 1)));
-  return Array.from({ length: n }, (_, i) => new Paragraph({
-    keepNext: i < n - 1, keepLines: true,
-    spacing: { before: 200, after: 0 },
-    indent: { left: indentLeft },
-    tabStops: [{ type: TabStopType.RIGHT, position: W, leader: LeaderType.DOT }],
-    children: [new TextRun({ text: "\t", color: "777777" })],
-  }));
-}
-
-function partParagraphs(parts, W, meta, secType) {
+function partParagraphs(parts, W, figure = null) {
   const out = [];
-  (parts || []).forEach(p => {
+  (parts || []).forEach((p, pi) => {
     out.push(new Paragraph({
       keepLines: true, spacing: { before: 80 },
       tabStops: [marksTab(W)],
@@ -356,18 +414,17 @@ function partParagraphs(parts, W, meta, secType) {
         indent: { left: NUM_INDENT + 567 * 2, hanging: 567 },
         children: [new TextRun({ text: `(${sp.label})`, bold: true }), new TextRun({ text: "\t" }), ...textRuns(sp.text), new TextRun({ text: `\t[${sp.marks}]`, bold: true })],
       }));
-      out.push(...answerLines(sp.marks, NUM_INDENT, W, meta, secType));
     });
-    if (!(p.subparts || []).length) out.push(...answerLines(p.marks, NUM_INDENT, W, meta, secType));
+    if (figure && figure.after === pi) out.push(...figure.paras);
   });
   return out;
 }
 
-function questionParagraphs(q, section, meta, layout, W) {
+function questionParagraphs(q, section, meta, layout, W, labels) {
   const hasParts = Array.isArray(q.parts) && q.parts.length > 0;
   const hasOptions = Array.isArray(q.options) && q.options.length > 0;
   const out = [new Paragraph({
-    keepNext: hasOptions || hasParts || !!q.diagram?.needed || (!!meta.answerLines && section.type !== "objective"), keepLines: true,
+    keepNext: hasOptions || hasParts || !!q.diagram?.needed || !!q.image?.src, keepLines: true,
     spacing: { before: 220, after: 40 },
     tabStops: [marksTab(W)],
     indent: { left: NUM_INDENT, hanging: NUM_INDENT },
@@ -378,17 +435,16 @@ function questionParagraphs(q, section, meta, layout, W) {
       ...(hasParts ? [] : [new TextRun({ text: `\t[${q.marks}]`, bold: true })]),
     ],
   })];
-  out.push(...diagramParagraphs(q, meta, section.id));
+  out.push(...diagramParagraphs(q, meta, section.id, labels));
   if (hasOptions) out.push(...optionParagraphs(q.options, layout, W));
-  if (hasParts) out.push(...partParagraphs(q.parts, W, meta, section.type));
-  else if (!hasOptions) out.push(...answerLines(q.marks, NUM_INDENT, W, meta, section.type));
+  if (hasParts) out.push(...partParagraphs(q.parts, W, q.image && imagePlacement(q) >= 0 ? { after: imagePlacement(q), paras: imageParagraphs(q, labels) } : null));
   return out;
 }
 
-function sectionParagraphs(section, meta, layout, W) {
+function sectionParagraphs(section, meta, layout, W, labels) {
   return [
     sectionBand(section, W),
-    ...(section.questions || []).flatMap(q => questionParagraphs(q, section, meta, layout, W)),
+    ...(section.questions || []).flatMap(q => questionParagraphs(q, section, meta, layout, W, labels)),
   ];
 }
 
@@ -397,14 +453,13 @@ function sectionParagraphs(section, meta, layout, W) {
 function answerKeyParagraphs(examData, meta, totalMarks, W) {
   const { className = "", subject = "", term = "" } = meta;
   const items = [["Subject", subject], ["Class", className], ["Term", term]];
-  if (meta.academicYear) items.push(["Academic Year", meta.academicYear]);
   if (totalMarks) items.push(["Total Marks", totalMarks]);
   const out = [
     ...letterhead(meta, "Marking Scheme", W).slice(0, -1),
     new Paragraph({
       alignment: AlignmentType.CENTER, spacing: { after: 160 },
       children: [
-        new TextRun({ text: "MARKING SCHEME", bold: true, size: 28, characterSpacing: 40, color: THEME.acc }),
+        new TextRun({ text: "MARKING SCHEME", bold: true, size: 28, characterSpacing: 40 }),
         ...(meta.examVersion ? [new TextRun({ text: `     VERSION ${meta.examVersion}`, bold: true, size: 20, color: GREY })] : []),
       ],
     }),
@@ -412,9 +467,9 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
   ];
   const band = (text) => new Paragraph({
     keepNext: true, spacing: { before: 360, after: 160 },
-    shading: { type: ShadingType.CLEAR, fill: THEME.tint, color: "auto" },
+    shading: { type: ShadingType.CLEAR, fill: BAND, color: "auto" },
     border: { top: line(12), bottom: line(12) },
-    children: [new TextRun({ text, bold: true, size: 24, characterSpacing: 20, color: THEME.acc })],
+    children: [new TextRun({ text, bold: true, size: 24, characterSpacing: 20 })],
   });
 
   const key = examData.answerKey || [];
@@ -438,7 +493,7 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
           return cell(w, [new Paragraph({
             alignment: AlignmentType.CENTER,
             children: k ? [new TextRun({ text: `${k.number}. `, bold: true }), new TextRun(String(k.answer))] : [],
-          })], { borders: k ? box() : { top: NONE, bottom: NONE, left: NONE, right: NONE }, margins: { top: 60, bottom: 60, left: 40, right: 40 } });
+          })], { borders: k ? BOX : { top: NONE, bottom: NONE, left: NONE, right: NONE }, margins: { top: 60, bottom: 60, left: 40, right: 40 } });
         }),
       }));
     }
@@ -454,28 +509,9 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
         border: { bottom: line(4, "BBBBBB") },
         children: [new TextRun({ text: `Question ${q.number}`, bold: true }), new TextRun({ text: `\t[${q.marks}]`, bold: true })],
       }));
-      const rows = parseMarkingRows(q.markingGuide);
-      if (rows) {
-        const mw = 1100;
-        const w = [W - mw, mw];
-        const hdr = (t, al) => cell(t === "Marks" ? w[1] : w[0], [new Paragraph({ alignment: al, children: [new TextRun({ text: t.toUpperCase(), bold: true, size: 17, characterSpacing: 20 })] })],
-          { borders: box(), shading: { type: ShadingType.CLEAR, fill: THEME.tint, color: "auto" }, margins: { top: 50, bottom: 50, left: 110, right: 110 } });
-        const grid = { top: line(4, "999999"), bottom: line(4, "999999"), left: line(4, "999999"), right: line(4, "999999") };
-        const body = rows.map(r => new TableRow({ cantSplit: true, children: [
-          cell(w[0], [new Paragraph({ children: [new TextRun({ text: r.text, size: 22 })] })], { borders: grid, margins: { top: 50, bottom: 50, left: 110, right: 110 } }),
-          cell(w[1], [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.marks ?? "", size: 22 })] })], { borders: grid, margins: { top: 50, bottom: 50, left: 60, right: 60 } }),
-        ] }));
-        const tot = new TableRow({ cantSplit: true, children: [
-          cell(w[0], [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Total", bold: true, size: 22 })] })], { borders: box(), shading: { type: ShadingType.CLEAR, fill: THEME.tint, color: "auto" }, margins: { top: 50, bottom: 50, left: 110, right: 110 } }),
-          cell(w[1], [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(q.marks ?? ""), bold: true, size: 22 })] })], { borders: box(), shading: { type: ShadingType.CLEAR, fill: THEME.tint, color: "auto" }, margins: { top: 50, bottom: 50, left: 60, right: 60 } }),
-        ] });
-        out.push(table(w, [new TableRow({ tableHeader: true, cantSplit: true, children: [hdr("Marking point", AlignmentType.LEFT), hdr("Marks", AlignmentType.CENTER)] }), ...body, tot], { borders: NO_BORDERS }));
-        out.push(new Paragraph({ spacing: { after: 60 }, children: [] }));
-      } else {
-        String(q.markingGuide || "").split(/\r?\n/).filter(l => l.trim()).forEach(l => {
-          out.push(new Paragraph({ spacing: { after: 40 }, children: [new TextRun(l)] }));
-        });
-      }
+      String(q.markingGuide || "").split(/\r?\n/).filter(l => l.trim()).forEach(l => {
+        out.push(new Paragraph({ spacing: { after: 40 }, children: [new TextRun(l)] }));
+      });
     });
   });
   return out;
@@ -493,9 +529,6 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
  */
 export async function generateExamDocx(examData, meta = {}, mode = "paper") {
   const layout = ["vertical", "two", "row"].includes(meta.optionsLayout) ? meta.optionsLayout : "vertical";
-  const acc = ACCENTS[meta.accent] || ACCENTS.black;
-  THEME.acc = acc.ink; THEME.tint = acc.tint;
-  THEME.font = (FONT_STYLES[meta.fontStyle] || FONT_STYLES.serif).docx;
   const landscape = !!meta.landscape;
   const W = (landscape ? PAGE_H : PAGE_W) - 2 * MARGIN; // usable text width in twips
   const sections = examData.sections || [];
@@ -506,24 +539,34 @@ export async function generateExamDocx(examData, meta = {}, mode = "paper") {
     ? answerKeyParagraphs(examData, meta, totalMarks, W)
     : [
         ...headerBlock(examData, meta, totalMarks, W),
-        ...sections.flatMap(s => sectionParagraphs(s, meta, layout, W)),
+        ...sections.flatMap(s => sectionParagraphs(s, meta, layout, W, figureLabels(examData))),
         new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 400 },
           children: [new TextRun({ text: "END OF PAPER", bold: true, characterSpacing: 60 })],
         }),
       ];
 
-  const footerLeft = [meta.schoolName, meta.subject].filter(Boolean).join("  |  ");
+  const footerLeft = [meta.schoolName, meta.subject, meta.examVersion ? `Version ${meta.examVersion}` : ""].filter(Boolean).join("  |  ");
+  const showTurnOver = mode === "paper" && meta.turnOver !== false;
+  // Three fixed columns (school | page x of y | Turn over) so a long school name wraps instead of pushing the page number off its tab stop.
+  const fw = [Math.round(W * 0.4), Math.round(W * 0.2), 0];
+  fw[2] = W - fw[0] - fw[1];
+  const fcell = (w, align, kids) => cell(w, [new Paragraph({ alignment: align, children: kids })], {
+    borders: { top: line(4, "999999"), bottom: NONE, left: NONE, right: NONE },
+    margins: { top: 60, bottom: 0, left: 0, right: 0 },
+  });
   const footer = new Footer({
-    children: [new Paragraph({
-      tabStops: [{ type: TabStopType.RIGHT, position: W }],
-      border: { top: line(4, "999999"), },
-      spacing: { before: 80 },
-      children: [
-        new TextRun({ text: footerLeft, size: 17, color: GREY }),
-        new TextRun({ children: ["\tPage ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], size: 17, color: GREY }),
-      ],
-    })],
+    children: [
+      table(fw, [new TableRow({
+        cantSplit: true,
+        children: [
+          fcell(fw[0], AlignmentType.LEFT, [new TextRun({ text: footerLeft, size: 17, color: GREY })]),
+          fcell(fw[1], AlignmentType.CENTER, [new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], size: 17, color: GREY })]),
+          fcell(fw[2], AlignmentType.RIGHT, showTurnOver ? turnOverField("Turn over", 20) : []),
+        ],
+      })]),
+      new Paragraph({ spacing: { before: 0, after: 0, line: 20, lineRule: LineRuleType.EXACT }, children: [] }),
+    ],
   });
 
   const doc = new Document({
@@ -532,7 +575,7 @@ export async function generateExamDocx(examData, meta = {}, mode = "paper") {
     styles: {
       default: {
         document: {
-          run: { font: THEME.font, size: 23, color: INK },
+          run: { font: FONT, size: 23, color: INK },
           paragraph: { spacing: { line: 288, lineRule: LineRuleType.AUTO, after: 0 } },
         },
       },

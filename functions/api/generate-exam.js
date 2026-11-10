@@ -513,7 +513,13 @@ async function handleGenerateExamStreaming(body, env, user) {
               if (q.correctOption) examData.answerKey.push({ number: q.number, answer: q.correctOption });
             });
           }
-          send({ type: "section-done", sectionId: section.id, questionCount: result.section.questions.length });
+          // The finished section rides along so the client can show the paper building up live.
+          // (The final "done" event stays the single source of truth for the saved/validated exam.)
+          send({
+            type: "section-done", sectionId: section.id, questionCount: result.section.questions.length,
+            section: result.section,
+            ...(i === 0 ? { title: result.title || "", instructions: result.instructions || [] } : {}),
+          });
         }
 
         const totalMarks = examData.sections.reduce((sum, s) => sum + (s.questions || []).reduce((qs, q) => qs + (Number(q.marks) || 0), 0), 0);

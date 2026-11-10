@@ -13,6 +13,8 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
+import { DIAGRAM_GUIDE } from "./diagramGuide.js";
+
 export function buildSectionPrompt(cfg, section, isFirstSection) {
   const {
     schoolName = "", className = "", subject = "", term = "",
@@ -65,8 +67,9 @@ Return ONLY valid JSON - no markdown fences, no commentary - matching exactly th
         "diagram": {
           "needed": boolean,
           "description": string,
-          "generatable": boolean,      // true ONLY if this is a clean geometric/graph/number-line/coordinate-plane figure you can draw precisely in SVG (e.g. a triangle with labelled sides, a bar chart, a number line, a coordinate grid). false for anything needing real-world illustration (a labelled diagram of a plant cell, a map, a photo-realistic scene) - those get a text placeholder for the teacher to fill in.
-          "svg": string|null           // if generatable=true: a COMPLETE, valid, self-contained <svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg">...</svg> string using only black/white/greyscale strokes (this prints on paper), with all labels as <text> elements. If generatable=false, this must be null.
+          "generatable": boolean,      // true ONLY when one of the DIAGRAM TEMPLATES below draws it exactly; false for anything needing real-world illustration (a plant cell, a map, apparatus) - those get a text placeholder for the teacher to fill in.
+          "template": string|null,     // the template id when generatable=true, else null
+          "params": object|null        // that template's params (numbers and labels only) when generatable=true, else null
         } | null,
         "cognitiveLevel": "Recall"|"Application"|"Critical Thinking",
         ${markingGuideFieldDoc}
@@ -75,13 +78,13 @@ Return ONLY valid JSON - no markdown fences, no commentary - matching exactly th
   }
 }
 
-SECTION PARAMETERS
+${allowDiagrams ? DIAGRAM_GUIDE + "\n\n" : ""}SECTION PARAMETERS
   School: ${schoolName || "(not specified)"} | Class: ${className || "(not specified)"} | Subject: ${subject || "(not specified)"} | Term: ${term || "(not specified)"}
   Exam type: ${examType} | Duration: ${durationMinutes} minutes | Curriculum: GES (Ghana Education Service / NaCCA)
   Topics: ${topicLine}
   ${pastedSyllabus ? `Pasted syllabus/reference text (authoritative scope):\n"""\n${pastedSyllabus}\n"""` : ""}
   Difficulty: ${difficulty} | Language style: ${languageStyle === "Simple" ? "simple and clear" : languageStyle === "Advanced" ? "advanced academic wording" : "balanced"} | Cognitive levels: ${cognitiveLevels.join(", ")}
-  Diagrams: ${allowDiagrams ? "allowed - see the diagram schema notes above; only set generatable=true when you can actually draw it precisely" : "do not request diagrams (set needed=false on every question)"}
+  Diagrams: ${allowDiagrams ? "allowed - see the DIAGRAM TEMPLATES above; only set generatable=true when a template fits exactly" : "do not request diagrams (set needed=false on every question)"}
 
 THIS SECTION MUST HAVE EXACTLY ${section.questionCount} question(s), ${section.marksPerQuestion} mark(s) each (${sectionMarks} marks total for this section).
 

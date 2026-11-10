@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sync:diagrams": "node scripts/sync-diagram-guide.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

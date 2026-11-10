@@ -20,7 +20,8 @@ import ExamStructureBuilder, { DEFAULT_SECTIONS } from "./components/ExamStructu
 import TopicSelector from "./components/TopicSelector.jsx";
 import DiagramManager from "./components/DiagramManager.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
-import { renderExamHTML, validateExamData, createExamVariant, schoolMonogramSVG, OPTIONS_LAYOUTS, ACCENTS, FONT_STYLES, CANDIDATE_STYLES } from "./examTemplate.js";
+import { diagramDrawing } from "./examFigures.js";
+import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
@@ -41,6 +42,8 @@ import { getUser, getToken, completePendingGoogleSignIn, signOut } from "./auth.
 import AuthModal from "./AuthModal_upgraded.jsx";
 import { goToHubSignIn } from "./hubSignIn.js";
 import AppHeader from "./components/AppHeader.jsx";
+import SavedExams from "./components/SavedExams.jsx";
+import { ExamHistory, MAX_SAVED_EXAMS, metaForSave } from "./examHistory.js";
 import InstallPrompt from "./components/InstallPrompt.jsx";
 import { usePwaInstall } from "./pwaInstall.js";
 
@@ -67,6 +70,16 @@ const DISPLAY_CREDIT_MULTIPLIER = 30;
 const toDisplayCredits = (raw) => Math.round(raw * DISPLAY_CREDIT_MULTIPLIER);
 const formatCredits = (raw) => toDisplayCredits(raw);
 
+
+// ── Remembered school identity + paper format (this browser only) ──────────
+// A teacher prints dozens of papers a term for the same school, so the school
+// name, motto, logo and paper format are saved locally and pre-filled next time.
+// Every access is wrapped: private windows / blocked storage must never break the page.
+const PREFS_KEY = "eduq.paperPrefs.v1";
+const LOGO_KEY = "eduq.schoolLogo.v1";
+const readPrefs = () => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") || {}; } catch { return {}; } };
+const readLogo = () => { try { return localStorage.getItem(LOGO_KEY) || null; } catch { return null; } };
+const isPublicExamClass = (cls) => /^(JHS\s*3|SHS\s*3|Basic\s*9)\b/i.test(String(cls || "").trim());
 
 /** Accessible on/off switch. A single <button> - no hidden checkbox inside a <label>,
  *  which previously fired twice per tap (span onClick + label→input onChange) and
@@ -216,11 +229,12 @@ function QuestionsGeneratorInner() {
   const pwa = usePwaInstall();
 
   // ── Basic Information ──────────────────────────────────────────
-  const [schoolName, setSchoolName] = useState("");
-  const [schoolLogo, setSchoolLogo] = useState(null); // data URL - printed in the paper header
+  const savedPrefs = useRef(readPrefs()).current;
+  const [schoolName, setSchoolName] = useState(savedPrefs.schoolName || "");
+  const [schoolMotto, setSchoolMotto] = useState(savedPrefs.schoolMotto || "");
+  const [emblem, setEmblem] = useState(savedPrefs.emblem === "none" ? "none" : "auto"); // "auto" = generated crest when there's no logo
+  const [schoolLogo, setSchoolLogo] = useState(() => readLogo()); // data URL - printed in the paper header
   const logoInputRef = useRef(null);
-  const [schoolMotto, setSchoolMotto] = useState("");
-  const [schoolAddress, setSchoolAddress] = useState(""); // address / phone / email line under the school name
   const [className, setClassName] = useState("");
   const [term, setTerm] = useState("Term 1");
   const [examType, setExamType] = useState("Class Test");
@@ -242,7 +256,6 @@ function QuestionsGeneratorInner() {
   // ── Diagrams ─────────────────────────────────────────────────────
   const [allowDiagrams, setAllowDiagrams] = useState(true);
   const [includeMarkingScheme, setIncludeMarkingScheme] = useState(true);
-  const [diagramImages, setDiagramImages] = useState({}); // { [questionNumber]: dataURL }
 
   // ── Generation state ─────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -251,17 +264,52 @@ function QuestionsGeneratorInner() {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const [examData, setExamData] = useState(null);
+  const [livePreview, setLivePreview] = useState(null); // partial paper shown while sections are still being written
   const [examHasMarkingScheme, setExamHasMarkingScheme] = useState(true); // reflects the generated exam, not the current toggle
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [landscape, setLandscape] = useState(false);
-  const [optionsLayout, setOptionsLayout] = useState("vertical"); // MCQ options: "vertical" | "two" | "row"
-  const [headerStyle, setHeaderStyle] = useState("classic"); // "classic" (logo left) | "centered" (logo above name)
-  const [answerLines, setAnswerLines] = useState(false); // ruled answer lines under written questions
-  const [candidateStyle, setCandidateStyle] = useState("lines"); // "lines" | "boxes" | "minimal"
-  const [fontStyle, setFontStyle] = useState("serif");
-  const [accent, setAccent] = useState("black");
-  const [academicYear, setAcademicYear] = useState("");
+  const [optionsLayout, setOptionsLayout] = useState(["vertical", "two", "row"].includes(savedPrefs.optionsLayout) ? savedPrefs.optionsLayout : "vertical"); // MCQ options: "vertical" | "two" | "row"
+
+  // ── Paper format: candidate details, sealed-paper notice, "Turn over" ───
+  // Presets are shortcuts (everyday school exam vs BECE/WASSCE-style paper);
+  // every control stays individually editable, so a class test, a mock for
+  // external candidates or a plain worksheet all print the way the teacher wants.
+  const [paperPreset, setPaperPreset] = useState(savedPrefs.paperPreset || "school"); // "school" | "public" | "custom"
+  const [idMode, setIdMode] = useState(["line", "boxes", "none"].includes(savedPrefs.idMode) ? savedPrefs.idMode : PAPER_PRESETS.school.idMode);
+  const [idDigits, setIdDigits] = useState(clampIdDigits(savedPrefs.idDigits ?? PAPER_PRESETS.school.idDigits));
+  const [idLabel, setIdLabel] = useState(typeof savedPrefs.idLabel === "string" ? savedPrefs.idLabel : PAPER_PRESETS.school.idLabel);
+  const [notice, setNotice] = useState(!!savedPrefs.notice);
+  const [turnOver, setTurnOver] = useState(savedPrefs.turnOver !== false);
+  const presetChosenByUser = useRef(!!savedPrefs.paperPreset);
+  const lastIdMode = useRef(null); // remembers Boxes/Line while the index-number switch is off
+  const applyPreset = (id, byUser = true) => {
+    const p = PAPER_PRESETS[id];
+    if (!p) return;
+    if (byUser) presetChosenByUser.current = true;
+    setPaperPreset(id); setIdMode(p.idMode); setIdDigits(p.idDigits); setIdLabel(p.idLabel); setNotice(p.notice); setTurnOver(p.turnOver);
+  };
+  const customise = (setter) => (v) => { presetChosenByUser.current = true; setPaperPreset("custom"); setter(v); };
+
+  // Sensible default: a mock exam for a final-year class (JHS 3 / SHS 3) gets the
+  // public-exam look. Only until the teacher picks a style themselves.
+  useEffect(() => {
+    if (presetChosenByUser.current) return;
+    applyPreset(examType === "Mock Exam" && isPublicExamClass(className) ? "public" : "school", false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examType, className]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ schoolName, schoolMotto, emblem, optionsLayout, paperPreset: presetChosenByUser.current ? paperPreset : undefined, idMode, idDigits, idLabel, notice, turnOver }));
+    } catch { /* storage unavailable: nothing to remember, nothing breaks */ }
+  }, [schoolName, schoolMotto, emblem, optionsLayout, paperPreset, idMode, idDigits, idLabel, notice, turnOver]);
+  useEffect(() => {
+    try {
+      if (schoolLogo && schoolLogo.length < 900000) localStorage.setItem(LOGO_KEY, schoolLogo);
+      else if (!schoolLogo) localStorage.removeItem(LOGO_KEY);
+    } catch { /* ignore */ }
+  }, [schoolLogo]);
   const [showTopUp, setShowTopUp] = useState(false);
   const printFrameRef = useRef(null);
 
@@ -281,6 +329,108 @@ function QuestionsGeneratorInner() {
     } catch { /* balance display is non-critical - fail quietly */ }
   }, []);
   React.useEffect(() => { fetchBalance(); }, [fetchBalance]);
+
+  // ── My Exams (saved papers) ────────────────────────────────────────────
+  // Same model as the Lesson Planner's "My Plans": every generated exam is
+  // saved automatically, up to MAX_SAVED_EXAMS per teacher; the server evicts
+  // the oldest on the next save so Supabase storage stays bounded.
+  const [view, setView] = useState("generate"); // "generate" | "saved"
+  const [savedCount, setSavedCount] = useState(null);
+  const [savedRefresh, setSavedRefresh] = useState(0);
+  const [openedMeta, setOpenedMeta] = useState(null); // header details of a paper re-opened from My Exams
+  const [saveToast, setSaveToast] = useState(null); // { type: "info" | "warn", msg }
+  const toastTimer = useRef(null);
+  const [savedId, setSavedId] = useState(null);        // id of the My Exams copy of the paper on screen
+  const savedExamRef = useRef(null);                   // the examData object that copy was saved from
+  const [savingChanges, setSavingChanges] = useState(false);
+  const [barHidden, setBarHidden] = useState(false);   // hide the bottom bar while typing so it never covers inputs/keyboard
+  const showSaveToast = (type, msg) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setSaveToast({ type, msg });
+    toastTimer.current = setTimeout(() => setSaveToast(null), 5000);
+  };
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+  const refreshSavedCount = useCallback(async () => {
+    try { if (getToken && getToken()) setSavedCount((await ExamHistory.list()).length); else setSavedCount(null); }
+    catch { /* count is a nicety - fail quietly */ }
+  }, []);
+  useEffect(() => { refreshSavedCount(); }, [refreshSavedCount, user]);
+
+  // Retry with backoff (1s, 2s) - teachers are often on unstable mobile data.
+  const saveExamToHistory = async (generated, metaToSave) => {
+    const entry = {
+      title: generated.title || `${metaToSave.subject || ""} ${metaToSave.examType || "Exam"}`.trim(),
+      subject: metaToSave.subject, class: metaToSave.className, exam_type: metaToSave.examType,
+      exam_json: generated, meta_json: metaToSave,
+    };
+    let lastErr;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const r = await ExamHistory.save(entry);
+        setSavedId(r?.id || null); savedExamRef.current = generated;
+        setSavedRefresh(n => n + 1);
+        const max = r?.max || MAX_SAVED_EXAMS;
+        const list = await ExamHistory.list().catch(() => null);
+        if (list) setSavedCount(list.length);
+        if (r?.deletedCount > 0) {
+          showSaveToast("warn", `${r.deletedCount > 1 ? `${r.deletedCount} oldest exams were` : "Your oldest exam was"} removed to make room. You can save up to ${max} exams.`);
+        } else if (list && list.length >= max - 1) {
+          showSaveToast("info", `${list.length} of ${max} exam slots used. Next save will remove your oldest exam.`);
+        } else {
+          showSaveToast("info", "Saved to My Exams.");
+        }
+        return;
+      } catch (e) {
+        lastErr = e;
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
+    }
+    console.error("[save exam] failed after retries:", lastErr);
+    showSaveToast("warn", "Couldn't save this exam to My Exams. It's still on screen, but won't be saved for later.");
+  };
+
+  const hasUnsavedEdits = !!savedId && !!examData && examData !== savedExamRef.current;
+  const handleSaveChanges = async () => {
+    if (!savedId || !examData) return;
+    setSavingChanges(true);
+    try {
+      await ExamHistory.update(savedId, { exam_json: examData, title: examData.title || undefined });
+      savedExamRef.current = examData;
+      setSavedRefresh(n => n + 1);
+      showSaveToast("info", "Changes saved to My Exams.");
+    } catch (e) {
+      if (e?.status === 404) { setSavedId(null); showSaveToast("warn", "This exam was removed from My Exams to make room, so the changes can't be saved there."); }
+      else showSaveToast("warn", e?.message || "Couldn't save your changes. Please try again.");
+    } finally { setSavingChanges(false); }
+  };
+  useEffect(() => {
+    const isField = (t) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT") && t.type !== "checkbox" && t.type !== "radio";
+    const on = (e) => setBarHidden(isField(e.target));
+    const off = () => setBarHidden(false);
+    document.addEventListener("focusin", on); document.addEventListener("focusout", off);
+    return () => { document.removeEventListener("focusin", on); document.removeEventListener("focusout", off); };
+  }, []);
+
+  const handleOpenSaved = async (id) => {
+    const row = await ExamHistory.get(id);
+    if (!row?.exam_json) throw new Error("That exam has no saved content.");
+    const m = row.meta_json || {};
+    setSavedId(row.id); savedExamRef.current = row.exam_json;
+    setExamData(row.exam_json);
+    setExamVersion("A");
+    setExamHasMarkingScheme(m.hasMarkingScheme !== false);
+    setShowAnswerKey(false);
+    setEditMode(false);
+    setOpenedMeta({
+      schoolName: m.schoolName, className: row.class || m.className, subject: row.subject || m.subject,
+      term: m.term, examType: row.exam_type || m.examType, durationMinutes: m.durationMinutes,
+      idMode: m.idMode, idDigits: m.idDigits, idLabel: m.idLabel, notice: m.notice, turnOver: m.turnOver, schoolMotto: m.schoolMotto,
+    });
+    if (typeof m.landscape === "boolean") setLandscape(m.landscape);
+    if (["vertical", "two", "row"].includes(m.optionsLayout)) setOptionsLayout(m.optionsLayout);
+    setView("generate");
+    window.scrollTo?.({ top: 0 });
+  };
 
   // "X/5 left" on the Free button - same proactive-remaining-count pattern
   // as the real App.jsx's Free button badge, not just a failure message.
@@ -368,6 +518,9 @@ function QuestionsGeneratorInner() {
     setLoading(true);
     setLoadingTier(tierArg);
     setExamData(null);
+    setOpenedMeta(null);
+    setLivePreview(null);
+    setSavedId(null); savedExamRef.current = null;
     setProgress({ index: 0, total: activeSections.length, sectionLabel: "", sectionsDone: new Set() });
     try {
       const payload = {
@@ -384,6 +537,14 @@ function QuestionsGeneratorInner() {
           setProgress(prev => ({ ...prev, index: event.index, total: event.total, sectionLabel: event.sectionLabel }));
         } else if (event.type === "section-done") {
           setProgress(prev => ({ ...prev, sectionsDone: new Set([...(prev?.sectionsDone || []), event.sectionId]) }));
+          if (event.section) {
+            setLivePreview(prev => ({
+              title: event.title ?? prev?.title ?? "",
+              instructions: event.instructions ?? prev?.instructions ?? [],
+              sections: [...(prev?.sections || []), event.section],
+              answerKey: [],
+            }));
+          }
         }
       });
 
@@ -394,7 +555,8 @@ function QuestionsGeneratorInner() {
       setExamVersion("A");
       setExamHasMarkingScheme(result.includeMarkingScheme !== false);
       setShowAnswerKey(false);
-      setDiagramImages({});
+      // Save to My Exams in the background - never blocks showing the paper.
+      saveExamToHistory(result.examData, metaForSave(meta, { hasMarkingScheme: result.includeMarkingScheme !== false }));
       // Server already deducted from the shared coins wallet and returns the
       // fresh raw balance - trust that over a client-side guess so the
       // header never drifts from reality.
@@ -423,6 +585,7 @@ function QuestionsGeneratorInner() {
       setLoading(false);
       setLoadingTier(null);
       setProgress(null);
+      setLivePreview(null);
     }
   };
 
@@ -436,11 +599,12 @@ function QuestionsGeneratorInner() {
   const questionsNeedingDiagrams = useMemo(() => {
     if (!examData) return [];
     const out = [];
-    (examData.sections || []).forEach(sec => (sec.questions || []).forEach(q => {
-      // Only prompt for a manual upload when the AI COULDN'T draw it itself
-      // (generatable=false/no svg) - a clean AI-generated SVG needs no
-      // teacher action, though DiagramManager still lets them override it.
-      if (q.diagram?.needed && !(q.diagram.generatable && q.diagram.svg)) out.push(q);
+    (examData.sections || []).forEach((sec, sIdx) => (sec.questions || []).forEach((q, qIdx) => {
+      // Every flagged figure is listed so the teacher can SEE what will print:
+      // drawn ones get a preview to check, the rest ask for a picture.
+      // Any other question can still get a picture from Edit.
+      // sIdx/qIdx identify the question: numbers restart in every section.
+      if (q.diagram?.needed) out.push({ sIdx, qIdx, section: sec, q });
     }));
     return out;
   }, [examData]);
@@ -451,7 +615,14 @@ function QuestionsGeneratorInner() {
     return examVersion === "A" ? examData : createExamVariant(examData, examVersion);
   }, [examData, examVersion]);
 
-  const meta = { schoolName, className, subject, term, examType, durationMinutes, landscape, diagramImages, schoolLogo, optionsLayout, schoolMotto, schoolAddress, headerStyle, answerLines, candidateStyle, fontStyle, accent, academicYear, examVersion: examVersion === "A" ? "" : examVersion };
+  const openedOverride = openedMeta ? Object.fromEntries(Object.entries(openedMeta).filter(([, v]) => v !== undefined && v !== null && v !== "")) : {};
+  const meta = {
+    schoolName, className, subject, term, examType, durationMinutes, landscape, schoolLogo, optionsLayout,
+    examVersion: examVersion === "A" ? "" : examVersion,
+    schoolMotto: schoolMotto.trim(), emblem, idMode, idDigits: clampIdDigits(idDigits), idLabel: idLabel.trim(),
+    notice, noticeText: DEFAULT_NOTICE, turnOver,
+    ...openedOverride,
+  };
 
   const [downloadingWord, setDownloadingWord] = useState(false);
   const handleDownloadWord = async (mode) => {
@@ -463,14 +634,14 @@ function QuestionsGeneratorInner() {
       // diagrams into PNGs first. Failures just fall back to the text placeholder.
       const docMeta = { ...meta, svgPngs: {} };
       try {
-        if (!docMeta.schoolLogo) {
-          const seal = schoolMonogramSVG(schoolName);
-          if (seal) docMeta.schoolLogo = await svgToPngDataUrl(seal, 300);
+        if (!docMeta.schoolLogo && emblem !== "none") {
+          const seal = schoolCrestSVG(schoolName);
+          if (seal) docMeta.schoolLogo = await svgToPngDataUrl(seal, 400);
         }
       } catch (e) { console.warn("Seal render skipped:", e); }
       for (const sec of activeExamData.sections || []) {
         for (const q of sec.questions || []) {
-          if (q.diagram?.needed && q.diagram.generatable && q.diagram.svg && !diagramImages[q.number]) {
+          if (diagramDrawing(q) && !q.image?.src) {
             try { docMeta.svgPngs[`${sec.id}:${q.number}`] = await svgToPngDataUrl(q.diagram.svg, 900); }
             catch (e) { console.warn("Diagram render skipped:", e); }
           }
@@ -520,8 +691,16 @@ function QuestionsGeneratorInner() {
     w.document.open();
     w.document.write(html);
     w.document.close();
-    // Give web fonts / images a beat to load before invoking the print dialog.
-    setTimeout(() => w.print(), 350);
+    // The paper lays itself out onto A4 pages once its images and fonts are in
+    // (it sets __paperReady when done): print only then, or the dialog would
+    // show an unpaginated page. The 6 s cap means a stuck image can't block printing.
+    const t0 = Date.now();
+    const tick = () => {
+      if (w.closed) return;
+      if (w.__paperReady || Date.now() - t0 > 6000) setTimeout(() => w.print(), 150);
+      else setTimeout(tick, 80);
+    };
+    tick();
   };
 
   // Same pattern as the Lesson Planner's own onLoginRequired: don't hard-wall
@@ -550,16 +729,44 @@ function QuestionsGeneratorInner() {
       onSignOut={handleSignOut}
       canInstall={pwa.canReopen}
       onInstall={pwa.reopen}
+      savedCount={savedCount}
+      onOpenSaved={() => { setView("saved"); window.scrollTo?.({ top: 0 }); }}
     />
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px 16px 60px", fontFamily: F }}>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>
-          AI Questions Generator
-        </h1>
-        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>
-          Build a print-ready exam paper from your curriculum in minutes.
-        </p>
-      </div>
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: `24px 16px ${examData && view === "generate" ? 110 : 60}px`, fontFamily: F }}>
+      {view === "generate" && (
+        <div style={{ marginBottom: 22, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>
+              AI Questions Generator
+            </h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>
+              Build a print-ready exam paper from your curriculum in minutes.
+            </p>
+          </div>
+          <button type="button" style={S.sm} onClick={requireLogin(() => setView("saved"))}>
+            My Exams{savedCount ? ` (${savedCount})` : ""}
+          </button>
+        </div>
+      )}
+
+      {view === "saved" && (
+        <SavedExams
+          user={user} refreshKey={savedRefresh} S={S} F={F}
+          onOpen={handleOpenSaved}
+          onBack={() => setView("generate")}
+          onSignIn={() => setShowAuthModal(true)}
+          onCount={setSavedCount}
+        />
+      )}
+
+      {saveToast && (
+        <div role="status" style={{
+          position: "fixed", left: 12, right: 12, bottom: examData && view === "generate" ? 84 : "max(16px, env(safe-area-inset-bottom, 16px))", margin: "0 auto", maxWidth: 420, zIndex: 200,
+          padding: "11px 14px", borderRadius: 12, fontFamily: F, fontSize: 13, lineHeight: 1.45,
+          background: "var(--card-bg)", color: saveToast.type === "warn" ? "var(--orange-text)" : "var(--text)",
+          border: `1px solid ${saveToast.type === "warn" ? "var(--orange-text)" : "var(--border-strong)"}`, boxShadow: "0 2px 8px rgba(0,0,0,.08)",
+        }}>{saveToast.msg}</div>
+      )}
 
       {showAuthModal && (
         <AuthModal
@@ -580,6 +787,8 @@ function QuestionsGeneratorInner() {
         />
       )}
 
+      {/* Wizard + result stay mounted (just hidden) while My Exams is open, so nothing the teacher typed is lost */}
+      <div style={{ display: view === "saved" ? "none" : undefined }}>
       {/* ── Curriculum + Topics (GES / NaCCA) - CLASS FIRST, matching
            the real Lesson Planner's flow exactly. Everything else in the
            form follows from this, so it comes first on the page too. ── */}
@@ -650,17 +859,16 @@ function QuestionsGeneratorInner() {
         </div>
         <div className="eduq-grid-2" style={{ marginBottom: 14 }}>
           <div>
-            <label style={S.lbl}>School Motto (optional)</label>
-            <input value={schoolMotto} onChange={e => setSchoolMotto(e.target.value)} placeholder="e.g. Knowledge and Integrity" style={S.inp} />
+            <label style={S.lbl}>Motto or address line <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional)</span></label>
+            <input value={schoolMotto} maxLength={90} onChange={e => setSchoolMotto(e.target.value)} placeholder="e.g. Knowledge, Discipline, Service" style={S.inp} />
           </div>
           <div>
-            <label style={S.lbl}>Address / Contact (optional)</label>
-            <input value={schoolAddress} onChange={e => setSchoolAddress(e.target.value)} placeholder="e.g. P.O. Box 12, Accra | Tel: 030 000 0000" style={S.inp} />
+            <label style={S.lbl}>Emblem when no logo</label>
+            <select value={emblem} onChange={e => setEmblem(e.target.value)} style={S.sel} disabled={!!schoolLogo} title={schoolLogo ? "Your uploaded logo is used" : ""}>
+              <option value="auto">Generated school crest</option>
+              <option value="none">No emblem</option>
+            </select>
           </div>
-        </div>
-        <div style={{ marginBottom: 14 }}>
-          <label style={S.lbl}>Academic Year (optional)</label>
-          <input value={academicYear} onChange={e => setAcademicYear(e.target.value)} placeholder="e.g. 2025/2026" style={S.inp} />
         </div>
         <div className="eduq-grid-2">
           <div>
@@ -813,6 +1021,36 @@ function QuestionsGeneratorInner() {
       </div>
       )}
       {loading && <GenerationProgress progress={progress} elapsed={elapsed} />}
+      {loading && livePreview?.sections?.length > 0 && (
+        <div style={{ ...S.out, marginTop: 8, padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontFamily: F }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0D9488", animation: "qgPulse 1.2s ease-in-out infinite" }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>Live preview</span>
+            <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+              {livePreview.sections.length} of {progress?.total || activeSections.length} sections written. More appear as they finish.
+            </span>
+          </div>
+          <div style={{ maxHeight: 420, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 12, background: "var(--card-bg)", padding: "6px 14px" }}>
+            {livePreview.title && <div style={{ fontFamily: F, fontSize: 14, fontWeight: 800, color: "var(--text)", padding: "8px 0 2px" }}>{livePreview.title}</div>}
+            {livePreview.sections.map((sec) => (
+              <div key={sec.id || sec.label} className="eduq-live-sec" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+                <div style={{ fontFamily: F, fontSize: 12, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--accent)" }}>{sec.label}</div>
+                {sec.instructions && <div style={{ fontFamily: F, fontSize: 12, color: "var(--text-muted)", margin: "2px 0 6px", fontStyle: "italic" }}>{sec.instructions}</div>}
+                {(sec.questions || []).map((q) => (
+                  <div key={q.number} style={{ fontFamily: F, fontSize: 13, color: "var(--text)", lineHeight: 1.5, margin: "6px 0" }}>
+                    <b>{q.number}.</b> {q.text}
+                    {Array.isArray(q.options) && q.options.length > 0 && (
+                      <div style={{ color: "var(--text-secondary)", fontSize: 12.5, marginLeft: 16 }}>
+                        {q.options.map((o, i) => <div key={i}>{String.fromCharCode(65 + i)}. {o}</div>)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 0 }}>
         Nothing is charged unless generation succeeds. Failed or timed-out requests are not billed.
       </p>
@@ -820,9 +1058,9 @@ function QuestionsGeneratorInner() {
       {/* ── Diagram uploads (post-generation) ──────────────────── */}
       {examData && (
         <DiagramManager
-          questionsNeedingDiagrams={questionsNeedingDiagrams}
-          diagramImages={diagramImages}
-          setDiagramImages={setDiagramImages}
+          items={questionsNeedingDiagrams}
+          examData={examData}
+          setExamData={setExamData}
           S={S} F={F}
         />
       )}
@@ -864,56 +1102,87 @@ function QuestionsGeneratorInner() {
                   {OPTIONS_LAYOUTS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                 </select>
               </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
-                Header:
-                <select value={headerStyle} onChange={e => setHeaderStyle(e.target.value)} title="Layout of the school letterhead" style={{ height: 32, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--card-bg)", color: "var(--text)", fontFamily: F, fontSize: 12, padding: "0 6px" }}>
-                  <option value="classic">Classic (logo left)</option>
-                  <option value="centered">Centred (logo above)</option>
-                </select>
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
-                Candidate:
-                <select value={candidateStyle} onChange={e => setCandidateStyle(e.target.value)} title="Name / index number area at the top of the paper" style={{ height: 32, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--card-bg)", color: "var(--text)", fontFamily: F, fontSize: 12, padding: "0 6px" }}>
-                  {CANDIDATE_STYLES.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                </select>
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
-                Font:
-                <select value={fontStyle} onChange={e => setFontStyle(e.target.value)} style={{ height: 32, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--card-bg)", color: "var(--text)", fontFamily: F, fontSize: 12, padding: "0 6px" }}>
-                  {Object.entries(FONT_STYLES).map(([id, o]) => <option key={id} value={id}>{o.label}</option>)}
-                </select>
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
-                Colour:
-                <select value={accent} onChange={e => setAccent(e.target.value)} title="Accent colour for headings and rules" style={{ height: 32, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--card-bg)", color: "var(--text)", fontFamily: F, fontSize: 12, padding: "0 6px" }}>
-                  {Object.entries(ACCENTS).map(([id, o]) => <option key={id} value={id}>{o.label}</option>)}
-                </select>
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
-                <input type="checkbox" checked={answerLines} onChange={e => setAnswerLines(e.target.checked)} style={{ accentColor: "#0D9488" }} />
-                Answer lines
-              </label>
-              {examHasMarkingScheme && (
-                <button style={S.sm} onClick={() => setShowAnswerKey(v => !v)}>
-                  {showAnswerKey ? "View Question Paper" : "View Answer Key"}
-                </button>
-              )}
               <button
                 style={editMode ? { ...S.sm, borderColor: "var(--accent)", color: "var(--accent)", background: "var(--accent-soft)" } : S.sm}
                 onClick={() => setEditMode(v => !v)}
               >
                 {editMode ? "Editing" : "Edit"}
               </button>
-              <button style={S.sm} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>Print</button>
-              <button style={{ ...S.btn, height: 40, padding: "0 18px", fontSize: 13 }} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>
-                Download PDF
-              </button>
-              <button style={S.sm} disabled={downloadingWord} onClick={() => handleDownloadWord(showAnswerKey ? "answerKey" : "paper")}>
-                {downloadingWord ? "Generating…" : "Download Word"}
-              </button>
-              <button style={S.sm} onClick={handleShare} title="Share as a file. Works with WhatsApp, email, Drive, etc. on mobile">
-                Share
-              </button>
+            </div>
+          </div>
+
+          {/* ── Candidate index number: its own card so it's easy to find ── */}
+          <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", marginBottom: 14 }}>
+            {/* One clear switch for the index number; style/boxes/label only appear while it's on. */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", fontFamily: F }}>Include candidate index number</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>
+                  {idMode === "none" ? "Off: no index number on the paper." : "On: candidates write their index number at the top."}
+                </div>
+              </div>
+              <Toggle
+                checked={idMode !== "none"}
+                label="Include candidate index number"
+                onChange={(on) => {
+                  if (on) customise(setIdMode)(lastIdMode.current || (paperPreset === "public" ? "boxes" : "line"));
+                  else { if (idMode !== "none") lastIdMode.current = idMode; customise(setIdMode)("none"); }
+                }}
+              />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, alignItems: "end" }}>
+              {idMode !== "none" && (
+              <div>
+                <label style={{ ...S.lbl, marginBottom: 4 }}>Index number style</label>
+                <select value={idMode} onChange={e => customise(setIdMode)(e.target.value)} style={{ ...S.sel, minHeight: 40, padding: "8px 34px 8px 12px", fontSize: 13 }}>
+                  {ID_MODES.filter(m => m.id !== "none").map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              </div>
+              )}
+              {idMode === "boxes" && (
+                <div>
+                  <label style={{ ...S.lbl, marginBottom: 4 }}>Boxes (digits)</label>
+                  <input type="number" min={4} max={15} value={idDigits}
+                    onChange={e => customise(setIdDigits)(e.target.value === "" ? "" : Number(e.target.value))}
+                    onBlur={() => setIdDigits(clampIdDigits(idDigits))}
+                    style={{ ...S.inp, minHeight: 40, padding: "8px 12px", fontSize: 13 }} />
+                </div>
+              )}
+              {idMode !== "none" && (
+                <div>
+                  <label style={{ ...S.lbl, marginBottom: 4 }}>ID label</label>
+                  <input value={idLabel} maxLength={24} onChange={e => customise(setIdLabel)(e.target.value)} placeholder={idMode === "boxes" ? "Index Number" : "Index No."} style={{ ...S.inp, minHeight: 40, padding: "8px 12px", fontSize: 13 }} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Paper format: live preview below updates as these change ── */}
+          <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", fontFamily: F, marginRight: 4 }}>Paper style</span>
+              {Object.values(PAPER_PRESETS).map(p => {
+                const active = paperPreset === p.id;
+                return (
+                  <button key={p.id} type="button" onClick={() => applyPreset(p.id)} aria-pressed={active} style={{
+                    padding: "7px 14px", borderRadius: 99, fontFamily: F, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                    border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
+                    background: active ? "var(--accent-soft)" : "var(--card-bg)",
+                    color: active ? "var(--accent)" : "var(--text-secondary)",
+                  }}>{p.label}</button>
+                );
+              })}
+              {paperPreset === "custom" && <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F }}>Custom</span>}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 22px", marginTop: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F, cursor: "pointer" }}>
+                <input type="checkbox" checked={turnOver} onChange={e => customise(setTurnOver)(e.target.checked)} style={{ accentColor: "#0D9488" }} />
+                "Turn over" on every page except the last
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F, cursor: "pointer" }}>
+                <input type="checkbox" checked={notice} onChange={e => customise(setNotice)(e.target.checked)} style={{ accentColor: "#0D9488" }} />
+                "Do not open until told to" notice
+              </label>
             </div>
           </div>
 
@@ -929,7 +1198,49 @@ function QuestionsGeneratorInner() {
           )}
         </div>
       )}
+      </div>
     </div>
+
+    {/* ── Sticky action bar: the things you do with a finished paper, always one tap away ── */}
+    {view === "generate" && examData && !loading && !barHidden && (
+      <div className="eduq-bar" style={{
+        position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 120,
+        background: "var(--card-bg)", borderTop: "1px solid var(--border)",
+        padding: "10px 12px max(10px, env(safe-area-inset-bottom, 10px))",
+        boxShadow: "0 -1px 6px rgba(0,0,0,.05)",
+      }}>
+        <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", gap: 8, alignItems: "center", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          {examHasMarkingScheme && (
+            <div role="group" aria-label="What to show" style={{ display: "flex", flexShrink: 0, border: "1.5px solid var(--border-strong)", borderRadius: 99, overflow: "hidden" }}>
+              {[{ k: false, l: "Paper" }, { k: true, l: "Answers" }].map(o => (
+                <button key={o.l} type="button" aria-pressed={showAnswerKey === o.k} onClick={() => setShowAnswerKey(o.k)} style={{
+                  height: 38, padding: "0 14px", border: "none", cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600,
+                  background: showAnswerKey === o.k ? "var(--accent-soft)" : "transparent",
+                  color: showAnswerKey === o.k ? "var(--accent)" : "var(--text-secondary)",
+                }}>{o.l}</button>
+              ))}
+            </div>
+          )}
+          <div style={{ flex: 1 }} />
+          {savedId && (
+            hasUnsavedEdits ? (
+              <button type="button" disabled={savingChanges} onClick={handleSaveChanges} style={{ ...S.sm, height: 40, flexShrink: 0, borderColor: "var(--accent)", color: "var(--accent)", fontWeight: 700 }}>
+                {savingChanges ? "Saving…" : "Save changes"}
+              </button>
+            ) : (
+              <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, flexShrink: 0 }}>✓ Saved</span>
+            )
+          )}
+          <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} disabled={downloadingWord} onClick={() => handleDownloadWord(showAnswerKey ? "answerKey" : "paper")}>
+            {downloadingWord ? "Preparing…" : "Word"}
+          </button>
+          <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} onClick={handleShare} title="Share as a file (WhatsApp, email, Drive…)">Share</button>
+          <button type="button" style={{ ...S.btn, height: 40, padding: "0 20px", fontSize: 14, flexShrink: 0 }} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>
+            Print / PDF
+          </button>
+        </div>
+      </div>
+    )}
     </>
   );
 }
@@ -943,6 +1254,11 @@ function QuestionsGeneratorInner() {
  * Android" requirement, not a cosmetic nitpick.
  */
 const RESPONSIVE_CSS = `
+  @keyframes eduq-rise { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+  .eduq-bar { animation: eduq-rise .22s ease-out both; }
+  @keyframes eduq-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .eduq-live-sec { animation: eduq-in .3s ease-out both; }
+  @media (prefers-reduced-motion: reduce) { .eduq-bar, .eduq-live-sec { animation: none; } }
   .eduq-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 480px) {
     .eduq-grid-2 { grid-template-columns: 1fr; }

@@ -8,7 +8,9 @@
  *   GET  /api/exam-account/history          → [{ id, title, subject, class, exam_type, created_at }]
  *   GET  /api/exam-account/history/:id      → full saved exam (exam_json + meta_json)
  *   POST /api/exam-account/history          → save a generated exam { title, subject, class, exam_type, exam_json, meta_json }
+ *   PUT  /api/exam-account/history/:id      → rename and/or save edits { title?, exam_json?, meta_json? }
  *   DEL  /api/exam-account/history/:id      → delete a saved exam
+ *   DEL  /api/exam-account/history          → delete ALL of this user's saved exams ("Clear All")
  *   GET  /api/exam-account/free-usage       → { used, limit, remaining } - for the "X/5 left" badge on the Free button
  *
  * Same shared-Supabase-project / shared-JWT-secret pattern as
@@ -33,7 +35,7 @@ function resolveEnv(raw, request) {
 function corsHeaders(env) {
   return {
     "Access-Control-Allow-Origin": env.ALLOWED_ORIGIN || "*",
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
 }
@@ -86,6 +88,8 @@ export async function onRequest(context) {
     else if (request.method === "GET" && path === "/sol-lookup") response = await lookupScheme(env, user, url);
     else if (request.method === "GET" && path === "/free-usage") response = await getFreeUsage(env, user);
     else if (request.method === "POST" && path === "/history") response = await saveHistory(request, env, user);
+    else if (request.method === "PUT" && path.startsWith("/history/")) response = await updateHistory(request, env, user, path.split("/")[2]);
+    else if (request.method === "DELETE" && path === "/history") response = await clearHistory(env, user);
     else if (request.method === "DELETE" && path.startsWith("/history/")) response = await deleteHistory(env, user, path.split("/")[2]);
     else response = jsonResp({ error: "Not found." }, 404);
   } catch (e) {
@@ -110,7 +114,7 @@ async function getBalance(env, user) {
 
 async function listHistory(env, user) {
   const rows = await sb(env, `/exam_history?user_id=eq.${user.sub}&select=id,title,subject,class,exam_type,created_at&order=created_at.desc&limit=${MAX_EXAM_HISTORY_PER_USER}`);
-  return jsonResp({ exams: rows || [] });
+  return jsonResp({ exams: rows || [], max: MAX_EXAM_HISTORY_PER_USER });
 }
 
 async function getHistoryItem(env, user, id) {
@@ -120,15 +124,51 @@ async function getHistoryItem(env, user, id) {
   return jsonResp(rows[0]);
 }
 
+// Hard ceiling on one saved paper's JSON, so a single oversized payload can't
+// eat the Supabase storage the 10-exam cap exists to protect.
+const MAX_EXAM_JSON_BYTES = 600 * 1024;
+// Teacher pictures are stored on their questions (question.image.src, a data
+// URL the client has already shrunk to ~150 KB). They get their own budget so
+// they can't crowd out the paper's text, and the 600 KB text limit above is
+// measured WITHOUT them. Keep in sync with imageUtils.js on the client.
+const MAX_IMAGE_CHARS_EACH = 300 * 1024;
+const MAX_IMAGE_CHARS_TOTAL = 1024 * 1024;
+const SAFE_IMAGE_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+/** Returns an error Response if the exam is too big or carries a bad image, else null. */
+function checkExamPayload(exam_json) {
+  let imageChars = 0;
+  for (const s of Array.isArray(exam_json.sections) ? exam_json.sections : []) {
+    for (const q of Array.isArray(s?.questions) ? s.questions : []) {
+      if (q?.image === undefined || q?.image === null) continue;
+      const src = q.image?.src;
+      if (typeof src !== "string" || !SAFE_IMAGE_RE.test(src)) return jsonResp({ error: "One of the question images isn't a valid picture." }, 400);
+      if (src.length > MAX_IMAGE_CHARS_EACH) return jsonResp({ error: "One of the images is too large to save. Please use a smaller picture." }, 413);
+      imageChars += src.length;
+    }
+  }
+  if (imageChars > MAX_IMAGE_CHARS_TOTAL) return jsonResp({ error: "The pictures in this exam are too large to save. Remove one or use smaller pictures." }, 413);
+  const textOnly = JSON.stringify(exam_json, (k, v) => (k === "image" && v && typeof v === "object" ? { ...v, src: "" } : v));
+  if (textOnly.length > MAX_EXAM_JSON_BYTES) return jsonResp({ error: "This exam is too large to save." }, 413);
+  return null;
+}
+
 async function saveHistory(request, env, user) {
   const { title, subject, class: cls, exam_type, exam_json, meta_json } = await request.json();
-  if (!exam_json) return jsonResp({ error: "Missing exam data." }, 400);
+  if (!exam_json || typeof exam_json !== "object") return jsonResp({ error: "Missing exam data." }, 400);
+  const tooBig = checkExamPayload(exam_json);
+  if (tooBig) return tooBig;
 
   // Enforce the per-user cap server-side - a client-supplied count can't be trusted.
+  // Same eviction rule as the Lesson Planner's plans endpoint: oldest first,
+  // and evict however many are needed to leave room for exactly one new row.
   const existing = await sb(env, `/exam_history?user_id=eq.${user.sub}&select=id,created_at&order=created_at.asc`);
-  if ((existing || []).length >= MAX_EXAM_HISTORY_PER_USER) {
-    const oldest = existing[0];
-    await sb(env, `/exam_history?id=eq.${oldest.id}`, { method: "DELETE" }).catch(() => {});
+  let deletedCount = 0;
+  if (existing && existing.length >= MAX_EXAM_HISTORY_PER_USER) {
+    const excess = existing.length - MAX_EXAM_HISTORY_PER_USER + 1;
+    const toDelete = existing.slice(0, excess).map(r => r.id);
+    await sb(env, `/exam_history?id=in.(${toDelete.join(",")})&user_id=eq.${user.sub}`, { method: "DELETE" });
+    deletedCount = toDelete.length;
   }
 
   const saved = await sb(env, "/exam_history", {
@@ -143,7 +183,32 @@ async function saveHistory(request, env, user) {
       meta_json: meta_json || {},
     }),
   });
-  return jsonResp(saved?.[0] || { ok: true });
+  const row = saved?.[0];
+  if (!row) return jsonResp({ error: "Save failed." }, 500);
+  return jsonResp({ id: row.id, created_at: row.created_at, deletedCount, max: MAX_EXAM_HISTORY_PER_USER });
+}
+
+async function updateHistory(request, env, user, id) {
+  if (!id) return jsonResp({ error: "Missing id." }, 400);
+  const body = await request.json();
+  const patch = {};
+  if (typeof body.title === "string") patch.title = (body.title.trim() || "Untitled Exam").slice(0, 200);
+  if (body.exam_json !== undefined) {
+    if (!body.exam_json || typeof body.exam_json !== "object") return jsonResp({ error: "Invalid exam data." }, 400);
+    const tooBig = checkExamPayload(body.exam_json);
+    if (tooBig) return tooBig;
+    patch.exam_json = body.exam_json;
+  }
+  if (body.meta_json && typeof body.meta_json === "object") patch.meta_json = body.meta_json;
+  if (!Object.keys(patch).length) return jsonResp({ error: "Nothing to update." }, 400);
+  const rows = await sb(env, `/exam_history?id=eq.${id}&user_id=eq.${user.sub}`, { method: "PATCH", body: JSON.stringify(patch) });
+  if (!rows?.length) return jsonResp({ error: "That exam is no longer in My Exams." }, 404);
+  return jsonResp({ ok: true, id: rows[0].id, title: rows[0].title });
+}
+
+async function clearHistory(env, user) {
+  await sb(env, `/exam_history?user_id=eq.${user.sub}`, { method: "DELETE" });
+  return jsonResp({ ok: true });
 }
 
 async function deleteHistory(env, user, id) {
