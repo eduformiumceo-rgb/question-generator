@@ -419,9 +419,10 @@ function withCORS(response, env) {
 
 async function handleSuggestTopics(body, env) {
   const { subject, className, strand } = body;
+  const programme = String(body.programme || "").replace(/[^A-Za-z &/-]/g, "").trim().slice(0, 40);
   if (!subject || !className) return jsonResp({ error: "Subject and class are required." }, 400);
   try {
-    const prompt = `List 6-10 exam-worthy topic names for GES ${subject}, class "${className}"${strand ? `, within the strand "${strand}"` : ""}. Return ONLY a JSON array of short topic-name strings, nothing else.`;
+    const prompt = `List 6-10 exam-worthy topic names for GES ${subject}, class "${className}"${programme && programme !== "Core Subjects" ? ` (${programme} programme)` : ""}${strand ? `, within the strand "${strand}"` : ""}. Return ONLY a JSON array of short topic-name strings, nothing else.`;
     const raw = await callAI(env, "You output only valid JSON arrays of strings, nothing else.", prompt, 500, 15000);
     const topics = JSON.parse(raw.match(/\[[\s\S]*\]/)?.[0] || "[]");
     return jsonResp({ topics });

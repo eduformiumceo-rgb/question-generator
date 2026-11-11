@@ -17,13 +17,20 @@ import { DIAGRAM_GUIDE } from "./diagramGuide.js";
 
 export function buildSectionPrompt(cfg, section, isFirstSection) {
   const {
-    schoolName = "", className = "", subject = "", term = "",
+    schoolName = "", className = "", programme = "", subject = "", term = "",
     examType = "Class Test", durationMinutes = 60,
     topics = [], pastedSyllabus = "",
     difficulty = "Moderate", languageStyle = "Balanced",
     cognitiveLevels = ["Recall", "Application"], allowDiagrams = true,
     includeMarkingScheme = true,
   } = cfg;
+
+  // SHS papers name the programme and are pitched at WASSCE standard. The programme is
+  // free text from the browser, so it is reduced to letters/spaces before it reaches the prompt.
+  const programmeClean = String(programme || "").replace(/[^A-Za-z &/-]/g, "").trim().slice(0, 40);
+  const shsNote = /^SHS\s*[123]$/i.test(String(className).trim())
+    ? `\n  Level: Senior High School (${String(className).trim()}), ${programmeClean && programmeClean !== "Core Subjects" ? `${programmeClean} programme` : "core subject"}. Pitch the paper at SHS / WASSCE standard: SHS-level vocabulary and depth, with application and reasoning questions rather than recall alone.`
+    : "";
 
   const topicLine = topics.length
     ? topics.join("; ")
@@ -79,7 +86,7 @@ Return ONLY valid JSON - no markdown fences, no commentary - matching exactly th
 }
 
 ${allowDiagrams ? DIAGRAM_GUIDE + "\n\n" : ""}SECTION PARAMETERS
-  School: ${schoolName || "(not specified)"} | Class: ${className || "(not specified)"} | Subject: ${subject || "(not specified)"} | Term: ${term || "(not specified)"}
+  School: ${schoolName || "(not specified)"} | Class: ${className || "(not specified)"} | Subject: ${subject || "(not specified)"} | Term: ${term || "(not specified)"}${shsNote}
   Exam type: ${examType} | Duration: ${durationMinutes} minutes | Curriculum: GES (Ghana Education Service / NaCCA)
   Topics: ${topicLine}
   ${pastedSyllabus ? `Pasted syllabus/reference text (authoritative scope):\n"""\n${pastedSyllabus}\n"""` : ""}

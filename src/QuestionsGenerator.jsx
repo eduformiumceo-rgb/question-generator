@@ -21,6 +21,7 @@ import TopicSelector from "./components/TopicSelector.jsx";
 import DiagramManager from "./components/DiagramManager.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { diagramDrawing } from "./examFigures.js";
+import { isSHSClass, termOptionsFor, mapTermForLevel, examTypesFor, mapExamTypeForLevel } from "./shsCourses.js";
 import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
@@ -134,7 +135,6 @@ function GenerationProgress({ progress, elapsed }) {
   );
 }
 
-const EXAM_TYPES = ["Class Test", "Quiz", "Mid-Term Exam", "End of Term Exam", "Mock Exam"];
 const DIFFICULTIES = ["Easy", "Moderate", "Hard"];
 const LANGUAGE_STYLES = [
   { value: "Simple", label: "Simple & Clear" },
@@ -239,9 +239,18 @@ function QuestionsGeneratorInner() {
   const [term, setTerm] = useState("Term 1");
   const [examType, setExamType] = useState("Class Test");
   const [durationMinutes, setDurationMinutes] = useState(60);
+  const isSHS = isSHSClass(className);
+  // SHS runs two semesters, Basic schools three terms: keep the choice sensible when the level changes.
+  useEffect(() => {
+    setTerm(t => mapTermForLevel(t, className));
+    setExamType(t => mapExamTypeForLevel(t, className));
+  }, [isSHS]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Curriculum + Topics (GES / NaCCA only) ──────────────────────
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState("");        // clean display name, e.g. "Biology" - what the AI, the paper and My Exams use
+  const [shsCourse, setShsCourse] = useState("");      // SHS only: programme / course, e.g. "General Science"
+  const [shsKey, setShsKey] = useState("");            // SHS only: internal curriculum key, e.g. "Biology (GS)"
+  const programme = isSHS ? shsCourse : "";          // sent to the AI, printed on the paper, saved with the exam
   const [selectedTopics, setSelectedTopics] = useState([]);
   const [pastedSyllabus, setPastedSyllabus] = useState("");
 
@@ -422,7 +431,7 @@ function QuestionsGeneratorInner() {
     setShowAnswerKey(false);
     setEditMode(false);
     setOpenedMeta({
-      schoolName: m.schoolName, className: row.class || m.className, subject: row.subject || m.subject,
+      schoolName: m.schoolName, className: row.class || m.className, programme: m.programme, subject: row.subject || m.subject,
       term: m.term, examType: row.exam_type || m.examType, durationMinutes: m.durationMinutes,
       idMode: m.idMode, idDigits: m.idDigits, idLabel: m.idLabel, notice: m.notice, turnOver: m.turnOver, schoolMotto: m.schoolMotto,
     });
@@ -469,8 +478,9 @@ function QuestionsGeneratorInner() {
   // separate actions, not a pre-selected mode. Free-tier limits are only
   // checked when the Free button specifically is the one clicked.
   const validate = (tierArg) => {
-    if (!subject.trim()) return "Please choose a subject.";
     if (!className.trim()) return "Please choose a class/grade.";
+    if (isSHS && !shsCourse) return "Please choose a programme / course.";
+    if (!subject.trim()) return "Please choose a subject.";
     if (!selectedTopics.length && !pastedSyllabus.trim()) return "Select at least one topic or paste a syllabus.";
     if (!activeSections.length) return "Enable at least one exam section.";
     const tooMany = activeSections.find(s => Number(s.questionCount) > 60);
@@ -494,13 +504,13 @@ function QuestionsGeneratorInner() {
   };
 
   /** AI-assisted topic suggestion - used by TopicSelector's "AI Suggest Topics" button. */
-  const handleSuggestTopics = useCallback(async (subj, cls, strand) => {
+  const handleSuggestTopics = useCallback(async (subj, cls, strand, prog) => {
     try {
       const token = getToken ? getToken() : null;
       const res = await fetch(EXAM_API, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ mode: "suggest-topics", subject: subj, className: cls, strand }),
+        body: JSON.stringify({ mode: "suggest-topics", subject: subj, className: cls, strand, programme: prog || "" }),
       });
       if (!res.ok) return [];
       const data = await res.json();
@@ -525,7 +535,7 @@ function QuestionsGeneratorInner() {
     try {
       const payload = {
         mode: "generate-exam", tier: tierArg,
-        schoolName, className, subject, term, examType, durationMinutes,
+        schoolName, className, programme, subject, term, examType, durationMinutes,
         topics: selectedTopics, pastedSyllabus,
         difficulty, languageStyle, cognitiveLevels,
         sections: activeSections, allowDiagrams, includeMarkingScheme,
@@ -617,7 +627,7 @@ function QuestionsGeneratorInner() {
 
   const openedOverride = openedMeta ? Object.fromEntries(Object.entries(openedMeta).filter(([, v]) => v !== undefined && v !== null && v !== "")) : {};
   const meta = {
-    schoolName, className, subject, term, examType, durationMinutes, landscape, schoolLogo, optionsLayout,
+    schoolName, className, programme, subject, term, examType, durationMinutes, landscape, schoolLogo, optionsLayout,
     examVersion: examVersion === "A" ? "" : examVersion,
     schoolMotto: schoolMotto.trim(), emblem, idMode, idDigits: clampIdDigits(idDigits), idLabel: idLabel.trim(),
     notice, noticeText: DEFAULT_NOTICE, turnOver,
@@ -795,6 +805,8 @@ function QuestionsGeneratorInner() {
       <TopicSelector
         subject={subject} setSubject={setSubject}
         className={className} setClassName={setClassName}
+        shsCourse={shsCourse} setShsCourse={setShsCourse}
+        shsKey={shsKey} setShsKey={setShsKey}
         term={term}
         selectedTopics={selectedTopics} setSelectedTopics={setSelectedTopics}
         pastedSyllabus={pastedSyllabus} setPastedSyllabus={setPastedSyllabus}
@@ -813,10 +825,10 @@ function QuestionsGeneratorInner() {
           What kind of assessment is this?
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
-          {EXAM_TYPES.map(t => {
+          {examTypesFor(className).map(t => {
             const active = examType === t;
             return (
-              <button key={t} type="button" onClick={() => setExamType(t)} style={{
+              <button key={t} type="button" aria-pressed={active} onClick={() => setExamType(t)} style={{
                 padding: "9px 16px", borderRadius: 99, fontFamily: F, fontSize: 13, fontWeight: 600, cursor: "pointer",
                 border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
                 background: active ? "var(--accent-soft)" : "var(--card-bg)",
@@ -872,9 +884,9 @@ function QuestionsGeneratorInner() {
         </div>
         <div className="eduq-grid-2">
           <div>
-            <label style={S.lbl}>Term *</label>
+            <label style={S.lbl}>{isSHS ? "Semester" : "Term"} *</label>
             <select value={term} onChange={e => setTerm(e.target.value)} style={S.sel}>
-              {["Term 1", "Term 2", "Term 3"].map(t => <option key={t} value={t}>{t}</option>)}
+              {termOptionsFor(className).map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>

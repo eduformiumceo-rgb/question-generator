@@ -16,14 +16,15 @@
  *   - Strand → Sub-Strand only appear once Subject is chosen, same
  *     progressive-disclosure pattern.
  *
- * SCOPE NOTE, stated plainly: Senior High School classes are listed for
- * completeness (matching ALL_CLASSES), but SHS uses a materially different
- * two-tier Course→Subject curriculum structure in the real app (shsCourse/
- * shsSubject fields) that this component does not wire up - selecting an
- * SHS class here falls through to the paste-syllabus fallback instead of a
- * strand/sub-strand picker. Wiring real SHS support (getSHSStrands/
- * getSHSSubStrands already exist in curriculumIndex.js) is a real, doable
- * next step, deliberately not rushed into this pass.
+ * SENIOR HIGH SCHOOL follows the Lesson Planner's two-tier flow exactly:
+ *   SHS 1/2/3 -> Programme / Course (General Science, Business, General Arts,
+ *   Visual Arts, Home Economics, Agricultural Science, Technical, STEM / TVET,
+ *   Core Subjects) -> Subject -> Strands -> Topics. Subjects come from
+ *   shsCourses.js (a copy of the planner's SHS_COURSES) and strands/sub-strands
+ *   from the same getStrands/getSubStrands helpers. The subject is shown and
+ *   stored by its clean name ("Biology"); the internal key ("Biology (GS)") only
+ *   drives the curriculum lookup. A subject with no NaCCA data yet stays
+ *   selectable and falls back to the pasted syllabus.
  *
  * Three layered ways to set scope, most-automatic first:
  *   1. "Load my Scheme of Learning" - pulls the teacher's own saved SOL
@@ -37,11 +38,14 @@
  *   import { SUPPORTED_SUBJECTS, getSupportedClasses, getStrands, getSubStrands }
  *     from "../curriculumIndex.js";
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   SUPPORTED_SUBJECTS, getSupportedClasses, getStrands, getSubStrands,
 } from "../curriculumIndex.js";
 import { getToken } from "../auth.js";
+import {
+  SHS_COURSES, OTHER_SUBJECT_KEY, isSHSClass, displaySubject, shsSubjectsForCourse,
+} from "../shsCourses.js";
 
 const SOL_LOOKUP_API = "/api/exam-account/sol-lookup";
 
@@ -53,11 +57,12 @@ const CLASS_GROUPS = [
   { label: "Junior High School", classes: ["Basic 7", "Basic 8", "Basic 9"] },
   { label: "Senior High School", classes: ["SHS 1", "SHS 2", "SHS 3"] },
 ];
-const SHS_CLASSES = ["SHS 1", "SHS 2", "SHS 3"];
 
 export default function TopicSelector({
   subject, setSubject,
   className, setClassName,
+  shsCourse, setShsCourse, // SHS only: programme / course
+  shsKey, setShsKey,       // SHS only: internal curriculum key, e.g. "Biology (GS)"
   term, // read-only here - used only to scope the SOL lookup
   selectedTopics, setSelectedTopics,
   pastedSyllabus, setPastedSyllabus,
@@ -69,7 +74,12 @@ export default function TopicSelector({
   const [suggesting, setSuggesting] = useState(false);
   const [solStatus, setSolStatus] = useState(null); // { loading, source, savedAt, weeksFound, error }
 
-  const isSHS = SHS_CLASSES.includes(className);
+  const isSHS = isSHSClass(className);
+  const shsOther = isSHS && shsKey === OTHER_SUBJECT_KEY;
+
+  // The key that drives the curriculum lookup: the planner-style internal key
+  // for SHS ("Biology (GS)"), the plain subject name for Basic classes.
+  const lookupKey = isSHS ? (shsOther ? "" : shsKey || "") : subject;
 
   // Same derivation as the real App.jsx: subjects available for the chosen
   // class, not classes available for a chosen subject.
@@ -78,19 +88,40 @@ export default function TopicSelector({
     return SUPPORTED_SUBJECTS.filter(s => getSupportedClasses(s).includes(className));
   }, [className, isSHS]);
 
-  // Reset downstream selections when class changes - a stale subject/strand
-  // pick from a different class would silently mis-scope the exam.
-  useEffect(() => { setSubject(""); setSelectedStrands([]); setSelectedTopics([]); setSolStatus(null); }, [className]); // eslint-disable-line
-  useEffect(() => { setSelectedStrands([]); setSelectedTopics([]); }, [subject]); // eslint-disable-line
+  const shsSubjects = useMemo(() => (isSHS && shsCourse ? shsSubjectsForCourse(shsCourse) : []), [isSHS, shsCourse]);
+  const shsPicked = shsSubjects.find(s => s.key === shsKey) || null;
 
-  const strands = useMemo(() => (subject && className && !isSHS ? getStrands(subject, className) : []), [subject, className, isSHS]);
+  // Reset downstream selections when the class changes - a stale subject/strand
+  // pick from a different class would silently mis-scope the exam. Moving
+  // between SHS 1/2/3 keeps the programme and subject (the teacher is still
+  // setting a paper for the same course) but clears strands, which differ by year.
+  const prevClass = useRef(className);
+  useEffect(() => {
+    const stayingInSHS = isSHSClass(prevClass.current) && isSHSClass(className);
+    prevClass.current = className;
+    if (!stayingInSHS) { setSubject(""); setShsCourse?.(""); setShsKey?.(""); }
+    setSelectedStrands([]); setSelectedTopics([]); setSolStatus(null);
+  }, [className]); // eslint-disable-line
+  useEffect(() => { setSelectedStrands([]); setSelectedTopics([]); }, [lookupKey]); // eslint-disable-line
+
+  const pickCourse = (course) => {
+    setShsCourse(course); setShsKey(""); setSubject("");
+    setSelectedStrands([]); setSelectedTopics([]); setSolStatus(null);
+  };
+  const pickShsSubject = (key) => {
+    setShsKey(key);
+    setSubject(key === OTHER_SUBJECT_KEY || !key ? "" : displaySubject(key));
+    setSelectedStrands([]); setSelectedTopics([]); setSolStatus(null);
+  };
+
+  const strands = useMemo(() => (lookupKey && className ? getStrands(lookupKey, className) : []), [lookupKey, className]);
   const subStrandsByStrand = useMemo(() => {
     const map = {};
     selectedStrands.forEach(strandName => {
-      map[strandName] = getSubStrands(subject, className, strandName).map(ss => ss.name);
+      map[strandName] = getSubStrands(lookupKey, className, strandName).map(ss => ss.name);
     });
     return map;
-  }, [subject, className, selectedStrands]);
+  }, [lookupKey, className, selectedStrands]);
 
   const toggleStrand = (strandName) => {
     setSelectedStrands(prev => prev.includes(strandName) ? prev.filter(s => s !== strandName) : [...prev, strandName]);
@@ -103,7 +134,7 @@ export default function TopicSelector({
     if (!onSuggestTopics) return;
     setSuggesting(true);
     try {
-      const suggested = await onSuggestTopics(subject, className, selectedStrands[0] || "");
+      const suggested = await onSuggestTopics(subject, className, selectedStrands[0] || "", isSHS ? shsCourse : "");
       setSelectedTopics(prev => Array.from(new Set([...prev, ...suggested])));
     } finally {
       setSuggesting(false);
@@ -168,19 +199,46 @@ export default function TopicSelector({
         </div>
       )}
 
+      {/* -- SHS STEP 2: Programme / Course -- */}
       {isSHS && (
-        <div style={{ marginBottom: 4 }}>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, background: "var(--accent-soft)", border: "1px solid var(--tag-border)", borderRadius: 10, padding: "10px 12px" }}>
-            SHS subject/strand selection isn't wired up here yet. Type your subject and paste your syllabus below instead.
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <label style={S.lbl}>Subject *</label>
-            <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Core Mathematics, Elective Biology" style={S.inp} />
-          </div>
+        <div style={{ marginBottom: shsCourse ? 20 : 0 }}>
+          <label style={S.lbl}>Programme / Course *</label>
+          <select value={shsCourse || ""} onChange={e => pickCourse(e.target.value)} style={S.sel}>
+            <option value="">- Select Programme -</option>
+            {Object.keys(SHS_COURSES).map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
       )}
 
-      {subject && className && !isSHS && (
+      {/* -- SHS STEP 3: Subject, filtered to the programme -- */}
+      {isSHS && shsCourse && (
+        <div style={{ marginBottom: shsKey ? 20 : 0 }}>
+          <label style={S.lbl}>Subject *</label>
+          <select value={shsKey || ""} onChange={e => pickShsSubject(e.target.value)} style={S.sel}>
+            <option value="">- Select Subject -</option>
+            {shsSubjects.map(s => (
+              <option key={s.key} value={s.key}>{s.label}{s.hasCurriculum ? "" : " (paste syllabus)"}</option>
+            ))}
+            <option value={OTHER_SUBJECT_KEY}>Other subject (type it in)</option>
+          </select>
+        </div>
+      )}
+
+      {shsOther && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={S.lbl}>Subject name *</label>
+          <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Elective Geography" style={S.inp} />
+        </div>
+      )}
+
+      {isSHS && (shsOther || (shsPicked && !shsPicked.hasCurriculum)) && (
+        <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, background: "var(--accent-soft)", border: "1px solid var(--tag-border)", borderRadius: 10, padding: "10px 12px", marginBottom: 4 }}>
+          {shsOther ? "" : `NaCCA strands for ${shsPicked.label} aren't loaded yet. `}
+          Paste your syllabus or topic list below and the paper will be built from it.
+        </div>
+      )}
+
+      {subject && className && (!isSHS || !shsOther) && (
         <div style={{ marginTop: 20, marginBottom: 4 }}>
           <button type="button" onClick={loadScheme} disabled={solStatus?.loading} style={{ ...S.sm, opacity: solStatus?.loading ? 0.6 : 1 }}>
             {solStatus?.loading ? "Checking your Scheme of Learning…" : "Load my Scheme of Learning"}
@@ -213,9 +271,9 @@ export default function TopicSelector({
         </div>
       )}
 
-      {className && !isSHS && strands.length > 0 && (
+      {className && strands.length > 0 && (
         <div style={{ marginTop: 20, marginBottom: 4 }}>
-          <label style={S.lbl}>Strands taught this term (select any number)</label>
+          <label style={S.lbl}>Strands taught this {isSHS ? "semester" : "term"} (select any number)</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {strands.map(st => {
               const active = selectedStrands.includes(st.strand);

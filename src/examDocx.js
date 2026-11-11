@@ -27,6 +27,7 @@ import {
 } from "docx";
 import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
+import { classWithProgramme, termCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
 
 const FONT = "Times New Roman";
@@ -287,8 +288,8 @@ function noticeBox(text, W) {
 }
 
 function headerBlock(examData, meta, totalMarks, W) {
-  const { className = "", subject = "", term = "", examType = "Exam", durationMinutes = 60 } = meta;
-  const items = [["Subject", subject], ["Class", className], ["Term", term], ["Duration", `${durationMinutes} mins`]];
+  const { className = "", programme = "", subject = "", term = "", examType = "Exam", durationMinutes = 60 } = meta;
+  const items = [["Subject", subject], ["Class", classWithProgramme(className, programme)], termCell(term), ["Duration", `${durationMinutes} mins`]];
   if (totalMarks) items.push(["Total Marks", totalMarks]);
   const out = [
     ...letterhead(meta, examData.title || examType, W),
@@ -451,8 +452,8 @@ function sectionParagraphs(section, meta, layout, W, labels) {
 /* ── marking scheme ──────────────────────────────────────────── */
 
 function answerKeyParagraphs(examData, meta, totalMarks, W) {
-  const { className = "", subject = "", term = "" } = meta;
-  const items = [["Subject", subject], ["Class", className], ["Term", term]];
+  const { className = "", programme = "", subject = "", term = "" } = meta;
+  const items = [["Subject", subject], ["Class", classWithProgramme(className, programme)], termCell(term)];
   if (totalMarks) items.push(["Total Marks", totalMarks]);
   const out = [
     ...letterhead(meta, "Marking Scheme", W).slice(0, -1),
