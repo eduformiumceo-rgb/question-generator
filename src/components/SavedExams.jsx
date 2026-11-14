@@ -45,6 +45,32 @@ const IconEye = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
 );
 
+const IconPencil = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+);
+
+// One exam per card. The name always gets a readable width: on narrow screens the buttons
+// drop to their own row beneath it instead of squeezing the title into a thin column.
+const ROW_CSS = `
+.sx-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;transition:border-color .15s}
+.sx-row:hover{border-color:var(--tag-border)}
+.sx-info{flex:1 1 260px;min-width:0;display:flex;align-items:center;gap:14px}
+.sx-ico{width:40px;height:40px;border-radius:10px;background:var(--accent-soft);border:1.5px solid var(--tag-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent)}
+.sx-title{color:var(--text);font-size:14.5px;font-weight:700;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.sx-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--text-muted);line-height:1.4}
+.sx-tag{padding:2px 9px;border-radius:99px;background:var(--input-bg);border:1px solid var(--border);color:var(--text-secondary);font-weight:500}
+.sx-date{margin-left:2px}
+.sx-actions{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+.sx-btn{height:38px;border-radius:10px;border:1.5px solid var(--border-strong);background:var(--card-bg);color:var(--text-secondary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:background .15s,border-color .15s,color .15s}
+.sx-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.sx-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sx-open{padding:0 20px;font-size:13px;font-weight:700;background:var(--accent);border-color:var(--accent);color:#fff}
+.sx-open:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
+.sx-icon{width:38px;padding:0}
+.sx-del:hover:not(:disabled){border-color:var(--red-text);color:var(--red-text);background:var(--err-bg)}
+@media (max-width:560px){.sx-actions{flex:1 1 100%}.sx-open{flex:1}}
+`;
+
 export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSignIn, onCount, S, F }) {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -231,38 +257,46 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
         {filtered.length} exam{filtered.length !== 1 ? "s" : ""}
       </div>
 
+      <style>{ROW_CSS}</style>
+      {!filtered.length && (
+        <div style={{ textAlign: "center", padding: "40px 16px", color: "var(--text-muted)", fontFamily: F, fontSize: 13.5 }}>
+          No exams match “{q}”. Try a different word.
+        </div>
+      )}
       {filtered.map((e) => {
-        const subtitle = [e.exam_type, e.class, new Date(e.created_at).toLocaleDateString("en-GH", { day: "numeric", month: "short", year: "numeric" })].filter(Boolean).join(" · ");
+        const title = e.title || `${e.subject} ${e.class}`.trim() || "Untitled Exam";
+        const date = e.created_at ? new Date(e.created_at).toLocaleDateString("en-GH", { day: "numeric", month: "short", year: "numeric" }) : "";
+        const tags = [e.subject, e.class, e.exam_type].filter(Boolean);
         return (
-          <div key={e.id} style={{ background: "var(--card-bg)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 18px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--accent-soft)", border: "1.5px solid var(--tag-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
-                <IconFile />
-              </div>
-              <div style={{ minWidth: 0 }}>
+          <div key={e.id} className="sx-row">
+            <div className="sx-info">
+              <div style={{ minWidth: 0, flex: 1 }}>
                 {renamingId === e.id ? (
                   <input autoFocus value={renameVal} maxLength={200} aria-label="Exam name"
                     onChange={(ev) => setRenameVal(ev.target.value)}
                     onBlur={() => saveRename(e)}
                     onKeyDown={(ev) => { if (ev.key === "Enter") ev.currentTarget.blur(); if (ev.key === "Escape") { setRenamingId(null); } }}
-                    style={{ ...S.inp, minHeight: 34, padding: "4px 10px", fontSize: 13, fontWeight: 700 }} />
+                    style={{ ...S.inp, minHeight: 36, padding: "4px 10px", fontSize: 14, fontWeight: 700, width: "100%", boxSizing: "border-box" }} />
                 ) : (
-                  <div style={{ color: "var(--text)", fontFamily: F, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                    {e.title || `${e.subject} ${e.class}`.trim() || "Untitled Exam"}
-                  </div>
+                  <div className="sx-title" title={title} style={{ fontFamily: F }}>{title}</div>
                 )}
-                <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: F, marginTop: 3, wordBreak: "break-word" }}>{[e.subject, subtitle].filter(Boolean).join(" · ")}</div>
+                <div className="sx-meta" style={{ fontFamily: F }}>
+                  {tags.map((m, k) => <span key={k} className="sx-tag">{m}</span>)}
+                  {date && <span className="sx-date">{date}</span>}
+                </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-              <button type="button" disabled={openingId === e.id} onClick={() => open(e.id)} style={{ ...S.sm, minHeight: 38, fontWeight: 600, opacity: openingId === e.id ? 0.6 : 1 }}>
+            <div className="sx-actions">
+              <button type="button" className="sx-btn sx-open" disabled={openingId === e.id} onClick={() => open(e.id)} style={{ fontFamily: F, opacity: openingId === e.id ? 0.6 : 1 }}>
                 {openingId === e.id ? "Opening…" : "Open"}
               </button>
-              <button type="button" aria-label="Rename exam" style={{ ...S.sm, minHeight: 38 }}
+              <button type="button" className="sx-btn sx-icon" aria-label="Rename exam" title="Rename"
                 onClick={() => { setRenamingId(e.id); setRenameVal(e.title || ""); }}>
-                Rename
+                <IconPencil />
               </button>
-              <button type="button" aria-label="Delete exam" style={{ ...S.danger, minHeight: 38 }} onClick={() => del(e.id)}>Delete</button>
+              <button type="button" className="sx-btn sx-icon sx-del" aria-label="Delete exam" title="Delete" onClick={() => del(e.id)}>
+                <IconTrash />
+              </button>
             </div>
           </div>
         );
