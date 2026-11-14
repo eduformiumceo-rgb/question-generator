@@ -445,10 +445,10 @@ function QuestionsGeneratorInner() {
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px 16px 60px", fontFamily: F }}>
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>
-          AI Questions Generator
+          Questions Generator
         </h1>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>
-          Build a print-ready exam paper from your curriculum in minutes.
+          Build print-ready class tests, quizzes and exams from your curriculum in minutes.
         </p>
       </div>
 

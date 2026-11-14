@@ -182,8 +182,15 @@ export default function TopicSelector({
 
       {subject && className && !isSHS && (
         <div style={{ marginTop: 20, marginBottom: 4 }}>
-          <button type="button" onClick={loadScheme} disabled={solStatus?.loading} style={{ ...S.sm, opacity: solStatus?.loading ? 0.6 : 1 }}>
-            {solStatus?.loading ? "Checking your Scheme of Learning…" : "📋 Load my Scheme of Learning"}
+          <button type="button" onClick={loadScheme} disabled={solStatus?.loading} style={{
+            width: "100%", height: 52, padding: "0 20px", borderRadius: 12, border: "none",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "linear-gradient(135deg,#0D9488 0%,#0891B2 100%)", color: "#fff",
+            fontFamily: F, fontSize: 15, fontWeight: 800, letterSpacing: ".02em",
+            boxShadow: "0 2px 8px rgba(13,148,136,.35)", WebkitTapHighlightColor: "transparent",
+            cursor: solStatus?.loading ? "default" : "pointer", opacity: solStatus?.loading ? 0.7 : 1,
+          }}>
+            {solStatus?.loading ? "Checking your Scheme of Learning…" : "Load My Scheme of Learning"}
           </button>
 
           {solStatus && !solStatus.loading && solStatus.source === "scheme_of_learning" && (
@@ -206,7 +213,7 @@ export default function TopicSelector({
           )}
           {solStatus && !solStatus.loading && solStatus.source === "none" && (
             <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 8 }}>
-              No saved Scheme of Learning found — select strands manually below, or paste your scheme.
+              No saved Scheme of Learning found — select strands manually below, or list your topics.
             </div>
           )}
           {solStatus?.error && (
@@ -275,11 +282,11 @@ export default function TopicSelector({
 
       {className && (
         <div style={{ marginTop: 20 }}>
-          <label style={S.lbl}>Or paste your Scheme of Learning / topic list (optional)</label>
+          <label style={S.lbl}>Or list topics (optional)</label>
           <textarea
             value={pastedSyllabus}
             onChange={e => setPastedSyllabus(e.target.value)}
-            placeholder="Paste your Scheme of Learning, scheme of work, or a comma-separated topic list…"
+            placeholder="Type or paste the topics to be examined, separated by commas or one per line…"
             rows={3}
             style={{ ...S.inp, minHeight: 76, resize: "vertical", fontFamily: F, lineHeight: 1.5 }}
           />
