@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * SHS CURRICULUM — MASTER EXPORTS
+ * SHS CURRICULUM - MASTER EXPORTS
  * Organized by Programme/Course (Ghana NaCCA)
  *
  * To add a subject:

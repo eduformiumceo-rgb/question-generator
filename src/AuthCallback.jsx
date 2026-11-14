@@ -45,7 +45,7 @@ const F = "'DM Sans',system-ui,-apple-system,sans-serif";
 // This page renders outside <App/> (see main.jsx), so it never receives
 // App's THEME_CSS or data-theme attribute. We read the same localStorage
 // key ("glpg_theme") App.jsx uses, so a user's saved preference (or system
-// preference, if they chose "system") is respected here too — keeping this
+// preference, if they chose "system") is respected here too - keeping this
 // page visually consistent with the rest of the app instead of always
 // rendering light mode regardless of the user's actual theme.
 const THEME_KEY = "glpg_theme";
@@ -71,7 +71,7 @@ export default function AuthCallback() {
     async function finish() {
       // Debug breadcrumb: shows exactly what Google/Supabase actually sent
       // back on this redirect. Check this in the browser console if sign-in
-      // fails — it tells you immediately whether a session/error arrived at
+      // fails - it tells you immediately whether a session/error arrived at
       // all, without needing to dig through the Network tab.
       console.log("[AuthCallback] landed with:", window.location.href);
       try {
@@ -113,7 +113,7 @@ export default function AuthCallback() {
         border: "1px solid var(--border, #E1E5EB)",
         borderRadius: 20, padding: "48px 40px",
         maxWidth: 400, width: "100%", textAlign: "center",
-        boxShadow: "0 10px 30px rgba(0,0,0,.08)",
+        boxShadow: "none",
       }}>
         {/* Brand */}
         <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display',serif", marginBottom: 32 }}>

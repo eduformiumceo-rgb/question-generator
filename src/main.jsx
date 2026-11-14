@@ -7,7 +7,7 @@ import PaymentSuccess from "./components/PaymentSuccess.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { completeHubHandoff } from "./hubHandoff.js";
 
-// Minimal path-based routing — no react-router dependency needed for a
+// Minimal path-based routing - no react-router dependency needed for a
 // two-route app. "/payment-success" matches exam-payment's Paystack
 // callback_url (see functions/api/exam-payment/[[path]].js); everything
 // else renders the main generator.
@@ -42,7 +42,7 @@ completeHubHandoff().finally(() => {
 });
 
 // Register the service worker so the app is installable and the shell loads
-// offline. Production builds only — a dev-server service worker would serve
+// offline. Production builds only - a dev-server service worker would serve
 // stale code while editing.
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {

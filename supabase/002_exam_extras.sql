@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════
--- EDUFORMIUM — AI Questions Generator — migration 002
+-- EDUFORMIUM - AI Questions Generator - migration 002
 -- v2: NOW A NO-OP. Nothing in this file needs to run.
 --
 -- The original version of this migration created a separate
@@ -13,11 +13,11 @@
 -- There is nothing new for this app to create for payments.
 --
 -- If you already ran the OLD version of this file, `exam_transactions`
--- and `increment_exam_credits` are now unused — safe to drop once you've
+-- and `increment_exam_credits` are now unused - safe to drop once you've
 -- confirmed the shared-wallet switch is live and working:
 --   drop table if exists exam_transactions;
 --   drop function if exists increment_exam_credits(uuid, integer);
 --
--- (Rate limiting still needs no table of its own — it reads
+-- (Rate limiting still needs no table of its own - it reads
 -- exam_generations' own timestamps, created by 001_exam_tables.sql.)
 -- ═══════════════════════════════════════════════════════════════════

@@ -6651,7 +6651,7 @@ export const GHANAIAN_LANGUAGE_CURRICULUM = {
               indicators: [
                 {
                   code: "B6.5.8.1.1",
-                  text: "Identify and use the conjunctions — so that, when, while, if, unless to express purpose, time, condition, etc.",
+                  text: "Identify and use the conjunctions - so that, when, while, if, unless to express purpose, time, condition, etc.",
                   exemplar: "• Revise the coordinating conjunctions – and, or, nor, and but, and subordinating conjunctions by having learners use them in sentences.\n• Provide sentences for learners to join them with coordinating and subordinating conjunctions.\n• Provide passages and let learners identify the conjunctions in those passages.\n• Let them do other activities like filling blanks with suitable conjunctions and using conjunction in their own sentences.\n• Introduce the conjunctions \"so that, when, while, if etc\" in context.\ne.g.\nTake a hot bath so that you can sleep well.\nI drank the soup while my mother was in the kitchen.\n• Provide opportunities for learners to use the conjunctions learnt.",
                   resources: null,
                   keyWords: null,

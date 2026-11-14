@@ -1,5 +1,5 @@
 /**
- * AppHeader — sticky top bar, same look as the Lesson Planner's header:
+ * AppHeader - sticky top bar, same look as the Lesson Planner's header:
  *   Left   Eduformium wordmark + tagline
  *   Right  Sign In (signed out)  |  credits + Topup + avatar menu (signed in)
  *
@@ -60,7 +60,7 @@ const HEADER_CSS = `
   @media (min-width:641px) and (max-width:900px) { .qh-inner { padding:0 20px; } }
 `;
 
-export default function AppHeader({ user, creditBalance, toDisplayCredits, onSignIn, onTopUp, onSignOut, canInstall, onInstall }) {
+export default function AppHeader({ user, creditBalance, toDisplayCredits, onSignIn, onTopUp, onSignOut, canInstall, onInstall, savedCount, onOpenSaved }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
 
@@ -101,7 +101,6 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                 {/* Desktop / tablet: full credits pill + Topup */}
                 <div className="qh-credits-desktop">
                   <div style={{ display: "flex", alignItems: "center", gap: 5, height: 32, padding: "0 12px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--input-bg)" }}>
-                    <Coin size={16} />
                     <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", fontFamily: F, whiteSpace: "nowrap", letterSpacing: "-.01em" }}>
                       {credits} Credits
                     </span>
@@ -113,15 +112,13 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                   }}>Topup</button>
                 </div>
 
-                {/* Mobile: one compact tappable chip — never wraps */}
+                {/* Mobile: one compact tappable chip - never wraps */}
                 <button className="qh-credits-mobile" onClick={onTopUp} aria-label={`${credits} credits. Tap to top up`} style={{
                   alignItems: "center", gap: 5, height: 32, padding: "0 6px 0 9px", borderRadius: 99,
                   border: "1px solid var(--tag-border)", background: "var(--accent-soft)", cursor: "pointer",
                   fontFamily: F, flexShrink: 0, WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
                 }}>
-                  <Coin size={16} />
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", lineHeight: 1, whiteSpace: "nowrap" }}>{credits}</span>
-                  <span aria-hidden="true" style={{ width: 20, height: 20, borderRadius: "50%", background: "#0D9488", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, lineHeight: 1, marginLeft: 1 }}>+</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", lineHeight: 1, whiteSpace: "nowrap" }}>{credits} Credits</span>
                 </button>
               </>
             )}
@@ -137,9 +134,6 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                       style={{ position: "relative", width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
                       onError={(e) => { e.currentTarget.style.display = "none"; }} />
                   )}
-                </span>
-                <span className="qh-chevron">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
                 </span>
               </button>
             )}
@@ -172,26 +166,27 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
             <div style={{ padding: "6px 12px" }}>
               {!user && (
                 <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onSignIn(); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                   Sign In / Create Account
                 </button>
               )}
               {user && hasBalance && (
                 <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onTopUp(); }}>
-                  <Coin size={16} />
                   <span style={{ flex: 1 }}>{credits} credits</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>Buy</span>
                 </button>
               )}
+              {user && onOpenSaved && (
+                <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onOpenSaved(); }}>
+                  My Exams{savedCount ? ` (${savedCount})` : ""}
+                </button>
+              )}
               {canInstall && (
                 <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onInstall(); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v13" /><path d="M8 12l4 4 4-4" /><path d="M3 19h18" /></svg>
                   Install App
                 </button>
               )}
               {user && (
               <button className="qh-item" role="menuitem" style={{ color: "var(--signout-color)" }} onClick={() => { closeMenu(); onSignOut(); }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
                 Sign out
               </button>
               )}

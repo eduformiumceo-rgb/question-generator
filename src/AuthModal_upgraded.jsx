@@ -12,29 +12,29 @@
  *      import { OtpBoxes, PassField, AuthBrand, AuthModal } from "./AuthModal_upgraded.jsx";
  *
  * 3. The existing <AuthModal onClose={...} onAuth={...} /> call in your JSX
- *    is unchanged — same props, same behaviour.
+ *    is unchanged - same props, same behaviour.
  *
  * WHAT'S NEW (10/10 improvements)
  * ─────────────────────────────────
- * ✅ Full ARIA: role="dialog", aria-modal, aria-labelledby, aria-describedby,
+ * Full ARIA: role="dialog", aria-modal, aria-labelledby, aria-describedby,
  *    aria-live="polite" for errors, aria-invalid on bad fields,
  *    <label htmlFor> linked to every input id.
- * ✅ Focus trap — Tab/Shift+Tab cycle stays inside the modal; Escape closes.
- * ✅ Password strength meter (4 levels: weak → fair → good → strong).
- * ✅ Google SSO button (calls your existing signInWithGoogle from auth.js —
+ * Focus trap - Tab/Shift+Tab cycle stays inside the modal; Escape closes.
+ * Password strength meter (4 levels: weak → fair → good → strong).
+ * Google SSO button (calls your existing signInWithGoogle from auth.js -
  *    stub it out or wire it up; the UI is ready).
- * ✅ Inline field-level validation with icon + message per field (not just
+ * Inline field-level validation with icon + message per field (not just
  *    one global error bar).
- * ✅ Error messages use ⚠ icon + aria-live for screen readers.
- * ✅ Success messages use ✓ icon.
- * ✅ Shorter, mobile-friendly button labels.
- * ✅ Accessible OTP boxes: aria-label per box, inputMode="numeric", pattern.
- * ✅ "School Name" field shows "(optional)" label clearly.
- * ✅ Resend countdown has aria-live so screen readers hear it update.
- * ✅ All colours use your existing CSS variables — light/dark mode works
+ * Error messages use a warning icon + aria-live for screen readers.
+ * Success messages use a check icon.
+ * Shorter, mobile-friendly button labels.
+ * Accessible OTP boxes: aria-label per box, inputMode="numeric", pattern.
+ * "School Name" field shows "(optional)" label clearly.
+ * Resend countdown has aria-live so screen readers hear it update.
+ * All colours use your existing CSS variables - light/dark mode works
  *    automatically with zero extra CSS.
- * ✅ Smooth height transition between modes via CSS animation.
- * ✅ Correct autocomplete attributes on every field.
+ * Smooth height transition between modes via CSS animation.
+ * Correct autocomplete attributes on every field.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -287,14 +287,6 @@ function GoogleBtn({ onClick, loading }) {
       onMouseEnter={e => e.currentTarget.style.borderColor = "var(--border-hover)"}
       onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border-strong)"}
     >
-      {/* Google "G" logo */}
-      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-        <path fill="none" d="M0 0h48v48H0z"/>
-      </svg>
       Continue with Google
     </button>
   );
@@ -407,7 +399,7 @@ function RoleSearchDropdown({ value, onChange, error }) {
     setQuery("");
   };
 
-  // No groups — just flat filtered list
+  // No groups - just flat filtered list
   const grouped = filtered;
 
   return (
@@ -428,18 +420,13 @@ function RoleSearchDropdown({ value, onChange, error }) {
         <span style={{ color: selectedLabel ? "var(--text)" : "var(--text-muted)", fontSize: 14 }}>
           {selectedLabel || "Select your role…"}
         </span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888"
-          strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "", transition: "transform .15s" }}>
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
       </button>
 
       {open && (
         <div style={{
           position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 9999,
           background: "var(--card-bg)", border: "1.5px solid var(--border-strong)",
-          borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,.18)", overflow: "hidden",
+          borderRadius: 10, boxShadow: "none", overflow: "hidden",
         }}>
           {/* Search */}
           <div style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>
@@ -607,7 +594,7 @@ export function AuthModal({ onClose, onAuth }) {
       // signInWithGoogle opens the Google OAuth popup via Supabase,
       // then redirects to /auth/callback where handleGoogleCallback() finishes.
       await signInWithGoogle();
-      // Page will redirect — no further action needed here.
+      // Page will redirect - no further action needed here.
     } catch (e) {
       setErr(e.message || "Google sign-in failed. Please try again.");
       setLoading(false);
@@ -679,7 +666,7 @@ export function AuthModal({ onClose, onAuth }) {
   const overlay = {
     position: "fixed", inset: 0, background: "rgba(8,15,35,.72)", zIndex: 9999,
     display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-    /* translateZ(0) + willChange pre-promote GPU layer BEFORE animation fires —
+    /* translateZ(0) + willChange pre-promote GPU layer BEFORE animation fires -
        prevents first-open compositing jank on low-end Android */
     transform: "translateZ(0)", WebkitTransform: "translateZ(0)",
     willChange: "opacity", animation: "edu-overlay-in .15s ease-out both",
@@ -687,7 +674,7 @@ export function AuthModal({ onClose, onAuth }) {
   const modal = {
     background: "var(--card-bg)", border: "1px solid var(--border)", borderRadius: 20,
     padding: "36px 32px 28px", width: "100%", maxWidth: 420, fontFamily: F,
-    boxShadow: "var(--shadow-lg)", position: "relative", maxHeight: "95vh",
+    boxShadow: "none", position: "relative", maxHeight: "95vh",
     overflowY: "auto",
     /* Pre-promote GPU layer so animation is smooth on first open */
     transform: "translateZ(0)", WebkitTransform: "translateZ(0)",
@@ -726,7 +713,7 @@ export function AuthModal({ onClose, onAuth }) {
         /* Account dropdown (carried over from original) */
         .hmenu-overlay{position:fixed;inset:0;background:transparent;z-index:150;opacity:0;pointer-events:none;transition:opacity .18s;}
         .hmenu-overlay.open{opacity:1;pointer-events:all;}
-        .hmenu-drawer{position:fixed;top:60px;right:12px;left:auto;bottom:auto;width:240px;background:var(--card-bg);z-index:160;border-radius:14px;border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,.14),0 2px 8px rgba(0,0,0,.08);transform:scale(.93) translateY(-8px);transform-origin:top right;opacity:0;pointer-events:none;transition:transform .22s cubic-bezier(.22,1,.36,1),opacity .18s ease;display:flex;flex-direction:column;overflow:hidden;}
+        .hmenu-drawer{position:fixed;top:60px;right:12px;left:auto;bottom:auto;width:240px;background:var(--card-bg);z-index:160;border-radius:14px;border:1px solid var(--border);box-shadow:none;transform:scale(.93) translateY(-8px);transform-origin:top right;opacity:0;pointer-events:none;transition:transform .22s cubic-bezier(.22,1,.36,1),opacity .18s ease;display:flex;flex-direction:column;overflow:hidden;}
         .hmenu-drawer.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all;}
         .hbg{display:flex;align-items:center;gap:5px;height:34px;border-radius:99px;padding:0 8px 0 3px;background:var(--input-bg);border:1.5px solid var(--border-strong);cursor:pointer;flex-shrink:0;transition:border-color .15s,box-shadow .15s;}
         .hbg.is-open{border-color:#0D9488;}
@@ -808,7 +795,7 @@ export function AuthModal({ onClose, onAuth }) {
                 onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = ".88"; }}
                 onMouseLeave={e => { if (!loading) e.currentTarget.style.opacity = "1"; }}
               >
-                {loading ? <><Spin /> Signing in…</> : "Sign In →"}
+                {loading ? "Signing in…" : "Sign In"}
               </button>
 
               <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "var(--text-muted)", display: "flex", justifyContent: "center", gap: 6 }}>
@@ -831,7 +818,7 @@ export function AuthModal({ onClose, onAuth }) {
             </>
           )}
 
-          {/* ══════════════ SIGN UP — form step ══════════════ */}
+          {/* ══════════════ SIGN UP - form step ══════════════ */}
           {mode === "signup" && step === "form" && (
             <>
               <div style={{ marginBottom: 20 }} id={descId}>
@@ -907,7 +894,7 @@ export function AuthModal({ onClose, onAuth }) {
                 style={{ ...bigBtn, opacity: loading ? 0.65 : 1 }}
                 onClick={handleSignUpSend} disabled={loading}
               >
-                {loading ? <><Spin /> Sending code…</> : "Continue →"}
+                {loading ? "Sending code…" : "Continue"}
               </button>
 
               <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "var(--text-muted)", display: "flex", justifyContent: "center", gap: 6 }}>
@@ -925,7 +912,7 @@ export function AuthModal({ onClose, onAuth }) {
                 style={{ ...linkBtn, fontSize: 12, color: "var(--text-muted)", marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}
                 aria-label="Go back to previous step"
               >
-                ← Go back
+                Go back
               </button>
 
               <div style={badge}>
@@ -960,7 +947,7 @@ export function AuthModal({ onClose, onAuth }) {
                 onClick={() => handleVerifyOtp()}
                 disabled={loading || otp.replace(/\s/g, "").length < 6}
               >
-                {loading ? <><Spin /> Verifying…</> : "Verify Code →"}
+                {loading ? "Verifying…" : "Verify Code"}
               </button>
 
               <div aria-live="polite" aria-atomic="true" style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted)" }}>
@@ -971,14 +958,14 @@ export function AuthModal({ onClose, onAuth }) {
             </>
           )}
 
-          {/* ══════════════ FORGOT — email step ══════════════ */}
+          {/* ══════════════ FORGOT - email step ══════════════ */}
           {mode === "forgot" && step === "form" && (
             <>
               <button
                 onClick={() => reset("login")}
                 style={{ ...linkBtn, fontSize: 12, color: "var(--text-muted)", marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}
               >
-                ← Back to sign in
+                Back to sign in
               </button>
               <div style={{ marginBottom: 20 }} id={descId}>
                 <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", letterSpacing: "-.02em" }}>Reset your password</div>
@@ -1000,12 +987,12 @@ export function AuthModal({ onClose, onAuth }) {
                 style={{ ...bigBtn, opacity: loading ? 0.65 : 1 }}
                 onClick={handleForgotSend} disabled={loading}
               >
-                {loading ? <><Spin /> Sending code…</> : "Send Reset Code →"}
+                {loading ? "Sending code…" : "Send Reset Code"}
               </button>
             </>
           )}
 
-          {/* ══════════════ FORGOT — new password step ══════════════ */}
+          {/* ══════════════ FORGOT - new password step ══════════════ */}
           {mode === "forgot" && step === "newpass" && (
             <>
               <div style={{ marginBottom: 20 }} id={descId}>
@@ -1036,7 +1023,7 @@ export function AuthModal({ onClose, onAuth }) {
                 style={{ ...bigBtn, opacity: loading ? 0.65 : 1 }}
                 onClick={handleSetNewPass} disabled={loading}
               >
-                {loading ? <><Spin /> Updating…</> : "Update Password →"}
+                {loading ? "Updating…" : "Update Password"}
               </button>
             </>
           )}

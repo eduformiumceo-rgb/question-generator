@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildExamSystemPrompt, buildSectionPrompt, renderExamHTML,
   validateExamData, isSafeGeneratedSVG, createExamVariant,
+  schoolCrestSVG, splitSchoolName, clampIdDigits, PAPER_PRESETS,
 } from "../src/examTemplate.js";
 
 const BASE_CFG = {
@@ -79,7 +80,9 @@ describe("buildSectionPrompt", () => {
   it("includes the SVG diagram schema when diagrams are allowed", () => {
     const prompt = buildSectionPrompt({ ...BASE_CFG, allowDiagrams: true }, SECTIONS[0], true);
     expect(prompt).toContain("generatable");
-    expect(prompt).toContain("<svg");
+    expect(prompt).toContain("DIAGRAM TEMPLATES");
+    expect(prompt).toContain("\"triangle\"");
+    expect(prompt).not.toContain("<svg");
   });
 
   it("tells the model not to request diagrams when disabled", () => {
@@ -131,7 +134,7 @@ describe("validateExamData", () => {
 
   it("flags a section whose question marks don't sum to the declared total", () => {
     const broken = JSON.parse(JSON.stringify(SAMPLE_EXAM));
-    broken.sections[0].questions[0].marks = 3; // was 1 — section A total is now 7, not 5
+    broken.sections[0].questions[0].marks = 3; // was 1 - section A total is now 7, not 5
     const { ok, errors } = validateExamData(broken, SECTIONS);
     expect(ok).toBe(false);
     expect(errors.some(e => e.includes("marks don't add up"))).toBe(true);
@@ -222,8 +225,62 @@ describe("renderExamHTML", () => {
   it("uses an uploaded diagram image over a placeholder when provided", () => {
     const withDiagram = JSON.parse(JSON.stringify(SAMPLE_EXAM));
     withDiagram.sections[0].questions[0].diagram = { needed: true, description: "A triangle", generatable: false, svg: null };
-    const html = renderExamHTML(withDiagram, { diagramImages: { 1: "data:image/png;base64,abc123" } }, "paper");
+    withDiagram.sections[0].questions[0].image = { src: "data:image/png;base64,abc123", size: "medium", caption: "" };
+    const html = renderExamHTML(withDiagram, {}, "paper");
     expect(html).toContain("data:image/png;base64,abc123");
+    expect(html).not.toContain("DIAGRAM: A triangle");
+  });
+
+  describe("question images", () => {
+    const IMG = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ";
+    const withImage = (sectionIdx, qIdx, image) => {
+      const e = JSON.parse(JSON.stringify(SAMPLE_EXAM));
+      e.sections[sectionIdx].questions[qIdx].image = image;
+      return e;
+    };
+
+    it("puts the image on ONLY the question it belongs to when two sections reuse the same number", () => {
+      // Section A question 1 and Section B question 1 both have number 1.
+      const exam = withImage(1, 0, { src: IMG, size: "medium", caption: "" });
+      const html = renderExamHTML(exam, {}, "paper");
+      expect(html.split(IMG).length - 1).toBe(1); // exactly one <img>
+      const idxImg = html.indexOf(IMG);
+      const idxSecB = html.indexOf("Section B: Structured");
+      expect(idxImg).toBeGreaterThan(idxSecB); // it is under Section B, not Section A
+    });
+
+    it("works on a question the AI never flagged for a diagram", () => {
+      const exam = withImage(0, 2, { src: IMG, size: "small", caption: "" });
+      expect(exam.sections[0].questions[2].diagram).toBeNull();
+      expect(renderExamHTML(exam, {}, "paper")).toContain(IMG);
+    });
+
+    it("applies the chosen size and renders an escaped caption", () => {
+      const exam = withImage(0, 0, { src: IMG, size: "large", caption: "Figure <1>" });
+      const html = renderExamHTML(exam, {}, "paper");
+      expect(html).toContain("max-height:300px");
+      expect(html).toContain("<figcaption>Figure &lt;1&gt;</figcaption>");
+      const small = renderExamHTML(withImage(0, 0, { src: IMG, size: "small", caption: "" }), {}, "paper");
+      expect(small).toContain("max-height:130px");
+      expect(small).not.toContain("<figcaption>");
+    });
+
+    it("never lets an unsafe image source reach the page", () => {
+      for (const bad of ['javascript:alert(1)', 'https://evil.example/x.png', 'data:image/svg+xml;base64,PHN2Zz4=', `${IMG}" onerror="alert(1)`]) {
+        const html = renderExamHTML(withImage(0, 0, { src: bad, size: "medium", caption: "" }), {}, "paper");
+        expect(html).not.toContain(bad);
+      }
+    });
+
+    it("keeps each picture on its question in a shuffled Version B", () => {
+      const exam = JSON.parse(JSON.stringify(SAMPLE_EXAM));
+      exam.sections[0].questions.forEach((q, i) => { q.image = { src: `data:image/png;base64,Q${i}Q${i}`, size: "medium", caption: `Fig ${i}` }; });
+      const variant = createExamVariant(exam, "B");
+      variant.sections[0].questions.forEach(q => {
+        const original = exam.sections[0].questions.find(o => o.text === q.text);
+        expect(q.image).toEqual(original.image);
+      });
+    });
   });
 
   it("falls back to a text placeholder when no image or SVG is available", () => {
@@ -280,7 +337,7 @@ describe("createExamVariant", () => {
     variant.answerKey.forEach(k => expect(k.number).toBeGreaterThanOrEqual(1));
   });
 
-  it("is deterministic — the same seed always produces the same shuffle", () => {
+  it("is deterministic - the same seed always produces the same shuffle", () => {
     const v1 = createExamVariant(SAMPLE_EXAM, "B");
     const v2 = createExamVariant(SAMPLE_EXAM, "B");
     expect(v1.sections[0].questions.map(q => q.text)).toEqual(v2.sections[0].questions.map(q => q.text));
@@ -297,5 +354,151 @@ describe("createExamVariant", () => {
     const before = JSON.stringify(SAMPLE_EXAM);
     createExamVariant(SAMPLE_EXAM, "B");
     expect(JSON.stringify(SAMPLE_EXAM)).toBe(before);
+  });
+});
+
+describe("renderExamHTML: professional layout", () => {
+  it("stacks MCQ options vertically by default", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, {}, "paper");
+    expect(html).toContain('class="opts opts-vertical"');
+    expect(html).not.toContain('class="opts opts-two"');
+  });
+
+  it("supports two-column and one-row option layouts", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { optionsLayout: "two" }, "paper")).toContain('class="opts opts-two"');
+    expect(renderExamHTML(SAMPLE_EXAM, { optionsLayout: "row" }, "paper")).toContain('class="opts opts-row"');
+  });
+
+  it("falls back to vertical for an unknown layout value", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { optionsLayout: "diagonal" }, "paper")).toContain('class="opts opts-vertical"');
+  });
+
+  it("shows a generated school seal when no logo is uploaded", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { schoolName: "St. Mary's JHS" }, "paper");
+    expect(html).toContain("school-seal");
+    expect(html).toContain(">SMJ<");
+  });
+
+  it("shows the details grid, score box and total marks", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { subject: "Science", className: "JHS 1" }, "paper");
+    expect(html).toContain("meta-grid");
+    expect(html).toContain("score-box");
+    expect(html).toContain("Total Marks");
+  });
+
+  it("puts the school letterhead on the marking scheme too", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { schoolName: "Achimota School" }, "answerKey");
+    expect(html).toContain("Achimota School");
+    expect(html).toContain("MARKING SCHEME");
+  });
+});
+
+
+describe("candidate ID: index-number boxes", () => {
+  it("renders one box per digit in boxes mode", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { idMode: "boxes", idDigits: 10 }, "paper");
+    expect(html.match(/<i><\/i>/g).length).toBeGreaterThanOrEqual(10);
+    expect(html).toContain('class="idcells"');
+    expect(html).toContain("Index Number");
+  });
+  it("honours a custom digit count and label, and clamps absurd values", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { idMode: "boxes", idDigits: 7, idLabel: "Student ID" }, "paper");
+    const cells = html.split('class="idcells"')[1].split("</div>")[0].match(/<i><\/i>/g);
+    expect(cells.length).toBe(7);
+    expect(html).toContain("Student ID");
+    expect(clampIdDigits(999)).toBe(15);
+    expect(clampIdDigits(1)).toBe(4);
+    expect(clampIdDigits("abc")).toBe(10);
+  });
+  it("keeps the plain line by default and drops the field entirely for 'none'", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).toContain("Index No.:");
+    const none = renderExamHTML(SAMPLE_EXAM, { idMode: "none" }, "paper");
+    expect(none).not.toContain("Index No.:");
+    expect(none).not.toContain('class="idcells"');
+  });
+  it("escapes the ID label", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { idMode: "line", idLabel: "<b>x</b>" }, "paper")).not.toContain("<b>x</b>");
+  });
+});
+
+describe("pagination and 'Turn over'", () => {
+  it("enables Turn over by default on the question paper and carries the paginator", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, {}, "paper");
+    expect(html).toContain('data-turn-over="1"');
+    expect(html).toContain('id="sheets"');
+    expect(html).toContain("Page \" + (idx + 1) + \" of \"");
+  });
+  it("can switch Turn over off, and never shows it on the marking scheme", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { turnOver: false }, "paper")).toContain('data-turn-over="0"');
+    expect(renderExamHTML(SAMPLE_EXAM, {}, "answerKey")).toContain('data-turn-over="0"');
+  });
+  it("prints edge to edge on A4 with no browser margins", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).toMatch(/@page \{ size: A4 portrait; margin: 0; \}/);
+  });
+  it("glues a section heading to its first question", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, {}, "paper");
+    expect(html).toContain('class="blk sec" data-keep="1"');
+  });
+});
+
+describe("sealed-paper notice and letterhead", () => {
+  it("shows the notice only when asked", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, {}, "paper")).not.toContain('class="notice"');
+    expect(renderExamHTML(SAMPLE_EXAM, { notice: true }, "paper")).toContain("until you are told to do so");
+  });
+  it("prints the motto line, escaped", () => {
+    const html = renderExamHTML(SAMPLE_EXAM, { schoolMotto: "Light & <Truth>" }, "paper");
+    expect(html).toContain("Light &amp; &lt;Truth&gt;");
+  });
+  it("lets a school switch the generated emblem off", () => {
+    expect(renderExamHTML(SAMPLE_EXAM, { schoolName: "Achimota School", emblem: "none" }, "paper")).not.toContain("school-logo school-seal");
+  });
+});
+
+describe("generated school crest", () => {
+  it("splits names into distinctive part and school type", () => {
+    expect(splitSchoolName("St. Mary's Junior High School")).toEqual(["ST. MARY'S", "JUNIOR HIGH SCHOOL"]);
+    expect(splitSchoolName("Achimota School")).toEqual(["ACHIMOTA", "SCHOOL"]);
+    expect(splitSchoolName("Sunrise")).toEqual(["SUNRISE", ""]);
+  });
+  it("returns nothing without a name and escapes markup in the name", () => {
+    expect(schoolCrestSVG("")).toBe("");
+    expect(schoolCrestSVG("<script>x</script> School")).not.toContain("<script>");
+  });
+  it("is a safe, self-contained SVG even for very long names", () => {
+    const svg = schoolCrestSVG("Nana Kwame Asante Memorial Preparatory & Junior High School");
+    expect(isSafeGeneratedSVG(svg)).toBe(true);
+  });
+});
+
+describe("paper presets", () => {
+  it("BECE / WASSCE style uses boxes, notice and Turn over; school style stays simple", () => {
+    expect(PAPER_PRESETS.public).toMatchObject({ idMode: "boxes", notice: true, turnOver: true });
+    expect(PAPER_PRESETS.school).toMatchObject({ idMode: "line", notice: false });
+  });
+});
+
+describe("isSafeGeneratedSVG allowlist", () => {
+  const wrap = (inner, attrs = "") => `<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"${attrs}>${inner}</svg>`;
+  it("rejects every sneaky way to run code or load something external", () => {
+    const bad = [
+      wrap(`<style>@import url(https://evil.example/x.css)</style>`),
+      wrap(`<a xlink:href="javascript:alert(1)"><text>x</text></a>`),
+      wrap(`<use href="https://evil.example/x.svg#a"/>`),
+      wrap(`<rect width="5" height="5" style="fill:url(https://evil.example/x)"/>`),
+      wrap(`<rect width="5" height="5" fill="url(https://evil.example/x)"/>`),
+      wrap(`<animate attributeName="x" to="5"/>`),
+      wrap(`<set attributeName="onload" to="alert(1)"/>`),
+      wrap(`<rect onclick=alert(1) width="5"/>`),
+      wrap(`<rect ONCLICK="alert(1)" width="5"/>`),
+      wrap(`<text><![CDATA[<script>x</script>]]></text>`),
+      wrap(`<!-- comment --><rect width="5"/>`),
+      wrap(`<image href="data:image/png;base64,AAAA"/>`),
+      wrap(`<rect width="5" fill="javascript:alert(1)"/>`),
+    ];
+    bad.forEach(svg => expect(isSafeGeneratedSVG(svg), svg).toBe(false));
+  });
+  it("accepts plain drawing markup with internal references", () => {
+    expect(isSafeGeneratedSVG(wrap(`<defs><path id="p" d="M0 0L5 5"/></defs><text><textPath href="#p">hi</textPath></text><rect width="5" height="5" fill="url(#g)"/>`))).toBe(true);
   });
 });

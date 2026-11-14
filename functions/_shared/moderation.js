@@ -19,7 +19,9 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-export const MAX_SYLLABUS_CHARS = 6000;      // pasted syllabus / reference text
+// Raised from 6000: a full term's scheme (a table with strands, content standards and
+// indicators per week) routinely runs 7-11k characters, so uploaded schemes were being cut off.
+export const MAX_SYLLABUS_CHARS = 12000;     // pasted / uploaded syllabus or scheme text
 export const MAX_TOPIC_CHARS = 120;          // per individual topic string
 export const MAX_TOPICS = 40;                // topic list length
 export const MAX_SCHOOL_NAME_CHARS = 200;
@@ -48,7 +50,7 @@ export function screenExamInput(fields = {}) {
     return { ok: false, error: `School name is too long (max ${MAX_SCHOOL_NAME_CHARS} characters).` };
   }
   if (pastedSyllabus.length > MAX_SYLLABUS_CHARS) {
-    return { ok: false, error: `Pasted syllabus is too long (max ${MAX_SYLLABUS_CHARS.toLocaleString()} characters). Please paste just the relevant section.` };
+    return { ok: false, error: `Scheme / syllabus text is too long (max ${MAX_SYLLABUS_CHARS.toLocaleString()} characters). Please keep just the relevant weeks or sections.` };
   }
   if (topics.length > MAX_TOPICS) {
     return { ok: false, error: `Too many topics selected (max ${MAX_TOPICS}).` };
