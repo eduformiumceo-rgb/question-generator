@@ -42,6 +42,7 @@ import { goToHubSignIn } from "./hubSignIn.js";
 import AppHeader from "./components/AppHeader.jsx";
 import InstallPrompt from "./components/InstallPrompt.jsx";
 import { usePwaInstall } from "./pwaInstall.js";
+import NumberField from "./components/NumberField.jsx";
 
 const EXAM_API = "/api/generate-exam";
 const ACCOUNT_API = "/api/exam-account";
@@ -548,9 +549,9 @@ function QuestionsGeneratorInner() {
           </div>
           <div>
             <label style={S.lbl}>Duration (minutes) *</label>
-            <input
-              type="number" min={10} max={300} value={durationMinutes}
-              onChange={e => setDurationMinutes(e.target.value)}
+            <NumberField
+              min={10} max={300} value={durationMinutes}
+              onCommit={setDurationMinutes}
               style={S.inp}
             />
           </div>

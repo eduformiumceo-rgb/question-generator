@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Eduformium Questions Generator",
   "short_name": "Questions",
-  "description": "AI-powered exam and test question generator for Ghana NaCCA / GES teachers",
+  "description": "Class test, quiz and exam question generator for Ghana NaCCA / GES teachers",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

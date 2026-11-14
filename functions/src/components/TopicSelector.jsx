@@ -386,8 +386,15 @@ export default function TopicSelector({
 
       {subject && className && (!isSHS || !shsOther) && (
         <div style={{ marginTop: 20, marginBottom: 4 }}>
-          <button type="button" onClick={loadScheme} disabled={solStatus?.loading} style={{ ...S.sm, opacity: solStatus?.loading ? 0.6 : 1 }}>
-            {solStatus?.loading ? "Checking your Scheme of Learning…" : "Load my Scheme of Learning"}
+          <button type="button" onClick={loadScheme} disabled={solStatus?.loading} style={{
+            width: "100%", height: 52, padding: "0 20px", borderRadius: 12, border: "none",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "linear-gradient(135deg,#0D9488 0%,#0891B2 100%)", color: "#fff",
+            fontFamily: F, fontSize: 15, fontWeight: 800, letterSpacing: ".02em",
+            boxShadow: "0 2px 8px rgba(13,148,136,.35)", WebkitTapHighlightColor: "transparent",
+            cursor: solStatus?.loading ? "default" : "pointer", opacity: solStatus?.loading ? 0.7 : 1,
+          }}>
+            {solStatus?.loading ? "Checking your Scheme of Learning…" : "Load My Scheme of Learning"}
           </button>
 
           {solStatus && !solStatus.loading && solStatus.source === "scheme_of_learning" && (
@@ -408,7 +415,7 @@ export default function TopicSelector({
           )}
           {solStatus && !solStatus.loading && solStatus.source === "none" && (
             <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 8 }}>
-              No saved Scheme of Learning found. Select strands manually below, or paste your scheme.
+              No saved Scheme of Learning found. Select strands manually below, or list your topics.
             </div>
           )}
           {solStatus?.error && (
@@ -478,7 +485,7 @@ export default function TopicSelector({
       {className && (
         <div style={{ marginTop: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-            <label style={S.lbl}>{scheme ? "Scheme text (edit to focus the paper on certain weeks)" : "Or paste your Scheme of Learning / topic list (optional)"}</label>
+            <label style={S.lbl}>{scheme ? "Scheme text (edit to focus the paper on certain weeks)" : "Or list topics (optional)"}</label>
             {pastedSyllabus.length > MAX_SYLLABUS_CHARS * 0.8 && (
               <span style={{ fontSize: 11.5, fontFamily: F, fontWeight: 600, flexShrink: 0, marginBottom: 7, color: pastedSyllabus.length > MAX_SYLLABUS_CHARS ? "var(--err-text)" : "var(--text-muted)" }}>
                 {pastedSyllabus.length.toLocaleString()} / {MAX_SYLLABUS_CHARS.toLocaleString()}
@@ -488,7 +495,7 @@ export default function TopicSelector({
           <textarea
             value={pastedSyllabus}
             onChange={e => setPastedSyllabus(e.target.value)}
-            placeholder="Paste your Scheme of Learning, scheme of work, or a comma-separated topic list…"
+            placeholder="List the topics to be examined, separated by commas or one per line…"
             rows={scheme ? 8 : 3}
             style={{ ...S.inp, minHeight: 76, resize: "vertical", fontFamily: F, lineHeight: 1.5 }}
           />

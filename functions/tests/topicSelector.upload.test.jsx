@@ -137,7 +137,7 @@ describe("Upload your Scheme of Learning", () => {
     const u = userEvent.setup(); render(<Harness />);
     await u.selectOptions(selectFor("Class"), "Basic 7");
     upload(await docxFile());
-    const box = await screen.findByPlaceholderText(/Paste your Scheme/);
+    const box = await screen.findByPlaceholderText(/List the topics/);
     await waitFor(() => expect(box.value).toContain("Number Operations"));
     await u.type(box, " my note");
     await u.click(screen.getByRole("button", { name: "Remove" }));

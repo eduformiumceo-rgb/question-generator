@@ -748,10 +748,10 @@ function QuestionsGeneratorInner() {
         <div style={{ marginBottom: 22, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>
-              AI Questions Generator
+              Questions Generator
             </h1>
             <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>
-              Build a print-ready exam paper from your curriculum in minutes.
+              Build print-ready class tests, quizzes and exams from your curriculum in minutes.
             </p>
           </div>
           <button type="button" style={S.sm} onClick={requireLogin(() => setView("saved"))}>

@@ -20,6 +20,7 @@
  * integration, or copy the small subset below if this file is used standalone.
  */
 import React from "react";
+import NumberField from "./NumberField.jsx";
 
 export const DEFAULT_SECTIONS = [
   { id: "A", label: "Section A: Objective (Multiple Choice)", type: "objective", questionCount: 20, marksPerQuestion: 1, enabled: true },
@@ -89,29 +90,19 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty 
             <div className="eduq-grid-2">
               <div>
                 <label style={s.lbl}>Number of Questions</label>
-                <input
-                  type="number" min={1} max={MAX_QUESTIONS_PER_SECTION}
+                <NumberField
+                  min={1} max={MAX_QUESTIONS_PER_SECTION}
                   value={sec.questionCount}
-                  onChange={e => {
-                    let v = parseInt(e.target.value, 10);
-                    if (isNaN(v)) v = 1;
-                    v = Math.max(1, Math.min(MAX_QUESTIONS_PER_SECTION, v));
-                    update(sec.id, { questionCount: v });
-                  }}
+                  onCommit={v => update(sec.id, { questionCount: v })}
                   style={s.inp}
                 />
               </div>
               <div>
                 <label style={s.lbl}>Marks per Question</label>
-                <input
-                  type="number" min={1} max={50}
+                <NumberField
+                  min={1} max={50}
                   value={sec.marksPerQuestion}
-                  onChange={e => {
-                    let v = parseInt(e.target.value, 10);
-                    if (isNaN(v)) v = 1;
-                    v = Math.max(1, Math.min(50, v));
-                    update(sec.id, { marksPerQuestion: v });
-                  }}
+                  onCommit={v => update(sec.id, { marksPerQuestion: v })}
                   style={s.inp}
                 />
               </div>

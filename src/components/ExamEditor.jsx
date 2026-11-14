@@ -14,6 +14,7 @@
  * be solving a problem teachers don't actually have here.
  */
 import React from "react";
+import NumberField from "./NumberField.jsx";
 
 export default function ExamEditor({ examData, setExamData, S, F }) {
   const updateQuestion = (sectionIdx, qIdx, patch) => {
@@ -73,9 +74,9 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
                 {!q.parts?.length && (
                   <div>
                     <label style={{ ...S.lbl, marginBottom: 3 }}>Marks</label>
-                    <input
-                      type="number" min={1} value={q.marks}
-                      onChange={e => updateQuestion(sIdx, qIdx, { marks: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                    <NumberField
+                      min={1} value={q.marks}
+                      onCommit={v => updateQuestion(sIdx, qIdx, { marks: v })}
                       style={{ ...S.inp, width: 64 }}
                     />
                   </div>
@@ -119,9 +120,9 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
                         onChange={e => updatePart(sIdx, qIdx, pIdx, { text: e.target.value })}
                         style={{ ...S.inp, flex: 1, fontSize: 13, resize: "vertical", fontFamily: F }}
                       />
-                      <input
-                        type="number" min={1} value={p.marks}
-                        onChange={e => updatePart(sIdx, qIdx, pIdx, { marks: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                      <NumberField
+                        min={1} value={p.marks}
+                        onCommit={v => updatePart(sIdx, qIdx, pIdx, { marks: v })}
                         style={{ ...S.inp, width: 56, height: 36, fontSize: 13 }}
                       />
                     </div>
