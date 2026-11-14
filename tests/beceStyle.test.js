@@ -125,3 +125,71 @@ describe("shared copy", () => {
     expect(readFileSync("functions/_shared/beceStyle.js", "utf8")).toBe(readFileSync("src/beceStyle.js", "utf8"));
   });
 });
+
+describe("BECE fidelity fixes (checked against the 2025 papers)", () => {
+  const p2total = (sub) => beceSections(getBeceProfile(sub)).filter(x => x.paper === 2).reduce((a, x) => a + answerableMarks(x), 0);
+
+  it("RME Section B has four questions, answer two, each 20 marks", () => {
+    const b = beceSections(getBeceProfile("Religious and Moral Education")).find(s => s.id === "B");
+    expect(b.questionCount).toBe(4); expect(b.answerAny).toBe(2); expect(b.marksPerQuestion).toBe(20);
+    expect(p2total("Religious and Moral Education")).toBe(60);
+  });
+  it("Career Technology Paper 2 is 60 marks: Part A and Part B, 15-mark questions, answer two of three in each", () => {
+    const s = beceSections(getBeceProfile("Career Technology")).filter(x => x.paper === 2);
+    expect(s.map(x => x.id)).toEqual(["A", "B"]);
+    expect(s[1].numberFrom).toBe(4); expect(s[1].answerAny).toBe(2);
+    expect(p2total("Career Technology")).toBe(60);
+    expect(getBeceProfile("Career Technology").paper1.minutes).toBe(50);
+  });
+  it("Creative Arts: Visual Art / Music / Dance Drama headings; only Section A is answered in the paper", () => {
+    const s = beceSections(getBeceProfile("Creative Arts")).filter(x => x.paper === 2);
+    expect(s.map(x => x.sub)).toEqual(["VISUAL ART", "MUSIC", "DANCE DRAMA"]);
+    expect(s[0].inPaper).toBe(true); expect(s[1].inPaper).toBeUndefined();
+    expect(s[1].hint).toMatch(/staff/i);
+  });
+  it("English Paper 1 is Lexis and Structure", () => {
+    expect(getBeceProfile("English Language").paper1.section.hint).toMatch(/LEXIS AND STRUCTURE/);
+  });
+  it("Mathematics is fully verified and prints Paper 1 in two columns", () => {
+    const p = getBeceProfile("Mathematics");
+    expect(p.verified).toBe(true); expect(p.unverified).toEqual([]); expect(p.twoColumnP1).toBe(true);
+  });
+
+  it("cover shows the 2&1 code box; the Examiner's Use box only for papers answered in the booklet", () => {
+    const comp = mkExam("Computing").examData; const math = mkExam("Mathematics").examData;
+    const meta = { schoolName: "S", subject: "Computing", className: "JHS 3" };
+    const hc = renderExamHTML(comp, meta, "paper");
+    expect(hc).toContain("cv-codebox"); expect(hc).toContain("For Examiner");
+    const hm = renderExamHTML(math, { ...meta, subject: "Mathematics" }, "paper");
+    expect(hm).toContain("cv-codebox"); expect(hm).not.toContain("For Examiner");
+  });
+  it("Mathematics Paper 1 is grouped into two-column blocks; other subjects are not", () => {
+    const m = renderExamHTML(mkExam("Mathematics").examData, { schoolName: "S", subject: "Mathematics", className: "JHS 3" }, "paper");
+    expect(m).toContain('class="cols2"');
+    const e = renderExamHTML(mkExam("Social Studies").examData, { schoolName: "S", subject: "Social Studies", className: "JHS 3" }, "paper");
+    expect(e).not.toContain('class="cols2"');
+  });
+  it("marking schemes open with marking conventions", () => {
+    const html = renderExamHTML(mkExam("Religious and Moral Education").examData, { schoolName: "S", subject: "Religious and Moral Education", className: "JHS 3" }, "answerKey");
+    expect(html).toContain("Marking conventions"); expect(html).toContain("Mere mention of a point = 1 mark");
+    const mh = renderExamHTML(mkExam("Mathematics").examData, { schoolName: "S", subject: "Mathematics", className: "JHS 3" }, "answerKey");
+    expect(mh).toContain("M = method mark");
+  });
+  it("Creative Arts Section A gets answer lines, Sections B and C do not", () => {
+    const { examData } = mkExam("Creative Arts");
+    const meta = { schoolName: "S", subject: "Creative Arts", className: "JHS 3" };
+    const html = renderExamHTML(examData, meta, "paper");
+    const aIdx = html.indexOf("ans-lines"); expect(aIdx).toBeGreaterThan(-1);
+    const secB = html.indexOf("SECTION B");
+    expect(html.slice(secB).includes('<div class="ans-lines">')).toBe(false);
+  });
+  it("Word export builds for every fixed subject", async () => {
+    for (const sub of ["Computing", "Creative Arts", "Career Technology", "Religious and Moral Education", "Mathematics"]) {
+      const { examData } = mkExam(sub);
+      const blob = await generateExamDocx(examData, { schoolName: "S", subject: sub, className: "JHS 3" }, "paper");
+      expect(blob.size, sub).toBeGreaterThan(3000);
+      const key = await generateExamDocx(examData, { schoolName: "S", subject: sub, className: "JHS 3" }, "answerKey");
+      expect(key.size, sub).toBeGreaterThan(3000);
+    }
+  });
+});

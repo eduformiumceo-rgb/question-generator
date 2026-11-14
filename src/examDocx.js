@@ -27,7 +27,7 @@ import {
 } from "docx";
 import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { removeFirstFigureLine, ownerDrawing } from "./partFigures.js";
-import { answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS } from "./beceStyle.js";
+import { answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS, beceNeedsExaminerBox, beceSchemeNotes, beceCoverCode } from "./beceStyle.js";
 
 // Set per document by generateExamDocx (generation is synchronous up to Packer).
 let BX = { bece: false, profile: null, show: true, obj: false, ans: false };
@@ -155,6 +155,24 @@ function table(widths, rows, extra = {}) {
     indent: extra.indent,
     rows,
   });
+}
+
+/** Boxed exam code on a BECE cover: "SUBJECT 2&1 / Essay & Objective / duration" beside a large 2&1. */
+function codeBoxDocx(cc) {
+  const small = (t) => new Paragraph({ children: [new TextRun({ text: t, bold: true, size: 17 })] });
+  return table([3300, 1500], [new TableRow({ cantSplit: true, children: [
+    cell(3300, [small(`${cc.subject} ${cc.code}`), small(cc.kind), small(cc.duration)], { borders: { top: line(12, INK), bottom: line(12, INK), left: line(12, INK), right: NONE }, verticalAlign: VerticalAlign.CENTER }),
+    cell(1500, [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: cc.code, bold: true, size: 60 })] })], { borders: { top: line(12, INK), bottom: line(12, INK), left: NONE, right: line(12, INK) }, verticalAlign: VerticalAlign.CENTER }),
+  ] })], { borders: NO_BORDERS });
+}
+
+/** "For Examiner's Use Only" mark table (printed on the cover of papers answered in the booklet). */
+function examinerBoxDocx() {
+  const b = { top: line(6, INK), bottom: line(6, INK), left: line(6, INK), right: line(6, INK) };
+  const c = (w, t, bold) => cell(w, [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: t, bold: !!bold, size: 18 })] })], { borders: b, margins: { top: 25, bottom: 25, left: 60, right: 60 } });
+  const head = new TableRow({ cantSplit: true, children: [c(1800, "Question Number", true), c(1800, "Mark", true)] });
+  const body = [1, 2, 3, 4, 5, 6, 7, 8, "TOTAL"].map(n => new TableRow({ cantSplit: true, children: [c(1800, String(n), n === "TOTAL"), c(1800, "", false)] }));
+  return table([1800, 1800], [head, ...body], { borders: NO_BORDERS, indent: { size: 0, type: WidthType.DXA } });
 }
 
 /* ── letterhead & header ─────────────────────────────────────── */
@@ -300,8 +318,9 @@ function headerBlock(examData, meta, totalMarks, W) {
     ...letterhead(meta, (examData.style === "bece" ? cleanBeceTitle(examData.title, examType) : examData.title) || examType, W),
     ...(meta.notice ? [noticeBox(meta.noticeText || DEFAULT_NOTICE, W), new Paragraph({ spacing: { before: 120 }, children: [] })] : []),
     // BECE cover page: the subject stands in the middle of the sheet and Paper 2 starts on page 2.
+    ...(examData.style === "bece" && BX.profile ? [codeBoxDocx(beceCoverCode(BX.profile))] : []),
     ...(examData.style === "bece" ? [
-      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 1300, after: 120 }, border: { top: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 1000, after: 120 }, border: { top: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: String(subject || "").toUpperCase(), bold: true, size: 56, characterSpacing: 40 })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: [classWithProgramme(className, programme), term].filter(Boolean).join("   |   ").toUpperCase(), size: 26, characterSpacing: 20 })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 1300 }, border: { bottom: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
@@ -309,6 +328,7 @@ function headerBlock(examData, meta, totalMarks, W) {
     metaGrid(items, W),
     new Paragraph({ spacing: { before: examData.style === "bece" ? 360 : 200 }, children: [] }),
     ...candidateRows(meta, totalMarks, W),
+    ...(examData.style === "bece" && beceNeedsExaminerBox(BX.profile) ? [new Paragraph({ spacing: { before: 200, after: 60 }, children: [new TextRun({ text: "For Examiner's Use Only", bold: true, size: 20 })] }), examinerBoxDocx()] : []),
   ];
   if ((examData.instructions || []).length) {
     out.push(new Paragraph({ spacing: { before: 200 }, children: [] }));
@@ -500,7 +520,7 @@ function questionParagraphs(q, section, meta, layout, W, labels) {
 }
 
 function sectionParagraphs(section, meta, layout, W, labels, idx = 0, all = []) {
-  BX.show = section.showPartMarks !== false; BX.obj = section.type === "objective"; BX.ans = !!(BX.bece && BX.profile && BX.profile.answerInPaper);
+  BX.show = section.showPartMarks !== false; BX.obj = section.type === "objective"; BX.ans = !!(BX.bece && BX.profile && (section.inPaper !== undefined ? section.inPaper : BX.profile.answerInPaper));
   const endMark = BX.bece && (!all[idx + 1] || all[idx + 1].paper !== section.paper)
     ? [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 300 }, children: [new TextRun({ text: section.paper === 1 ? "END OF PAPER" : "END OF ESSAY TEST", bold: true, italics: true, characterSpacing: 40 })] })]
     : [];
@@ -564,6 +584,11 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
   }
   out.push(band(BX.bece ? "PAPER 2: ESSAY, MARKING SCHEME" : "MARKING SCHEME: SECTIONS B & C"));
   if (BX.bece) out.push(new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: "RUBRICS: ", bold: true }), new TextRun((BX.profile.paper2.intro || []).slice(0, 3).join(" "))] }));
+  if (BX.bece) {
+    out.push(new Paragraph({ spacing: { after: 30 }, children: [new TextRun({ text: "Marking conventions", bold: true })] }));
+    beceSchemeNotes(BX.profile).forEach(n => out.push(new Paragraph({ spacing: { after: 20 }, indent: { left: 360, hanging: 240 }, children: [new TextRun({ text: "\u2022  " + n })] })));
+    out.push(new Paragraph({ spacing: { after: 80 }, children: [] }));
+  }
   (examData.sections || []).filter(s => s.type !== "objective").forEach(s => {
     out.push(new Paragraph({ keepNext: true, spacing: { before: 240, after: 60 }, children: [new TextRun({ text: s.label, bold: true, underline: {} })] }));
     (s.questions || []).forEach(q => {

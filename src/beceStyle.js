@@ -22,23 +22,28 @@
 const OBJ_ID = "OBJ";
 
 /** Paper 1 is the same shape in every subject: 40 four-option questions, 1 mark each. */
-const paper1 = (minutes = 45, count = 40) => ({
+const paper1 = (minutes = 45, count = 40, o = {}) => ({
   number: 1, name: "OBJECTIVE TEST", marks: count, minutes,
   section: {
     id: OBJ_ID, label: "Paper 1: Objective Test", type: "objective",
     questionCount: count, marksPerQuestion: 1, enabled: true, paper: 1,
     heading: "", rubric: "Answer all the questions.", numberFrom: 1,
-    hint: "Short, clear stems. Exactly four options lettered A to D. Mix direct questions, 'except' questions and a few Roman-numeral statement questions (options such as 'I only', 'I and II only', 'II and III only', 'I, II and III'). Spread the questions across the selected topics.",
+    hint: o.hint || "Short, clear stems. Exactly four options lettered A to D. Mix direct questions, 'except' questions and a few Roman-numeral statement questions (options such as 'I only', 'I and II only', 'II and III only', 'I, II and III'). Spread the questions across the selected topics.",
   },
 });
+
+/** Marking conventions printed at the top of a marking scheme (the real schemes open with a block like this). */
+const NOTES_GENERIC = ["Accept any other correct answer or acceptable equivalent that is not listed.", "Award marks for correct points however they are worded; do not penalise spelling that does not change the meaning."];
+const NOTES_POINTS = ["Mere mention of a point = 1 mark.", "Meaningful statement of a point without explanation = 2 marks.", "Statement of a point with explanation and good examples or illustrations = full marks.", "Definition of a concept without explanation or examples = 2 marks."];
+const NOTES_MATH = ["M = method mark, A = accuracy mark, B = independent mark.", "Award an A mark only where the method mark it depends on has been earned.", "Accept any other correct method; a correct answer without the required working earns no marks."];
 
 const sec = (o) => ({ type: "structured", enabled: true, paper: 2, ...o });
 
 export const BECE_PROFILES = {
   "Science": {
     label: "Integrated Science", verified: false,
-    unverified: ["Paper 2 duration (cover page not in the supplied copy)"],
-    scheme: "points",
+    unverified: ["Paper 2 duration (cover page not in the supplied copy)", "Marking scheme layout (the supplied scheme file is a copy of the question paper)"],
+    scheme: "points", schemeNotes: NOTES_GENERIC,
     paper2: { name: "ESSAY", marks: 100, minutes: 90,
       intro: ["Answer all the questions in your answer booklet.", "This paper is in two sections: A and B. Answer Question 1 in Section A and any other three questions in Section B."],
       sections: [
@@ -50,8 +55,8 @@ export const BECE_PROFILES = {
     paper1: paper1(45),
   },
   "Mathematics": {
-    label: "Core Mathematics", verified: true, unverified: ["Paper 1 length assumed 40 questions"],
-    scheme: "table", showPartMarks: false, noCalculators: true,
+    label: "Core Mathematics", verified: true, unverified: [],
+    scheme: "table", schemeNotes: NOTES_MATH, showPartMarks: false, noCalculators: true, twoColumnP1: true,
     paper2: { name: "ESSAY", marks: 60, minutes: 60,
       intro: ["Answer four questions only.", "All questions carry equal marks.", "All working must be clearly shown. Marks will not be awarded for correct answers without corresponding working."],
       sections: [
@@ -61,8 +66,8 @@ export const BECE_PROFILES = {
     paper1: paper1(60),
   },
   "English Language": {
-    label: "English Language", verified: false, unverified: ["Paper 1 question count and duration (assumed 40 questions, 45 minutes)"],
-    scheme: "points",
+    label: "English Language", verified: false, unverified: ["Paper 1 duration (assumed 45 minutes)"],
+    scheme: "points", schemeNotes: NOTES_GENERIC,
     paper2: { name: "ESSAY", marks: 60, minutes: 60,
       intro: ["This paper consists of three parts: A, B and C.", "Answer three questions in all: one question from Part A and all the questions in Parts B and C.", "Answer all questions in your answer booklet.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
@@ -73,11 +78,11 @@ export const BECE_PROFILES = {
         sec({ id: "C", label: "Part C: Literature", heading: "PART C", sub: "LITERATURE", rubric: "Answer all the questions in this part.", questionCount: 1, marksPerQuestion: 10, numberFrom: 5,
           hint: "ONE question of 10 marks: a short extract from a prescribed Ghanaian drama or prose text the candidates study, then parts (a) to (c) on characters, meaning of a line, and mood or theme." }),
       ] },
-    paper1: paper1(45),
+    paper1: paper1(45, 40, { hint: "ENGLISH PAPER 1 IS 'LEXIS AND STRUCTURE' (40 four-option questions, 1 mark each), set in the order the real paper uses. First about 20 sentence-completion questions ('Choose from the options A to D the one which most suitably completes each sentence'): grammar and usage items such as quantifiers, conjunctions, relative pronouns, tenses, conditionals, question tags, comparison, and one or two reported-speech items ('From the options A to D, the correct reported speech for the sentence in Question N below is: ... Amarh asked Tettey ...'). Then about 10 questions where a group of words in a sentence is UNDERLINED (use plain underscores) and the candidate chooses the option that best explains it, using idioms and phrasal expressions ('This means that ...'). Then about 10 phonetics questions where an underlined word is given and the candidate picks the option with the same vowel sound or the same stress/consonant sound. Options are single words or short phrases, never full paragraphs. No reading passage in Paper 1." }),
   },
   "Social Studies": {
-    label: "Social Studies", verified: true, unverified: [],
-    scheme: "points",
+    label: "Social Studies", verified: true, unverified: ["Marking scheme layout (the supplied scheme file is a copy of the question paper)"],
+    scheme: "points", schemeNotes: NOTES_POINTS,
     paper2: { name: "ESSAY", marks: 60, minutes: 60,
       intro: ["This paper consists of three sections: I, II and III.", "Answer three questions only. One compulsory question from Section I, and one question each from Sections II and III.", "All questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
@@ -91,21 +96,21 @@ export const BECE_PROFILES = {
     paper1: paper1(45),
   },
   "Religious and Moral Education": {
-    label: "Religious and Moral Education", verified: true, unverified: ["Paper 1 length and Paper 2 duration assumed"],
-    scheme: "points",
+    label: "Religious and Moral Education", verified: true, unverified: ["Paper 1 duration (assumed 45 minutes)"],
+    scheme: "points", schemeNotes: NOTES_POINTS,
     paper2: { name: "ESSAY", marks: 60, minutes: 60,
       intro: ["Answer three questions in all: question one which is compulsory and any two questions from Section B.", "Each question carries 20 marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
         sec({ id: "A", label: "Section A", heading: "SECTION A", sub: "COMPULSORY", rubric: "", questionCount: 1, marksPerQuestion: 20, numberFrom: 1,
-          hint: "ONE compulsory question of 20 marks, parts (a) and (b), usually 'Give reasons why...' (12 marks) and 'State factors that...' (8 marks), on a moral, social or religious theme." }),
-        sec({ id: "B", label: "Section B", heading: "SECTION B", rubric: "Answer any two questions from this section", questionCount: 3, marksPerQuestion: 20, answerAny: 2, numberFrom: 2,
-          hint: "THREE questions of 20 marks each (candidates answer any two). Each has parts (a) 4 marks, (b) 6 marks, (c) 10 marks, covering Christianity, Islam and African Traditional Religion across the paper (e.g. sacrifices, festivals, rites of passage, moral teachings)." }),
+          hint: "ONE compulsory question of 20 marks. It opens with a short real-life scenario of two or three sentences about named Ghanaians (e.g. a workplace or school situation with a moral dilemma), then (a) 'Explain ... four reasons ...' [12 marks] and (b) 'In your opinion, what four factors ...' [8 marks]." }),
+        sec({ id: "B", label: "Section B", heading: "SECTION B", rubric: "Answer two questions only from this section", questionCount: 4, marksPerQuestion: 20, answerAny: 2, numberFrom: 2,
+          hint: "FOUR questions of 20 marks each (candidates answer any two). EVERY question opens with a short scenario paragraph (three to five sentences) about named Ghanaians, then has parts that depend on it. Use different shapes: for example (a) 'List four items ...' [4], (b) 'State four special occasions ...' [4], (c) 'Highlight four importance of ...' [12]; or (a) 'Outline four differences ...' [12] and (b) 'Explain four reasons ...' [8]; or (a) [12] and (b) [8]; one question may be a direct 'Narrate the story of ...' [12] with 'Explain four ways ...' [8]. Spread the four questions across Christianity, Islam and African Traditional Religion and moral themes (sacrifices, festivals, music and worship, creation, rites of passage). Part marks always add up to 20." }),
       ] },
     paper1: paper1(45),
   },
   "Computing": {
     label: "Computing", verified: true, unverified: [],
-    scheme: "points", answerInPaper: true,
+    scheme: "points", schemeNotes: NOTES_GENERIC, answerInPaper: true, examinerBox: true,
     paper2: { name: "ESSAY", marks: 60, minutes: 75,
       intro: ["This paper is in two sections: A and B. Answer Question 1 in Section A and any other three questions in Section B.", "Answer all the questions in the spaces provided in this question paper. At the end of the examination, you should submit the entire question paper to the invigilator.", "Any candidate who tears off any part of the question paper will be severely penalized."],
       sections: [
@@ -117,34 +122,40 @@ export const BECE_PROFILES = {
     paper1: paper1(45),
   },
   "Creative Arts": {
-    label: "Creative Arts and Design", verified: false, unverified: ["Exact number of options in Section A (assumed 3 questions, Question 1 compulsory)"],
-    scheme: "points",
+    label: "Creative Arts and Design", verified: true, unverified: ["Marking scheme layout (not read in detail)"],
+    scheme: "points", schemeNotes: NOTES_GENERIC, examinerBox: true,
+    bookletExtra: [
+      "Paper 2 is in three sections: A, B and C. Answer four questions only: two questions in Section A using the spaces provided in this question paper, and one question each from Sections B and C in the answer booklet provided.",
+      "Sections B and C will last for 40 minutes, after which the answer booklet will be collected. Section A will last for 40 minutes, after which this question paper, which also serves as the answer booklet, will be collected.",
+    ],
     paper2: { name: "ESSAY", marks: 60, minutes: 80,
       intro: ["Answer four questions only.", "All the questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
-        sec({ id: "A", label: "Section A", heading: "SECTION A", rubric: "Answer two questions only from this section, question 1 and any other", questionCount: 3, marksPerQuestion: 15, answerAny: 2, numberFrom: 1,
-          hint: "THREE practical-knowledge questions of 15 marks each (Question 1 compulsory, plus any one other): design elements and principles, materials, tools and processes, with short parts of 2 to 4 marks." }),
-        sec({ id: "B", label: "Section B", heading: "SECTION B", rubric: "Answer only one question from this section", questionCount: 2, marksPerQuestion: 15, answerAny: 1, numberFrom: 4,
-          hint: "TWO questions of 15 marks each (candidates answer one) on Ghanaian arts, music and culture, with parts such as 6 + 5 + 4 marks." }),
-        sec({ id: "C", label: "Section C", heading: "SECTION C", rubric: "Answer only one question from this section", questionCount: 2, marksPerQuestion: 15, answerAny: 1, numberFrom: 6,
-          hint: "TWO questions of 15 marks each (candidates answer one) on dance, drama and performance, with parts such as 3 + 3 + 3 + 6 marks." }),
+        sec({ id: "A", label: "Section A: Visual Art", heading: "SECTION A", sub: "VISUAL ART", inPaper: true, rubric: "Answer two questions only from this section, question 1 and any other", questionCount: 3, marksPerQuestion: 15, answerAny: 2, numberFrom: 1,
+          hint: "THREE visual-art questions of 15 marks each (Question 1 compulsory, plus any one other), answered in spaces in the question paper. Mix practical and knowledge parts with marks such as 12+3, 9+6 or 2+4+3: for example 'In the space provided, draw the six point colour wheel and shade ... using the hatching / stippling technique' with a follow-up 'List cool colours found on the wheel'; a printing, weaving, modelling, or pottery scenario with (i)/(ii)/(iii) parts ('identify the most appropriate method', 'state two reasons', 'list three tools'); and an art-appreciation part ('explain three benefits ...')." }),
+        sec({ id: "B", label: "Section B: Music", heading: "SECTION B", sub: "MUSIC", rubric: "Answer only one question from this section", questionCount: 2, marksPerQuestion: 15, answerAny: 1, numberFrom: 4,
+          hint: "TWO MUSIC questions of 15 marks each (candidates answer one). Use real music-theory tasks: notating given pitches on the staff with the treble or bass clef (state the task in words, the candidate draws on the staff provided) [6]; placing given Western instruments into groups (woodwinds, brass, percussion, strings, electronic) [5]; a short scenario about a named Ghanaian musician and the issues his song addresses [4]; classifying named Ghanaian musicians as art, popular or traditional music [5]; and meanings of musical terms such as Presto, Allegretto, Andante, Mezzo, A cappella [10]. Marks per question add up to 15 (for example 6+5+4 or 5+10)." }),
+        sec({ id: "C", label: "Section C: Dance Drama", heading: "SECTION C", sub: "DANCE DRAMA", rubric: "Answer only one question from this section", questionCount: 2, marksPerQuestion: 15, answerAny: 1, numberFrom: 6,
+          hint: "TWO DANCE-DRAMA questions of 15 marks each (candidates answer one). Use scenarios about a named Ghanaian theatre figure or venue (e.g. the National Theatre): identify ways a person contributed to society [3]; state parts of a performance space and give one function of each [3+3]; explain how modern Ghanaian dances preserve and promote culture [6]; or 'Explain dance-drama' [3], how actors and dancers use body parts to convey emotion [6] and how elements of contemporary dance (body, space, energy) are used [6]. Marks per question add up to 15." }),
       ] },
     paper1: paper1(50),
   },
   "Career Technology": {
-    label: "Career Technology", verified: false, unverified: ["Part B layout (drawing / practical part) was not checked; only Part A is generated"],
-    scheme: "points", answerInPaper: true,
-    paper2: { name: "ESSAY", marks: 30, minutes: 75,
+    label: "Career Technology", verified: true, unverified: ["Marking scheme layout (the supplied scheme file was not read in detail)"],
+    scheme: "points", schemeNotes: NOTES_GENERIC, answerInPaper: true, examinerBox: true,
+    paper2: { name: "ESSAY", marks: 60, minutes: 75,
       intro: ["Answer all the questions in the spaces provided in this question paper.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
         sec({ id: "A", label: "Part A", heading: "PART A", rubric: "Answer Question 1 (Compulsory) and any other question", questionCount: 3, marksPerQuestion: 15, answerAny: 2, numberFrom: 1,
-          hint: "THREE questions of 15 marks (Question 1 compulsory, plus any one other). Question 1 is a practical scenario (for example preparing a snack or making a simple item) with parts such as 'Describe how to prepare...' [5 marks], 'State two advantages...' [4 marks], 'State one function of each of the following...' [6 marks]. Other questions have short parts of 2 to 3 marks on skills, safety, nutrition and tools." }),
+          hint: "THREE questions of 15 marks (Question 1 compulsory, plus any one other). Question 1 is a practical scenario about named learners (for example preparing a snack for an excursion) with parts such as 'Describe how to prepare ...' [5 marks], 'State two advantages of ...' [4 marks], 'State one function of each of the following ...' [6 marks]. Other questions have short parts of 2 to 3 marks on skills, safety, nutrition and tools." }),
+        sec({ id: "B", label: "Part B", heading: "PART B", rubric: "Answer Question 4 (Compulsory) and any other question", questionCount: 3, marksPerQuestion: 15, answerAny: 2, numberFrom: 4,
+          hint: "THREE technical questions of 15 marks (Question 4 compulsory, plus one of Questions 5 and 6) on workshop practice, drawing and enterprise. Question 4 is built on a labelled figure ([FIGURE: for example a wooden money box with its slot, body and base labelled]) with parts such as 'List three different types of timber suitable for ...' , 'Name two suitable joints ...', 'List two tools for cutting the slot' [6], re-arranging six jumbled procedures I to VI into the correct sequence [6], and 'State one type of adhesive ...' [3]. Questions 5 and 6 use parts such as 'State one reason for carrying out each of the following workshop operations' [6], 'Make a pictorial sketch of a named tool and label any two parts' [9], 'Draw the front view of an L-shaped block in single-point perspective below the eye level' [6], 'List four management requirements for a successful business manager' [4], and 'State two primary purposes of frame structures; list three examples' [5]. Marks per question add up to 15." }),
       ] },
-    paper1: paper1(45),
+    paper1: paper1(50),
   },
   "French": {
     label: "French", verified: false, unverified: ["Paper 1 duration taken from the answer-sheet page (1 hour)"],
-    scheme: "points", language: "French",
+    scheme: "points", schemeNotes: NOTES_GENERIC, language: "French",
     paper2: { name: "ESSAY", marks: 60, minutes: 45,
       intro: ["Il y a deux questions dans cette partie. Répondez à toutes les questions.", "There are two questions in this part. Answer both questions."],
       sections: [
@@ -157,7 +168,7 @@ export const BECE_PROFILES = {
   },
   "Ghanaian Language": {
     label: "Ghanaian Language", verified: false, unverified: ["Part IV (Grammar) layout and Paper 1"],
-    scheme: "points", language: "the selected Ghanaian language",
+    scheme: "points", schemeNotes: NOTES_GENERIC, language: "the selected Ghanaian language",
     paper2: { name: "ESSAY", marks: 60, minutes: 70,
       intro: ["This paper consists of four parts: I, II, III and IV. Answer one question only in Part I and all the questions in Parts II, III and IV.", "Answer all the questions in your answer booklet.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
@@ -240,8 +251,23 @@ export function beceBooklet(profile) {
     `This booklet consists of two papers. Answer Paper 2, which comes first, in your answer booklet and Paper 1 on your Objective Test answer sheet. Paper 2 will last ${minutesLabel(p2.minutes)}${profile.answerInPaper ? "" : ", after which the answer booklet will be collected"}. Do not start Paper 1 until you are told to do so. Paper 1 will last ${minutesLabel(p1.minutes)}.`,
   ];
   if (profile.noCalculators) lines.push("The use of calculators is not allowed.");
+  (profile.bookletExtra || []).forEach(l => lines.push(l));
   return lines;
 }
+
+/** Marks and wording for the "For Examiner's Use Only" box and the exam-code box on a BECE cover. */
+export const beceNeedsExaminerBox = (profile) => !!(profile && profile.examinerBox);
+
+/** Marking conventions printed on the marking scheme (falls back to the generic lines). */
+export const beceSchemeNotes = (profile) => (profile && profile.schemeNotes) || NOTES_GENERIC;
+
+/** Real BECE booklets carry the paper code "2&1" (Paper 2 then Paper 1) on the cover. */
+export const beceCoverCode = (profile) => ({
+  code: "2&1",
+  subject: String((profile && profile.label) || "").toUpperCase(),
+  kind: "Essay & Objective",
+  duration: minutesLabel(beceTotalMinutes(profile)),
+});
 
 export const BECE_OBJECTIVE_INSTRUCTIONS = [
   "Answer all the questions.",
@@ -325,7 +351,7 @@ export function cleanBeceTitle(title, examType) {
  */
 export function decorateBeceExam(examData, requestedSections, profile, examType = "Mock Exam") {
   const byId = Object.fromEntries((requestedSections || []).map(s => [s.id, s]));
-  const FIELDS = ["paper", "answerAny", "heading", "sub", "rubric", "numberFrom", "showPartMarks", "paperStart", "subFromTopic"];
+  const FIELDS = ["paper", "answerAny", "heading", "sub", "rubric", "numberFrom", "showPartMarks", "paperStart", "subFromTopic", "inPaper"];
   const sections = (examData.sections || []).map(gs => {
     const req = byId[gs.id] || {};
     const meta = {};

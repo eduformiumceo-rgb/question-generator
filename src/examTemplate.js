@@ -20,7 +20,7 @@ import { diagramGuideText, renderDiagramTemplate } from "./diagramRegistry.js";
 import { classWithProgramme, termCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
 import { figureLines, hasPartFigureLines, ownerImageOk, ownerDrawing } from "./partFigures.js";
-import { beceStyleBlock, beceSchemeBlock, answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS } from "./beceStyle.js";
+import { beceStyleBlock, beceSchemeBlock, answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS, beceNeedsExaminerBox, beceSchemeNotes, beceCoverCode } from "./beceStyle.js";
 
 /* ────────────────────────────────────────────────────────────────
    1. SYSTEM PROMPT
@@ -704,7 +704,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
 
   const SAMPLE_OPTIONS = ["Green", "Red", "Orange", "Purple"];
   const renderBeceSectionBlocks = (s, idx) => {
-    curShow = s.showPartMarks !== false; curObj = s.type === "objective"; curAns = !!profile.answerInPaper;
+    curShow = s.showPartMarks !== false; curObj = s.type === "objective"; curAns = s.inPaper !== undefined ? !!s.inPaper : !!profile.answerInPaper;
     const qs = s.questions || [];
     const prev = sections[idx - 1], next = sections[idx + 1];
     const out = [];
@@ -738,7 +738,13 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
           ${s.rubric ? `<div class="bs-rubric">${esc(s.rubric)}</div>` : ""}
         </div>`, "sec", qs.length > 0));
     }
-    qs.forEach(q => out.push(...renderQuestionBlocks(q, false)));
+    if (profile.twoColumnP1 && s.type === "objective") {
+      // Real Mathematics Paper 1 is printed in two columns: group questions so each group reads down the left, then the right.
+      for (let i = 0; i < qs.length; i += 6) {
+        const inner = qs.slice(i, i + 6).flatMap(q => renderQuestionBlocks(q, false)).join("");
+        out.push(blk(`<div class="cols2">${inner}</div>`, "q2col"));
+      }
+    } else qs.forEach(q => out.push(...renderQuestionBlocks(q, false)));
     if (!next || next.paper !== s.paper) {
       out.push(blk(`<div class="end-mark"><span>${s.paper === 1 ? "END OF PAPER" : "END OF ESSAY TEST"}</span></div>`, "endmark"));
     }
@@ -811,6 +817,18 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   // BECE papers open with a COVER PAGE that fills the whole sheet (letterhead at the top,
   // the subject centred in the free space, candidate details and instructions at the foot),
   // and Paper 2 / Paper 1 then start on page 2, like a real exam booklet.
+  const cc = bece && profile ? beceCoverCode(profile) : null;
+  const codeBox = cc ? `
+      <div class="cv-codebox">
+        <div class="cv-code-left"><div>${esc(cc.subject)} ${esc(cc.code)}</div><div>${esc(cc.kind)}</div><div>${esc(cc.duration)}</div></div>
+        <div class="cv-code-big">${esc(cc.code)}</div>
+      </div>` : "";
+  const examinerBox = bece && beceNeedsExaminerBox(profile) ? `
+      <div class="cv-examiner">
+        <div class="cv-ex-title">For Examiner's Use Only</div>
+        <table><thead><tr><th>Question Number</th><th>Mark</th></tr></thead>
+        <tbody>${[1,2,3,4,5,6,7,8].map(n => `<tr><td>${n}</td><td></td></tr>`).join("")}<tr class="tot"><td>TOTAL</td><td></td></tr></tbody></table>
+      </div>` : "";
   const coverSubject = bece ? `
       <div class="cv-subject">
         <div class="cv-rule"></div>
@@ -824,6 +842,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     <div class="paper-header${bece ? " cover-page" : ""}">
       ${letterhead(titleText)}
       ${notice ? `<div class="notice">${esc(noticeText || DEFAULT_NOTICE)}</div>` : ""}
+      ${codeBox}
       ${coverSubject}
       <table class="meta-grid">
         <tr>
@@ -835,6 +854,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
         </tr>
       </table>
       ${candidateBlock}
+      ${examinerBox}
       ${(examData.instructions || []).length ? `
       <div class="instructions">
         <div class="instr-title">Instructions to Candidates</div>
@@ -888,7 +908,8 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     };
     if (bece) {
       const rubricLines = (profile.paper2.intro || []).slice(0, 3);
-      out.push(blk(`<div class="answer-page"><h2>PAPER 2: ESSAY, MARKING SCHEME</h2><p class="bece-rubric"><b>RUBRICS:</b> ${esc(rubricLines.join(" "))}</p></div>`, "ak", true));
+      out.push(blk(`<div class="answer-page"><h2>PAPER 2: ESSAY, MARKING SCHEME</h2><p class="bece-rubric"><b>RUBRICS:</b> ${esc(rubricLines.join(" "))}</p>
+        <div class="bece-notes"><b>Marking conventions</b><ul>${beceSchemeNotes(profile).map(n => `<li>${esc(n)}</li>`).join("")}</ul></div></div>`, "ak", true));
     } else {
       out.push(blk(`<div class="answer-page"><h2>MARKING SCHEME - SECTIONS B &amp; C</h2></div>`, "ak", true));
     }
@@ -1071,6 +1092,24 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   .mark-guide{ margin-top:5px; line-height:1.55; color:#111; }
   .at-top .answer-page h2, .at-top .answer-page h3{ margin-top:0; }
   /* ── BECE style ── */
+  .cv-codebox{ display:flex; align-items:center; justify-content:space-between; border:2px solid #111; padding:6px 12px; margin:0 0 10px; width:62mm; font-size:8.5pt; font-weight:700; line-height:1.35; text-transform:uppercase; }
+  .cv-code-big{ font-size:30pt; font-weight:800; font-family:Georgia,"Times New Roman",serif; letter-spacing:.02em; }
+  .cv-examiner{ margin:16px auto 0; width:62mm; border:1.2px solid #111; }
+  .cv-ex-title{ text-align:center; font-weight:700; font-size:9pt; padding:3px 0; border-bottom:1px solid #111; }
+  .cv-examiner table{ width:100%; border-collapse:collapse; font-size:8.5pt; }
+  .cv-examiner th, .cv-examiner td{ border:1px solid #111; padding:1.5px 6px; height:5mm; text-align:center; }
+  .cv-examiner tr.tot td{ font-weight:700; }
+  html[data-landscape="1"] .cv-examiner{ display:none; }
+  .cols2{ column-count:2; column-gap:12mm; column-rule:1px solid #bbb; }
+  .cols2 .blk{ break-inside:avoid; }
+  .cols2 .question{ font-size:10.8pt; line-height:1.35; }
+  .cols2 .blk.q{ padding-bottom:6px; }
+  .cols2 .opts{ margin-top:2px; }
+  .cols2 .opt{ line-height:1.25; }
+  .cols2 .question{ font-size:10.5pt; }
+  .cols2 .row{ grid-template-columns:2.3em 1fr 0 !important; }
+  .bece-notes{ margin:8px 0 4px; font-size:10.5pt; }
+  .bece-notes ul{ margin:3px 0 0 18px; padding:0; }
   html[data-bece="1"] .row{ grid-template-columns:2.3em 1fr 5.6em; }
   html[data-bece="1"] .row.has-parts{ grid-template-columns:2.3em 1fr; }
   html[data-bece="1"] .marks{ font-weight:400; }
