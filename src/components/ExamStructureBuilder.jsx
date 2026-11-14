@@ -1,21 +1,21 @@
 /**
  * ExamStructureBuilder
  * Lets the teacher define Section A (Objective/MCQ), Section B (Structured/
- * Theory) and Section C (Essay) - each with a question count and marks per
+ * Theory) and Section C (Essay) — each with a question count and marks per
  * question. Auto-calculates section and paper totals. Sections can be
  * removed/re-added (e.g. a Class Test may only need Section A + B).
  *
- * Always shows full capability - Free-tier eligibility is checked at the
+ * Always shows full capability — Free-tier eligibility is checked at the
  * moment the Free button is clicked (see QuestionsGenerator.jsx's
  * validate()), not by pre-locking sections here. An earlier version of
  * this component took isFree/freeMaxTotalQuestions props and greyed out
  * the essay section whenever a "Free" mode was pre-selected; that UI
  * pattern was removed when the generate flow changed to two independent
- * buttons (Free / Premium) instead of a tier toggle - this component
+ * buttons (Free / Premium) instead of a tier toggle — this component
  * stopped being passed those props and the matching logic became dead
  * code, so it's removed here rather than left stale.
  *
- * Reuses the exact style tokens (S, F, CSS vars) already defined in App.jsx -
+ * Reuses the exact style tokens (S, F, CSS vars) already defined in App.jsx —
  * import { S, F } from "../App.jsx"-equivalent shared style module in your
  * integration, or copy the small subset below if this file is used standalone.
  */
@@ -128,6 +128,7 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty 
 
       {totalQuestions === 0 && (
         <div style={s.err}>
+          <span>⚠</span>
           <span>Enable at least one section before generating the exam.</span>
         </div>
       )}

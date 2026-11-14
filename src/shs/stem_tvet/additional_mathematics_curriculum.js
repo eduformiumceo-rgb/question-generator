@@ -1090,7 +1090,7 @@ export const ADDITIONAL_MATHEMATICS_CURRICULUM = {
                 {
                   code: "2.1.1.LI.2",
                   text: "Describe the set theory as a foundation for many subfields of mathematics, and create and investigate the notion of the power set.",
-                  exemplar: "Collaborative Learning, Talk for Learning. Activity: Learners describe set theory as a foundation for many subfields of mathematics and investigate the notion of the power set. In operations, for example, there are sets of warehouse operations, sales operations and administrative operations. In some cases, sets intersect - as sales operations can intersect the operations of other departments.",
+                  exemplar: "Collaborative Learning, Talk for Learning. Activity: Learners describe set theory as a foundation for many subfields of mathematics and investigate the notion of the power set. In operations, for example, there are sets of warehouse operations, sales operations and administrative operations. In some cases, sets intersect — as sales operations can intersect the operations of other departments.",
                   assessment: {
                     code: "2.1.1.AS.2",
                     levels: [
@@ -1131,7 +1131,7 @@ export const ADDITIONAL_MATHEMATICS_CURRICULUM = {
                 {
                   code: "2.1.1.LI.2",
                   text: "Use recursive and explicit formulae of sequences to model situations and translate between the two forms.",
-                  exemplar: "Collaborative Learning, Talk for Learning. Activity: Learners use recursive and explicit formulae of sequences to model situations. Example: A recursive rule for an AP is given - what is the iterative (explicit) rule for this sequence? Learners translate between recursive and explicit forms.",
+                  exemplar: "Collaborative Learning, Talk for Learning. Activity: Learners use recursive and explicit formulae of sequences to model situations. Example: A recursive rule for an AP is given — what is the iterative (explicit) rule for this sequence? Learners translate between recursive and explicit forms.",
                   assessment: {
                     code: "2.1.1.AS.2",
                     levels: [
@@ -1142,7 +1142,7 @@ export const ADDITIONAL_MATHEMATICS_CURRICULUM = {
                 {
                   code: "2.1.1.LI.3",
                   text: "Determine the arithmetic and geometric means of linear and exponential sequences and apply linear programming to model and solve real life problems.",
-                  exemplar: "Collaborative Learning, Talk for Learning. Activity: Recursive sequences - Learners determine the arithmetic and geometric means of sequences and apply this knowledge to model and solve real life problems.",
+                  exemplar: "Collaborative Learning, Talk for Learning. Activity: Recursive sequences — Learners determine the arithmetic and geometric means of sequences and apply this knowledge to model and solve real life problems.",
                   assessment: {
                     code: "2.1.1.AS.3",
                     levels: [

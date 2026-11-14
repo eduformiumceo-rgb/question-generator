@@ -17,7 +17,7 @@ describe("freeTierLimits", () => {
   it("stays byte-identical to the duplicated Cloudflare Functions copy", () => {
     // Can't import functions/_shared/freeTierLimits.js directly here (it's
     // outside src/, same cross-boundary reasoning as the file's own header
-    // comment) - so this test just diffs the two files textually, which
+    // comment) — so this test just diffs the two files textually, which
     // is enough to catch someone editing one copy and forgetting the other.
     const clientSrc = fs.readFileSync(new URL("../src/freeTierLimits.js", import.meta.url), "utf8");
     const serverSrc = fs.readFileSync(new URL("../functions/_shared/freeTierLimits.js", import.meta.url), "utf8");

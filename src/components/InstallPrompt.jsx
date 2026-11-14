@@ -1,9 +1,9 @@
 /**
- * InstallPrompt - "Install App" modal.
+ * InstallPrompt — "Install App" modal.
  * Same design and behaviour as the Lesson Planner's install modal
  * (gradient header with the app logo, shimmering Install button,
  * "Maybe later" / "Don't show again", iOS "Add to Home Screen" note,
- * bottom sheet on phones) - only the app name, tagline and logo differ.
+ * bottom sheet on phones) — only the app name, tagline and logo differ.
  */
 import React, { useState } from "react";
 import { F } from "../sharedStyles.jsx";
@@ -43,7 +43,7 @@ export default function InstallPrompt({ onClose, deferredPromptRef }) {
     <>
       <style>{`
         @keyframes pwa-in {
-          /* No scale() - causes expensive compositing on low-end Android */
+          /* No scale() — causes expensive compositing on low-end Android */
           from { opacity:0; transform:translateZ(0) translateY(16px); }
           to   { opacity:1; transform:translateZ(0) translateY(0); }
         }

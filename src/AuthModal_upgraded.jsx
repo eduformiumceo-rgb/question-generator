@@ -12,29 +12,29 @@
  *      import { OtpBoxes, PassField, AuthBrand, AuthModal } from "./AuthModal_upgraded.jsx";
  *
  * 3. The existing <AuthModal onClose={...} onAuth={...} /> call in your JSX
- *    is unchanged - same props, same behaviour.
+ *    is unchanged — same props, same behaviour.
  *
  * WHAT'S NEW (10/10 improvements)
  * ─────────────────────────────────
- * Full ARIA: role="dialog", aria-modal, aria-labelledby, aria-describedby,
+ * ✅ Full ARIA: role="dialog", aria-modal, aria-labelledby, aria-describedby,
  *    aria-live="polite" for errors, aria-invalid on bad fields,
  *    <label htmlFor> linked to every input id.
- * Focus trap - Tab/Shift+Tab cycle stays inside the modal; Escape closes.
- * Password strength meter (4 levels: weak → fair → good → strong).
- * Google SSO button (calls your existing signInWithGoogle from auth.js -
+ * ✅ Focus trap — Tab/Shift+Tab cycle stays inside the modal; Escape closes.
+ * ✅ Password strength meter (4 levels: weak → fair → good → strong).
+ * ✅ Google SSO button (calls your existing signInWithGoogle from auth.js —
  *    stub it out or wire it up; the UI is ready).
- * Inline field-level validation with icon + message per field (not just
+ * ✅ Inline field-level validation with icon + message per field (not just
  *    one global error bar).
- * Error messages use a warning icon + aria-live for screen readers.
- * Success messages use a check icon.
- * Shorter, mobile-friendly button labels.
- * Accessible OTP boxes: aria-label per box, inputMode="numeric", pattern.
- * "School Name" field shows "(optional)" label clearly.
- * Resend countdown has aria-live so screen readers hear it update.
- * All colours use your existing CSS variables - light/dark mode works
+ * ✅ Error messages use ⚠ icon + aria-live for screen readers.
+ * ✅ Success messages use ✓ icon.
+ * ✅ Shorter, mobile-friendly button labels.
+ * ✅ Accessible OTP boxes: aria-label per box, inputMode="numeric", pattern.
+ * ✅ "School Name" field shows "(optional)" label clearly.
+ * ✅ Resend countdown has aria-live so screen readers hear it update.
+ * ✅ All colours use your existing CSS variables — light/dark mode works
  *    automatically with zero extra CSS.
- * Smooth height transition between modes via CSS animation.
- * Correct autocomplete attributes on every field.
+ * ✅ Smooth height transition between modes via CSS animation.
+ * ✅ Correct autocomplete attributes on every field.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -407,7 +407,7 @@ function RoleSearchDropdown({ value, onChange, error }) {
     setQuery("");
   };
 
-  // No groups - just flat filtered list
+  // No groups — just flat filtered list
   const grouped = filtered;
 
   return (
@@ -607,7 +607,7 @@ export function AuthModal({ onClose, onAuth }) {
       // signInWithGoogle opens the Google OAuth popup via Supabase,
       // then redirects to /auth/callback where handleGoogleCallback() finishes.
       await signInWithGoogle();
-      // Page will redirect - no further action needed here.
+      // Page will redirect — no further action needed here.
     } catch (e) {
       setErr(e.message || "Google sign-in failed. Please try again.");
       setLoading(false);
@@ -679,7 +679,7 @@ export function AuthModal({ onClose, onAuth }) {
   const overlay = {
     position: "fixed", inset: 0, background: "rgba(8,15,35,.72)", zIndex: 9999,
     display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-    /* translateZ(0) + willChange pre-promote GPU layer BEFORE animation fires -
+    /* translateZ(0) + willChange pre-promote GPU layer BEFORE animation fires —
        prevents first-open compositing jank on low-end Android */
     transform: "translateZ(0)", WebkitTransform: "translateZ(0)",
     willChange: "opacity", animation: "edu-overlay-in .15s ease-out both",
@@ -831,7 +831,7 @@ export function AuthModal({ onClose, onAuth }) {
             </>
           )}
 
-          {/* ══════════════ SIGN UP - form step ══════════════ */}
+          {/* ══════════════ SIGN UP — form step ══════════════ */}
           {mode === "signup" && step === "form" && (
             <>
               <div style={{ marginBottom: 20 }} id={descId}>
@@ -971,7 +971,7 @@ export function AuthModal({ onClose, onAuth }) {
             </>
           )}
 
-          {/* ══════════════ FORGOT - email step ══════════════ */}
+          {/* ══════════════ FORGOT — email step ══════════════ */}
           {mode === "forgot" && step === "form" && (
             <>
               <button
@@ -1005,7 +1005,7 @@ export function AuthModal({ onClose, onAuth }) {
             </>
           )}
 
-          {/* ══════════════ FORGOT - new password step ══════════════ */}
+          {/* ══════════════ FORGOT — new password step ══════════════ */}
           {mode === "forgot" && step === "newpass" && (
             <>
               <div style={{ marginBottom: 20 }} id={descId}>

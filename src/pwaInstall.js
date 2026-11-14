@@ -14,7 +14,7 @@
  */
 import { useEffect, useRef, useState, useCallback } from "react";
 
-const KEY_DISMISSED = "q_pwa_install_dismissed"; // localStorage - "permanent"
+const KEY_DISMISSED = "q_pwa_install_dismissed"; // localStorage — "permanent"
 const KEY_IOS_DISMISSED = "q_pwa_ios_dismissed"; // sessionStorage
 
 export const isIOSDevice = () =>
@@ -86,7 +86,7 @@ export function usePwaInstall() {
     force((n) => n + 1);
   }, []);
 
-  // Menu "Install App" - clears the dismiss flags so the modal works again.
+  // Menu "Install App" — clears the dismiss flags so the modal works again.
   const reopen = useCallback(() => {
     safeDel(localStorage, KEY_DISMISSED);
     safeDel(sessionStorage, KEY_IOS_DISMISSED);

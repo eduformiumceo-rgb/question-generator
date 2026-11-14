@@ -3,21 +3,21 @@
  * ─────────────────────────────────────────────────────────────────
  * This is the real THEME_CSS constant from your Lesson Planner's
  * App.jsx (found at the string `const THEME_CSS = \`...\`;`), copied
- * here byte-for-byte - NOT a reverse-engineered approximation. An
+ * here byte-for-byte — NOT a reverse-engineered approximation. An
  * earlier version of this file was a guess built from colors already
  * hardcoded elsewhere in this app; this replaces that guess with the
  * actual source values.
  *
  * sharedStyles.jsx's header comment claims to copy "the F constant,
- * the S object, and THEME_CSS" - F and S were copied correctly; this
+ * the S object, and THEME_CSS" — F and S were copied correctly; this
  * file is what was missing to make that claim true. Without it, every
  * var(--card-bg), var(--text), var(--border), etc. used throughout
- * this app resolved to nothing - cards had no background/border and
+ * this app resolved to nothing — cards had no background/border and
  * text fell back to browser defaults.
  *
  * NOT matched deliberately: the real App.jsx also never loads "DM
  * Sans" as an actual web font anywhere (no @font-face, no Google
- * Fonts <link> for it) - it silently falls back to system-ui in every
+ * Fonts <link> for it) — it silently falls back to system-ui in every
  * browser. Adding a DM Sans import here would make this app render
  * with a DIFFERENT font than the real Lesson Planner does in
  * practice, breaking pixel-parity rather than fixing it. So this file

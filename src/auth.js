@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * EDUFORMIUM - src/auth.js
+ * EDUFORMIUM — src/auth.js
  *
  * How auth works:
  *   SIGN UP  → user fills form (name, school, email, password)
@@ -21,7 +21,7 @@ const AUTH_API = "/api/auth"; // Cloudflare Worker route base
 
 /* ══════════════════════════════
    SUPABASE CLIENT (for Google OAuth only)
-   Uses the same npm package/bundling approach as src/db.js - no runtime
+   Uses the same npm package/bundling approach as src/db.js — no runtime
    CDN import needed. A runtime `import("https://esm.sh/...")` was blocked
    by this site's Content-Security-Policy (script-src doesn't allow
    esm.sh), which is what caused "Failed to fetch dynamically imported
@@ -47,7 +47,7 @@ const supabase = SUPABASE_CONFIGURED
         // (#access_token=...), which is how the older "implicit" flow
         // returns tokens. Without this override, PKCE's "?code=" is never
         // read, handleGoogleCallback() throws "Could not retrieve Google
-        // session", and the user is bounced back to signed-out - even
+        // session", and the user is bounced back to signed-out — even
         // though Google/Supabase already created their account on
         // Supabase's side. Forcing "implicit" here makes the redirect
         // actually carry #access_token/#refresh_token, matching what the
@@ -149,7 +149,7 @@ export async function signIn(email, password) {
    Supabase session token for our own app JWT via /api/auth/google.
 ══════════════════════════════ */
 export async function signInWithGoogle() {
-  // We use the PUBLIC anon key here - this is intentional and safe.
+  // We use the PUBLIC anon key here — this is intentional and safe.
   // The anon key only starts the OAuth handshake; our server validates
   // the resulting session with the service key before issuing our JWT.
   if (!SUPABASE_CONFIGURED) {
@@ -181,7 +181,7 @@ export async function signInWithGoogle() {
 
   if (error) throw new Error(error.message || "Google sign-in failed.");
 
-  // signInWithOAuth redirects - so we handle the session on /auth/callback.
+  // signInWithOAuth redirects — so we handle the session on /auth/callback.
   // The callback page calls handleGoogleCallback() below.
   return data;
 }
@@ -225,13 +225,13 @@ export async function handleGoogleCallback() {
 }
 
 /* ══════════════════════════════
-   SAFETY NET - completes a stranded Google login from ANY page.
+   SAFETY NET — completes a stranded Google login from ANY page.
    Why this exists: Google/Supabase may redirect back to "/" instead of
-   "/auth/callback" (misconfigured Redirect URL, cached link, etc.) - in
+   "/auth/callback" (misconfigured Redirect URL, cached link, etc.) — in
    which case the OAuth tokens land in the URL hash on the homepage
    instead. This checks for that on every page load (see App.jsx) so
    login still completes wherever the user happens to land. Unlike
-   handleGoogleCallback(), this never throws - it runs quietly.
+   handleGoogleCallback(), this never throws — it runs quietly.
 ══════════════════════════════ */
 export async function completePendingGoogleSignIn() {
   if (!SUPABASE_CONFIGURED) return null;
@@ -242,7 +242,7 @@ export async function completePendingGoogleSignIn() {
 
   const hashSession = extractHashSession();
   if (!hashSession || hashSession.error || !hashSession.access_token) {
-    console.log("[completePendingGoogleSignIn] no OAuth tokens in URL - nothing to recover.");
+    console.log("[completePendingGoogleSignIn] no OAuth tokens in URL — nothing to recover.");
     return null;
   }
   console.log("[completePendingGoogleSignIn] found OAuth tokens in URL, exchanging...");
@@ -292,7 +292,7 @@ export async function sendOTP(email, purpose = "verify") {
 ══════════════════════════════ */
 export async function signUp(email, password, name, school, otpCode, role = "") {
   // `role` here is a self-selected profile field ("Teacher" / "Head Teacher" /
-  // etc., see AuthModal_upgraded.jsx) - NOT an authorization role. It is
+  // etc., see AuthModal_upgraded.jsx) — NOT an authorization role. It is
   // display/personalization data only. Admin privilege is never derived
   // from this field: the admin panel uses an entirely separate `admins`
   // table with its own credentials, so a user cannot self-select their way
@@ -370,7 +370,7 @@ export async function refreshUser() {
 /* ══════════════════════════════
    COINS
 ══════════════════════════════ */
-// The userId parameter is intentionally ignored - the server resolves the user
+// The userId parameter is intentionally ignored — the server resolves the user
 // from the Bearer JWT to prevent one user querying another's balance.
 // Kept as an optional param so existing call-sites (getCoinBalance(user?.id))
 // don't need to be updated all at once.
@@ -384,7 +384,7 @@ export async function getCoinBalance(_userId) {
   } catch { return 0; }
 }
 
-// REMOVED - coin deduction is handled server-side in generate-premium.js.
+// ⚠️  REMOVED — coin deduction is handled server-side in generate-premium.js.
 // Throws in all environments so accidental callers are caught immediately.
 export async function deductCoins(_userId, _amount = 1) {
   throw new Error("[auth.js] deductCoins() is removed. Coin deduction is handled server-side in generate-premium.js.");

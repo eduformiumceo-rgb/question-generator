@@ -1,5 +1,5 @@
 /**
- * PaymentSuccess - route this at "/payment-success" (matches the
+ * PaymentSuccess — route this at "/payment-success" (matches the
  * exam-payment endpoint's Paystack callback_url). Verifies the transaction
  * server-side (never trusts the redirect alone) and reports the result.
  */
@@ -46,11 +46,13 @@ export default function PaymentSuccess({ onDone, S, F }) {
         {status === "verifying" && <p style={{ color: "var(--text)", fontFamily: F }}>Confirming your payment…</p>}
         {status === "success" && (
           <>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
             <p style={{ color: "var(--text)", fontFamily: F, fontWeight: 600 }}>{message}</p>
           </>
         )}
         {status === "error" && (
           <>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>
             <p style={{ color: "var(--err-text)", fontFamily: F }}>{message}</p>
           </>
         )}

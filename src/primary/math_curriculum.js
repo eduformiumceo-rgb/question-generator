@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
  * OFFICIAL GHANA NaCCA / GES MATHEMATICS CURRICULUM DATABASE
- * Source: Ministry of Education, Ghana - Standards-Based Curriculum
+ * Source: Ministry of Education, Ghana — Standards-Based Curriculum
  *         Mathematics for Primary Schools (Basic 1–6), September 2019
  *         © NaCCA, Ministry of Education 2019
  *
@@ -16,7 +16,7 @@
 export const MATH_CURRICULUM = {
 
   /* ═══════════════════════════════════════════════════════════
-     MATHEMATICS - BASIC 1
+     MATHEMATICS — BASIC 1
   ═══════════════════════════════════════════════════════════ */
   "Basic 1": [
     {
@@ -76,7 +76,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Number Operations - Addition and Subtraction",
+          name: "Sub-Strand 2: Number Operations — Addition and Subtraction",
           contentStandards: [
             {
               code: "B1.1.2.1",
@@ -164,7 +164,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Measurement - Length",
+          name: "Sub-Strand 2: Measurement — Length",
           contentStandards: [
             {
               code: "B1.3.2.1",
@@ -184,7 +184,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 3: Measurement - Time",
+          name: "Sub-Strand 3: Measurement — Time",
           contentStandards: [
             {
               code: "B1.3.3.1",
@@ -233,7 +233,7 @@ export const MATH_CURRICULUM = {
   ],
 
   /* ═══════════════════════════════════════════════════════════
-     MATHEMATICS - BASIC 2
+     MATHEMATICS — BASIC 2
   ═══════════════════════════════════════════════════════════ */
   "Basic 2": [
     {
@@ -269,7 +269,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Number Operations - Addition and Subtraction",
+          name: "Sub-Strand 2: Number Operations — Addition and Subtraction",
           contentStandards: [
             {
               code: "B2.1.2.1",
@@ -298,7 +298,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 3: Number Operations - Multiplication and Division",
+          name: "Sub-Strand 3: Number Operations — Multiplication and Division",
           contentStandards: [
             {
               code: "B2.1.3.1",
@@ -357,7 +357,7 @@ export const MATH_CURRICULUM = {
                 {
                   code: "B2.3.1.1.1",
                   text: "Identify and name cubes, cuboids, spheres, cylinders and cones from everyday objects",
-                  exemplar: "Bring real objects: boxes, balls, tins, cones. Learners sort and name them. Discuss properties: faces, edges, corners. Match 3D shapes to 2D drawings. Play 'feely bag' - learners touch an object in a bag and name the shape without looking. Learners draw and label 3D objects they see at home.",
+                  exemplar: "Bring real objects: boxes, balls, tins, cones. Learners sort and name them. Discuss properties: faces, edges, corners. Match 3D shapes to 2D drawings. Play 'feely bag' — learners touch an object in a bag and name the shape without looking. Learners draw and label 3D objects they see at home.",
                   resources: null,
                   keyWords: "cube, cuboid, sphere, cylinder, cone, face, edge, corner (vertex)",
                   coreCompetencies: "Critical Thinking and Problem Solving, Communication and Collaboration, Creativity and Innovation",
@@ -368,7 +368,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Measurement - Length",
+          name: "Sub-Strand 2: Measurement — Length",
           contentStandards: [
             {
               code: "B2.3.2.1",
@@ -388,7 +388,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 3: Measurement - Mass",
+          name: "Sub-Strand 3: Measurement — Mass",
           contentStandards: [
             {
               code: "B2.3.3.1",
@@ -437,7 +437,7 @@ export const MATH_CURRICULUM = {
   ],
 
   /* ═══════════════════════════════════════════════════════════
-     MATHEMATICS - BASIC 3
+     MATHEMATICS — BASIC 3
   ═══════════════════════════════════════════════════════════ */
   "Basic 3": [
     {
@@ -464,7 +464,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Number Operations - Addition and Subtraction",
+          name: "Sub-Strand 2: Number Operations — Addition and Subtraction",
           contentStandards: [
             {
               code: "B3.1.2.1",
@@ -493,7 +493,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 3: Number Operations - Multiplication and Division",
+          name: "Sub-Strand 3: Number Operations — Multiplication and Division",
           contentStandards: [
             {
               code: "B3.1.3.1",
@@ -592,7 +592,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Measurement - Perimeter",
+          name: "Sub-Strand 2: Measurement — Perimeter",
           contentStandards: [
             {
               code: "B3.3.2.1",
@@ -612,7 +612,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 3: Measurement - Capacity",
+          name: "Sub-Strand 3: Measurement — Capacity",
           contentStandards: [
             {
               code: "B3.3.3.1",
@@ -661,7 +661,7 @@ export const MATH_CURRICULUM = {
   ],
 
   /* ═══════════════════════════════════════════════════════════
-     MATHEMATICS - BASIC 4
+     MATHEMATICS — BASIC 4
   ═══════════════════════════════════════════════════════════ */
   "Basic 4": [
     {
@@ -688,7 +688,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Number Operations - Multiplication and Division",
+          name: "Sub-Strand 2: Number Operations — Multiplication and Division",
           contentStandards: [
             {
               code: "B4.1.2.1",
@@ -807,7 +807,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 3: Measurement - Time",
+          name: "Sub-Strand 3: Measurement — Time",
           contentStandards: [
             {
               code: "B4.3.3.1",
@@ -856,7 +856,7 @@ export const MATH_CURRICULUM = {
   ],
 
   /* ═══════════════════════════════════════════════════════════
-     MATHEMATICS - BASIC 5
+     MATHEMATICS — BASIC 5
   ═══════════════════════════════════════════════════════════ */
   "Basic 5": [
     {
@@ -1011,7 +1011,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Measurement - Area and Perimeter",
+          name: "Sub-Strand 2: Measurement — Area and Perimeter",
           contentStandards: [
             {
               code: "B5.3.2.1",
@@ -1069,7 +1069,7 @@ export const MATH_CURRICULUM = {
   ],
 
   /* ═══════════════════════════════════════════════════════════
-     MATHEMATICS - BASIC 6
+     MATHEMATICS — BASIC 6
   ═══════════════════════════════════════════════════════════ */
   "Basic 6": [
     {
@@ -1096,7 +1096,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Number Operations - Integers",
+          name: "Sub-Strand 2: Number Operations — Integers",
           contentStandards: [
             {
               code: "B6.1.2.1",
@@ -1204,7 +1204,7 @@ export const MATH_CURRICULUM = {
           ]
         },
         {
-          name: "Sub-Strand 2: Measurement - Volume",
+          name: "Sub-Strand 2: Measurement — Volume",
           contentStandards: [
             {
               code: "B6.3.2.1",

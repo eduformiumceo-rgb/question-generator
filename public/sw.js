@@ -12,7 +12,7 @@ const OFFLINE_PAGE  = "/index.html";
 // IMPORTANT: cache.addAll() fails ENTIRELY (rejecting the whole install
 // event) if even one URL in the list 404s. Vite outputs content-hashed
 // filenames (e.g. /assets/main-<hash>.js), so literal paths like
-// "/assets/index.js" never exist and always 404 - which was silently
+// "/assets/index.js" never exist and always 404 — which was silently
 // breaking install() on every single deploy. Because install() never
 // succeeded, this new service worker (and every fix shipped since) never
 // activated; the browser kept running whatever old SW last installed
@@ -69,7 +69,7 @@ self.addEventListener("fetch", (e) => {
   if (bypass) return; // let browser handle natively
 
   // 1b. The web-app manifest drives the browser's install dialog and the
-  // installed app's icon + name - never serve it from a stale cache.
+  // installed app's icon + name — never serve it from a stale cache.
   if (url.pathname === "/manifest.json") {
     e.respondWith(
       fetch(request, { cache: "no-store" })
@@ -85,7 +85,7 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // 2. HTML navigation - network first, fall back to cached shell
+  // 2. HTML navigation — network first, fall back to cached shell
   if (request.mode === "navigate") {
     e.respondWith(
       fetch(request)
@@ -96,14 +96,14 @@ self.addEventListener("fetch", (e) => {
           return res;
         })
         .catch(() =>
-          // Offline: serve cached shell - React router handles the rest
+          // Offline: serve cached shell — React router handles the rest
           caches.match(OFFLINE_PAGE)
         )
     );
     return;
   }
 
-  // 3. JS / CSS / images / fonts - cache first, update in background
+  // 3. JS / CSS / images / fonts — cache first, update in background
   if (
     url.pathname.match(/\.(js|css|png|jpg|jpeg|webp|svg|ico|woff2?|ttf)$/)
   ) {
@@ -123,7 +123,7 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // 4. Everything else - network first, cache fallback
+  // 4. Everything else — network first, cache fallback
   e.respondWith(
     fetch(request)
       .then((res) => {

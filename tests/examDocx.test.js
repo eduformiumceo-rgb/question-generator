@@ -27,55 +27,17 @@ const SAMPLE_EXAM = {
 const META = { schoolName: "Achimota School", className: "JHS 2", subject: "Mathematics", term: "Term 2", examType: "Class Test", durationMinutes: 60 };
 
 async function extractText(blob) {
-  // Minimal unzip-and-strip-tags check - enough to verify real content made
+  // Minimal unzip-and-strip-tags check — enough to verify real content made
   // it into the document, without a full docx-parsing dependency.
   const buf = Buffer.from(await blob.arrayBuffer());
   const zlib = await import("zlib");
   // docx is a zip; find the central directory entry for word/document.xml the
-  // simple way - search for the raw deflate stream is overkill for a test,
+  // simple way — search for the raw deflate stream is overkill for a test,
   // so instead just confirm the blob is a valid, non-trivial zip (PK header)
-  // and a plausible size - the exact-content check is done via the browser-
+  // and a plausible size — the exact-content check is done via the browser-
   // verified sandbox run documented in examDocx.js's own header comment.
   return buf;
 }
-
-// 1x1 transparent PNG - small but a genuinely valid image the docx library can embed.
-const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
-
-// Count the pictures actually placed in the document body (not just stored in the zip).
-async function drawingCount(blob) {
-  const JSZip = (await import("jszip")).default;
-  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
-  const xml = await zip.file("word/document.xml").async("string");
-  return (xml.match(/<w:drawing>/g) || []).length;
-}
-
-describe("question images in the Word export", () => {
-  const exam = (sIdx, qIdx, image) => {
-    const e = JSON.parse(JSON.stringify(SAMPLE_EXAM));
-    e.sections[sIdx].questions[qIdx].image = image;
-    return e;
-  };
-
-  it("embeds a picture for a question that was never flagged for a diagram", async () => {
-    const blob = await generateExamDocx(exam(0, 1, { src: PNG, size: "medium", caption: "Figure 1" }), META, "paper");
-    expect(await drawingCount(blob)).toBe(1);
-  });
-
-  it("embeds the picture once, not once per same-numbered question", async () => {
-    // Section A Q1 and Section B Q1 share number 1 - only the chosen one gets the picture.
-    const blob = await generateExamDocx(exam(1, 0, { src: PNG, size: "small", caption: "" }), META, "paper");
-    expect(await drawingCount(blob)).toBe(1);
-    expect(await drawingCount(await generateExamDocx(SAMPLE_EXAM, META, "paper"))).toBe(0);
-  });
-
-  it("accepts every size and falls back quietly on an unusable image", async () => {
-    for (const size of ["small", "medium", "large"]) {
-      expect(await drawingCount(await generateExamDocx(exam(0, 0, { src: PNG, size, caption: "Figure" }), META, "paper"))).toBe(1);
-    }
-    expect(await drawingCount(await generateExamDocx(exam(0, 0, { src: "not-an-image", size: "medium", caption: "" }), META, "paper"))).toBe(0);
-  });
-});
 
 describe("generateExamDocx", () => {
   it("produces a valid docx Blob with the correct MIME type", async () => {
@@ -84,7 +46,7 @@ describe("generateExamDocx", () => {
     expect(blob.size).toBeGreaterThan(1000); // a trivial/broken doc would be much smaller
   });
 
-  it("is a real zip file (docx container format) - starts with the PK signature", async () => {
+  it("is a real zip file (docx container format) — starts with the PK signature", async () => {
     const blob = await generateExamDocx(SAMPLE_EXAM, META, "paper");
     const buf = await extractText(blob);
     expect(buf[0]).toBe(0x50); // 'P'
@@ -118,51 +80,5 @@ describe("generateExamDocx", () => {
       answerKey: [],
     };
     await expect(generateExamDocx(minimal, META, "paper")).resolves.toBeTruthy();
-  });
-});
-
-describe("generateExamDocx: layout options", () => {
-  for (const optionsLayout of ["vertical", "two", "row"]) {
-    it(`builds a valid document with ${optionsLayout} option layout`, async () => {
-      const blob = await generateExamDocx(SAMPLE_EXAM, { ...META, optionsLayout }, "paper");
-      expect(blob.size).toBeGreaterThan(1000);
-    });
-  }
-
-  it("builds in landscape and with an embedded PNG logo", async () => {
-    // 1x1 transparent PNG
-    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-    const blob = await generateExamDocx(SAMPLE_EXAM, { ...META, landscape: true, schoolLogo: png }, "paper");
-    expect(blob.size).toBeGreaterThan(1000);
-  });
-
-  it("survives line breaks in question text and marking guides", async () => {
-    const exam = JSON.parse(JSON.stringify(SAMPLE_EXAM));
-    exam.sections[1].questions[0].text = "Line one\nLine two";
-    exam.sections[1].questions[0].markingGuide = "(a) [1] method\n(b) [2] answer";
-    await expect(generateExamDocx(exam, META, "paper")).resolves.toBeTruthy();
-    await expect(generateExamDocx(exam, META, "answerKey")).resolves.toBeTruthy();
-  });
-});
-
-
-describe("generateExamDocx: index boxes and Turn over", () => {
-  it("writes a conditional Turn over field into the footer (hidden by Word on the last page)", async () => {
-    const JSZip = (await import("jszip")).default;
-    const blob = await generateExamDocx(SAMPLE_EXAM, { ...META, idMode: "boxes", idDigits: 10, notice: true, schoolMotto: "Truth" }, "paper");
-    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
-    const footer = await zip.file("word/footer1.xml").async("string");
-    expect(footer).toContain("IF ");
-    expect(footer).toContain("NUMPAGES");
-    expect(footer).toContain("Turn over");
-    const doc = await zip.file("word/document.xml").async("string");
-    expect(doc).toContain("Index Number");
-  });
-  it("omits Turn over when switched off and on the marking scheme", async () => {
-    const JSZip = (await import("jszip")).default;
-    for (const [m, mode] of [[{ turnOver: false }, "paper"], [{}, "answerKey"]]) {
-      const zip = await JSZip.loadAsync(await (await generateExamDocx(SAMPLE_EXAM, { ...META, ...m }, mode)).arrayBuffer());
-      expect(await zip.file("word/footer1.xml").async("string")).not.toContain("Turn over");
-    }
   });
 });

@@ -3,7 +3,7 @@
  * ─────────────────────────────────────────────────────────────────
  * Exact copy of the style tokens already defined inline in App.jsx
  * (the `F` font constant, the `S` style object, and `THEME_CSS`).
- * They are copied here - not reinvented - so the Questions Generator
+ * They are copied here — not reinvented — so the Questions Generator
  * renders pixel-identically to the Lesson Planner without needing to
  * touch App.jsx.
  *

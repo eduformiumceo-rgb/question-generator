@@ -1,7 +1,7 @@
 /**
- * TopUpModal - buy more exam credits via Paystack.
+ * TopUpModal — buy more exam credits via Paystack.
  * Redirect-based flow (not inline popup) for the widest device/browser
- * compatibility, including low-end Android - matches the pattern the
+ * compatibility, including low-end Android — matches the pattern the
  * exam-payment endpoint's `callback_url` already expects.
  */
 import React, { useEffect, useState } from "react";
@@ -9,9 +9,9 @@ import { getToken } from "../auth.js";
 
 const ACCOUNT_API = "/api/exam-payment";
 // Same rule as the Lesson Planner's own code comment: "Never show coins raw
-// to the user - always pass through toDisplayCredits() first, same pattern
+// to the user — always pass through toDisplayCredits() first, same pattern
 // as the timetable app." Applies to package sizes here too, not just the
-// running balance - a "4 Credits" raw package should show as "120 Credits"
+// running balance — a "4 Credits" raw package should show as "120 Credits"
 // so the number matches what the balance actually jumps by after purchase.
 const DISPLAY_CREDIT_MULTIPLIER = 30;
 const toDisplayCredits = (n) => (typeof n !== "number" || isNaN(n)) ? 0 : n * DISPLAY_CREDIT_MULTIPLIER;
@@ -21,7 +21,7 @@ export default function TopUpModal({ onClose, onPurchased, S, F }) {
   const [loadingPkg, setLoadingPkg] = useState(null);
   const [error, setError] = useState("");
 
-  // Escape closes the modal - standard dialog keyboard behaviour.
+  // Escape closes the modal — standard dialog keyboard behaviour.
   useEffect(() => {
     const onKeyDown = (e) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKeyDown);
@@ -76,7 +76,7 @@ export default function TopUpModal({ onClose, onPurchased, S, F }) {
           <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--text-muted)", lineHeight: 1 }}>×</button>
         </div>
 
-        {error && <div style={S.err}><span>{error}</span></div>}
+        {error && <div style={S.err}><span>⚠</span><span>{error}</span></div>}
 
         {!packages.length && !error && (
           <div style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F, padding: "20px 0", textAlign: "center" }}>Loading packages…</div>
