@@ -19,6 +19,7 @@ import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
 import { diagramGuideText, renderDiagramTemplate } from "./diagramRegistry.js";
 import { classWithProgramme, termCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
+import { beceStyleBlock, beceSchemeBlock, answerableMarks, getBeceProfile, minutesLabel, BECE_OBJECTIVE_INSTRUCTIONS } from "./beceStyle.js";
 
 /* ────────────────────────────────────────────────────────────────
    1. SYSTEM PROMPT
@@ -158,6 +159,10 @@ export function buildSectionPrompt(cfg, section, isFirstSection) {
     cognitiveLevels = ["Recall", "Application"], allowDiagrams = true,
     includeMarkingScheme = true,
   } = cfg;
+  const isBece = cfg.examStyle === "bece";
+  const startNum = isBece ? (Number(section.numberFrom) || 1) : 1;
+  const endNum = startNum + (Number(section.questionCount) || 1) - 1;
+  const beceNote = isBece ? "\n  Level: JHS pupils sitting the Basic Education Certificate Examination (BECE) in Ghana. Pitch every question at BECE standard and follow the BECE-STYLE PAPER rules below." : "";
 
   // SHS papers name the programme and are pitched at WASSCE standard. The programme is
   // free text from the browser, so it is reduced to letters/spaces before it reaches the prompt.
@@ -180,7 +185,7 @@ export function buildSectionPrompt(cfg, section, isFirstSection) {
     ? `"markingGuide": string           // REQUIRED, professional marking scheme - see MARKING SCHEME RULES below for the exact format by question type`
     : `"markingGuide": ""               // marking scheme was NOT requested for this paper - always return an empty string here, do not write any marking guidance`;
 
-  const markingRulesBlock = includeMarkingScheme ? `
+  const markingRulesBlock = (includeMarkingScheme && isBece) ? beceSchemeBlock(cfg, section) : includeMarkingScheme ? `
 MARKING SCHEME RULES (GES/WAEC convention - "markingGuide" must follow the format for this section's type)
 ${section.type === "objective" ? `- Objective: one line stating the correct option's letter, then a brief clause on why it's correct AND a brief clause on why each of the other three options is a plausible-but-wrong distractor (e.g. "B is correct - mitochondria release energy via respiration. A is wrong because...; C confuses...; D confuses...").` : ""}${section.type === "structured" ? `- Structured: a POINT-BY-POINT breakdown that allocates every mark to a specific idea, step, or fact - never a vague paragraph. Format each part as a short list, e.g. "(a) [1] correct formula stated; [1] correct substitution; [1] correct final answer with unit." State any acceptable alternative methods/answers, and note common wrong answers that must NOT receive credit even if superficially similar.` : ""}${section.type === "essay" ? `- Essay: a BANDED RUBRIC with 3 levels matching WAEC/GES essay-marking convention, each with a mark range and a one-sentence descriptor of what that band's response looks like, e.g. "Level 1 (1-${Math.ceil(section.marksPerQuestion*0.3)}): superficial response, little relevant content. Level 2 (${Math.ceil(section.marksPerQuestion*0.3)+1}-${Math.ceil(section.marksPerQuestion*0.7)}): relevant content with some development, limited critical engagement. Level 3 (${Math.ceil(section.marksPerQuestion*0.7)+1}-${section.marksPerQuestion}): well-developed, critically engaged, addresses the question fully." Then list 3-5 specific content points a strong answer would include.` : ""}
 - Every marking guide must be specific enough that a different teacher, reading only the marking guide, could mark a pupil's script consistently - vague guidance like "award marks for a good answer" is not acceptable.` : `
@@ -199,7 +204,7 @@ Return ONLY valid JSON - no markdown fences, no commentary - matching exactly th
     "instructions": string,
     "questions": [
       {
-        "number": 1,                   // number ONLY within this section, starting at 1
+        "number": ${startNum},                   // number ONLY within this section, starting at ${startNum}
         "text": string,
         "options": string[]|null,      // exactly 4 for objective type, else null
         "correctOption": "A"|"B"|"C"|"D"|null,
@@ -220,7 +225,7 @@ Return ONLY valid JSON - no markdown fences, no commentary - matching exactly th
 }
 
 ${allowDiagrams ? diagramGuideText() + "\n\n" : ""}SECTION PARAMETERS
-  School: ${schoolName || "(not specified)"} | Class: ${className || "(not specified)"} | Subject: ${subject || "(not specified)"} | Term: ${term || "(not specified)"}${shsNote}
+  School: ${schoolName || "(not specified)"} | Class: ${className || "(not specified)"} | Subject: ${subject || "(not specified)"} | Term: ${term || "(not specified)"}${shsNote}${beceNote}
   Exam type: ${examType} | Duration: ${durationMinutes} minutes | Curriculum: GES (Ghana Education Service / NaCCA)
   Topics: ${topicLine}
   ${pastedSyllabus ? `Pasted syllabus/reference text (authoritative scope):\n"""\n${pastedSyllabus}\n"""` : ""}
@@ -231,7 +236,7 @@ THIS SECTION MUST HAVE EXACTLY ${section.questionCount} question(s), ${section.m
 
 STRICT RULES
 1. Formal exam register, no chatty tone, no emoji.
-2. Number questions 1..${section.questionCount} within this section only.
+2. Number questions ${startNum}..${endNum} within this section only.
 3. Use "a","b","c" for parts and "i","ii","iii" for sub-parts.
 4. Every question must map to the supplied topics/syllabus - never invent off-syllabus content.
 5. No repeated questions within this section.
@@ -239,6 +244,7 @@ STRICT RULES
 7. Marks per question (and parts, if used) must sum to the requested total.
 8. Output nothing but the JSON object.
 9. Never use em dashes (the long dash character) anywhere in the paper. Use commas, full stops, colons or brackets instead.
+${beceStyleBlock(cfg, section)}
 ${markingRulesBlock}`;
 }
 
@@ -278,8 +284,9 @@ export function createExamVariant(examData, seed) {
 
   const newAnswerKey = [];
   const newSections = (examData.sections || []).map(section => {
-    const shuffledQuestions = shuffle(section.questions || []).map((q, idx) => {
-      const newNumber = idx + 1;
+    const keepOrder = examData.style === "bece" && section.type !== "objective";
+    const shuffledQuestions = (keepOrder ? (section.questions || []) : shuffle(section.questions || [])).map((q, idx) => {
+      const newNumber = keepOrder ? q.number : idx + 1;
       let newQ = { ...q, number: newNumber };
 
       if (Array.isArray(q.options) && q.options.length && q.correctOption) {
@@ -508,6 +515,7 @@ const PAGINATE_SCRIPT = `
         chain.push(blocks[i + chain.length]);
       }
       i += chain.length;
+      if (chain[0].getAttribute("data-break") === "1" && page().length > 0) newPage();
       var sum = 0; chain.forEach(function (b) { sum += b._h; });
       var topSum = sum - chain[0]._pt, atTop = page().length === 0;
       if (atTop ? topSum <= cap + EPS : used + sum <= cap + EPS) { chain.forEach(place); continue; }
@@ -579,16 +587,32 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
 
   const nl = (t) => esc(t).replace(/\n/g, "<br/>");
 
+  // BECE papers: a line like [FIGURE 1(a): ...] becomes a figure placeholder box; marks print as [n marks].
+  const rich = (t) => {
+    if (!bece) return nl(t);
+    const out = [];
+    String(t ?? "").split("\n").forEach(line => {
+      if (/^\s*\[FIGURE[^\]]*\]\s*$/i.test(line)) out.push(`<div class="diagram-box"><div class="diagram-placeholder">${esc(line.trim())}</div></div>`);
+      else out.push(esc(line) + "<br/>");
+    });
+    return out.join("").replace(/<br\/>$/, "");
+  };
+  let curShow = true, curObj = false, curAns = false;     // set per section while it renders (BECE)
+  const markText = (n) => bece ? (curShow && !curObj ? `[${n} mark${Number(n) === 1 ? "" : "s"}]` : "") : `[${n}]`;
+  const ansLines = (n) => (bece && curAns && !curObj) ? `<div class="ans-lines">${"<i></i>".repeat(Math.max(2, Math.min(9, n)))}</div>` : "";
+
   const sections = examData.sections || [];
+  const bece = examData.style === "bece";
+  const profile = bece ? getBeceProfile(subject) : null;
   const sumMarks = (qs) => (qs || []).reduce((s, q) => s + (Number(q.marks) || 0), 0);
   const computedTotal = sections.reduce((s, sec) => s + sumMarks(sec.questions), 0);
-  const totalMarks = computedTotal || Number(examData.totalMarks) || 0;
+  const totalMarks = (bece ? sections.reduce((a, sc) => a + answerableMarks(sc), 0) : computedTotal) || computedTotal || Number(examData.totalMarks) || 0;
 
   // A "block" is the smallest unit the paginator will never split. keep=true
   // glues a block to the one after it (a heading to its first question, a
   // question stem to its first part) so a page never ends on an orphan.
   const blk = (html, cls = "", keep = false) =>
-    `<div class="blk${cls ? " " + cls : ""}"${keep ? ' data-keep="1"' : ""}>${html}</div>`;
+    `<div class="blk${cls ? " " + cls : ""}"${keep ? ' data-keep="1"' : ""}${/\bbrk\b/.test(cls) ? ' data-break="1"' : ""}>${html}</div>`;
 
   // Priority: teacher-supplied picture (any question) > AI-generated SVG
   // (geometric/graph figures the model can draw precisely) > text placeholder
@@ -622,15 +646,16 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const renderSubparts = (subparts) => {
     if (!subparts || !subparts.length) return "";
     return `<div class="subparts">${subparts.map(sp =>
-      `<div class="row sub-row"><span class="lbl">(${esc(sp.label)})</span><span class="txt">${nl(sp.text)}</span><span class="marks">[${sp.marks}]</span></div>`
+      `<div class="row sub-row"><span class="lbl">(${esc(sp.label)})</span><span class="txt">${rich(sp.text)}</span><span class="marks">${bece ? "" : `[${sp.marks}]`}</span></div>${ansLines(2)}`
     ).join("")}</div>`;
   };
 
   const renderPart = (p, figure = "") => `
       <div class="row has-parts part-wrap"><span></span>
         <div class="q-body"><div class="part">
-          <div class="row part-row"><span class="lbl">(${esc(p.label)})</span><span class="txt">${nl(p.text)}</span><span class="marks">[${p.marks}]</span></div>
+          <div class="row part-row"><span class="lbl">(${esc(p.label)})</span><span class="txt">${rich(p.text)}</span><span class="marks">${markText(p.marks)}</span></div>
           ${renderSubparts(p.subparts)}
+          ${(p.subparts && p.subparts.length) ? "" : ansLines(Math.round((Number(p.marks) || 1) * 1.5))}
           ${figure}
         </div></div>
       </div>`;
@@ -640,15 +665,15 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     const parts = Array.isArray(q.parts) ? q.parts : [];
     const hasParts = parts.length > 0;
     const stem = `
-    <div class="question" data-qnum="${q.number}">
+    <div class="question${bece && hasParts && !String(q.text || "").trim() && !hasImage(q) && !(q.diagram && q.diagram.needed) ? " q-empty" : ""}" data-qnum="${q.number}">
       <div class="row q-row${hasParts ? " has-parts" : ""}">
         <span class="lbl q-num">${q.number}.</span>
         <div class="q-body">
-          <div class="q-text">${nl(q.text)}</div>
+          <div class="q-text">${rich(q.text)}</div>
           ${renderDiagram(q)}
           ${renderOptions(q)}
         </div>
-        ${hasParts ? "" : `<span class="marks">[${q.marks}]</span>`}
+        ${hasParts ? "" : `<span class="marks">${markText(q.marks)}</span>`}
       </div>
     </div>`;
     if (!hasParts) return [blk(stem, "q", keepNext)];
@@ -658,7 +683,51 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     ];
   };
 
-  const renderSectionBlocks = (s) => {
+  const SAMPLE_OPTIONS = ["Green", "Red", "Orange", "Purple"];
+  const renderBeceSectionBlocks = (s, idx) => {
+    curShow = s.showPartMarks !== false; curObj = s.type === "objective"; curAns = !!profile.answerInPaper;
+    const qs = s.questions || [];
+    const prev = sections[idx - 1], next = sections[idx + 1];
+    const out = [];
+    if (!prev || prev.paper !== s.paper) {
+      const pNo = s.paper === 1 ? 1 : 2;
+      const pf = pNo === 1 ? profile.paper1 : profile.paper2;
+      const pMarks = sections.filter(x => x.paper === s.paper).reduce((a, x) => a + answerableMarks(x), 0);
+      const intro = pNo === 1 ? BECE_OBJECTIVE_INSTRUCTIONS : (profile.paper2.intro || []);
+      const sample = pNo === 1 ? `
+        <div class="p1-example">
+          <div>Which of the following is a primary colour?</div>
+          ${SAMPLE_OPTIONS.map((o, i) => `<div class="p1-opt"><span>${OPT_LETTERS[i]}.</span> ${o}</div>`).join("")}
+          <div>The correct answer is <b>Red</b> which is lettered <b>B</b> and therefore answer space <b>B</b> would be shaded.</div>
+          <div class="p1-bubbles"><span>A</span><span class="on">B</span><span>C</span><span>D</span></div>
+        </div>
+        <p class="p1-now">Now answer the following questions.</p>` : "";
+      out.push(blk(`
+        <div class="paper-banner">
+          <div class="pb-top"><span></span><div class="pb-title">PAPER ${pNo}<div class="pb-sub">${esc(pf.name)}</div><div class="pb-marks">[${pMarks} marks]</div></div><span class="pb-time">${esc(minutesLabel(pf.minutes))}</span></div>
+          <div class="pb-intro">${intro.map(t => `<p>${esc(t)}</p>`).join("")}</div>
+          ${sample}
+        </div>`, `pbanner${pNo === 1 ? " brk" : ""}`, true));
+    }
+    if (s.heading || (s.rubric && s.type !== "objective")) {
+      const secMarks = answerableMarks(s);
+      out.push(blk(`
+        <div class="bece-sec">
+          ${s.heading ? `<div class="bs-head">${esc(s.heading)}</div>` : ""}
+          ${(s.sub || s.theme) ? `<div class="bs-sub">${esc(s.sub || s.theme)}</div>` : ""}
+          ${(s.heading && secMarks && s.type !== "objective") ? `<div class="bs-marks">[${secMarks} marks]</div>` : ""}
+          ${s.rubric ? `<div class="bs-rubric">${esc(s.rubric)}</div>` : ""}
+        </div>`, "sec", qs.length > 0));
+    }
+    qs.forEach(q => out.push(...renderQuestionBlocks(q, false)));
+    if (!next || next.paper !== s.paper) {
+      out.push(blk(`<div class="end-mark"><span>${s.paper === 1 ? "END OF PAPER" : "END OF ESSAY TEST"}</span></div>`, "endmark"));
+    }
+    return out;
+  };
+
+  const renderSectionBlocks = (s, idx) => {
+    if (bece) return renderBeceSectionBlocks(s, idx);
     const secMarks = sumMarks(s.questions);
     const qs = s.questions || [];
     const header = blk(`
@@ -765,34 +834,58 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     }
     const out = [keyHeader];
     if (key.length) {
-      out.push(blk(`<div class="answer-page"><h2>SECTION A: ANSWER KEY</h2>
+      out.push(blk(`<div class="answer-page"><h2>${bece ? "PAPER 1: OBJECTIVE TEST, ANSWER KEY" : "SECTION A: ANSWER KEY"}</h2>
         <div class="key-grid">
           ${key.map(k => `<div class="key-cell"><b>${k.number}.</b> ${esc(k.answer)}</div>`).join("")}
         </div></div>`, "ak"));
     }
-    out.push(blk(`<div class="answer-page"><h2>MARKING SCHEME - SECTIONS B &amp; C</h2></div>`, "ak", true));
+    const guideTable = (text) => {
+      const rows = String(text || "").split("\n").map(l => l.trim()).filter(Boolean).map(l => {
+        const p = l.split("::").map(x => x.trim());
+        return p.length >= 3 ? { ref: p[0], sol: p[1], mk: p.slice(2).join(" :: ") } : { ref: "", sol: l, mk: "" };
+      });
+      const head = `<thead><tr><th>QUESTION NO.</th><th>${profile.scheme === "table" ? "SOLUTION" : "EXPECTED ANSWERS"}</th><th>MARKS</th></tr></thead>`;
+      const chunks = [];
+      for (let i = 0; i < rows.length; i += 12) chunks.push(rows.slice(i, i + 12));
+      return chunks.map(ch => `<table class="bece-scheme">${head}<tbody>${ch.map(r => {
+        const up = r.ref.toUpperCase();
+        const kind = up === "TOTAL" ? "tot" : up === "NOTE" ? "note" : "";
+        return `<tr class="${kind}"><td>${kind ? "" : nl(r.ref)}</td><td>${up === "TOTAL" ? "<b>TOTAL</b>" : nl(r.sol)}</td><td>${nl(r.mk)}</td></tr>`;
+      }).join("")}</tbody></table>`);
+    };
+    if (bece) {
+      const rubricLines = (profile.paper2.intro || []).slice(0, 3);
+      out.push(blk(`<div class="answer-page"><h2>PAPER 2: ESSAY, MARKING SCHEME</h2><p class="bece-rubric"><b>RUBRICS:</b> ${esc(rubricLines.join(" "))}</p></div>`, "ak", true));
+    } else {
+      out.push(blk(`<div class="answer-page"><h2>MARKING SCHEME - SECTIONS B &amp; C</h2></div>`, "ak", true));
+    }
     sections.filter(s => s.type !== "objective").forEach(s => {
       const qs = s.questions || [];
-      out.push(blk(`<div class="answer-page"><h3>${esc(s.label)}</h3></div>`, "ak", qs.length > 0));
-      qs.forEach(q => out.push(blk(`
-        <div class="answer-page"><div class="mark-block">
-          <div class="mark-qnum"><span>Question ${q.number}</span><span class="marks">[${q.marks}]</span></div>
-          <div class="mark-guide">${nl(q.markingGuide)}</div>
-        </div></div>`, "ak")));
+      const pick = bece && s.answerAny ? `<p class="bece-rubric">Candidates answer any ${s.answerAny} of the ${qs.length || s.questionCount} questions in this section. Each question carries ${(qs[0] && qs[0].marks) || s.marksPerQuestion} marks.</p>` : "";
+      out.push(blk(`<div class="answer-page"><h3>${esc(bece && s.heading ? `${s.heading}${s.sub || s.theme ? `: ${s.sub || s.theme}` : ""}` : s.label)}</h3>${pick}</div>`, "ak", qs.length > 0));
+      qs.forEach(q => {
+        const head = `<div class="answer-page"><div class="mark-block"><div class="mark-qnum"><span>Question ${q.number}</span><span class="marks">${bece ? `[${q.marks} marks]` : `[${q.marks}]`}</span></div>`;
+        if (bece && /::/.test(q.markingGuide || "")) {
+          const tabs = guideTable(q.markingGuide);
+          tabs.forEach((t, ti) => out.push(blk(`${ti === 0 ? head : `<div class="answer-page"><div class="mark-block">`}${t}</div></div>`, "ak")));
+        } else {
+          out.push(blk(`${head}<div class="mark-guide">${nl(q.markingGuide)}</div></div></div>`, "ak"));
+        }
+      });
     });
     return out;
   };
 
   const blocks = mode === "answerKey"
     ? renderAnswerKeyBlocks()
-    : [headerBlock, ...sections.flatMap(renderSectionBlocks), blk(`<div class="end-mark"><span>END OF PAPER</span></div>`, "endmark")];
+    : [headerBlock, ...sections.flatMap(renderSectionBlocks), ...(bece ? [] : [blk(`<div class="end-mark"><span>END OF PAPER</span></div>`, "endmark")])];
 
   const footerLeft = [schoolName, subject, examVersion ? `Version ${examVersion}` : ""].filter(Boolean).join("  |  ");
   const showTurnOver = mode === "paper" && turnOver !== false;
   const PW = landscape ? 297 : 210, PH = landscape ? 210 : 297;
 
   return `<!DOCTYPE html>
-<html data-turn-over="${showTurnOver ? "1" : "0"}">
+<html data-turn-over="${showTurnOver ? "1" : "0"}"${bece ? ' data-bece="1"' : ""}>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -917,6 +1010,39 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   .mark-qnum{ font-weight:700; display:flex; justify-content:space-between; border-bottom:1px solid #BBB; padding-bottom:2px; }
   .mark-guide{ margin-top:5px; line-height:1.55; color:#111; }
   .at-top .answer-page h2, .at-top .answer-page h3{ margin-top:0; }
+  /* ── BECE style ── */
+  html[data-bece="1"] .row{ grid-template-columns:2.3em 1fr 5.6em; }
+  html[data-bece="1"] .row.has-parts{ grid-template-columns:2.3em 1fr; }
+  html[data-bece="1"] .marks{ font-weight:400; }
+  html[data-bece="1"] .question.q-empty{ margin-bottom:-1.7em; }
+  html[data-bece="1"] .question.q-empty .q-text{ display:none; }
+  .paper-banner{ margin:14px 0 8px; font-size:11pt; }
+  .pb-top{ display:grid; grid-template-columns:1fr auto 1fr; align-items:start; }
+  .pb-title{ text-align:center; font-variant:small-caps; font-weight:700; font-size:12.5pt; line-height:1.35; }
+  .pb-sub{ font-weight:400; font-size:11pt; letter-spacing:.04em; }
+  .pb-marks{ font-weight:400; font-size:11pt; font-variant:normal; }
+  .pb-time{ text-align:right; font-size:11pt; }
+  .pb-intro{ margin-top:8px; font-style:italic; line-height:1.5; }
+  .pb-intro p{ margin:3px 0; }
+  .p1-example{ margin:10px 0 6px 12px; line-height:1.5; font-size:10.5pt; }
+  .p1-opt{ margin-left:16px; } .p1-opt span{ display:inline-block; width:1.6em; }
+  .p1-bubbles{ display:flex; gap:14px; justify-content:center; margin:6px 0; }
+  .p1-bubbles span{ border:1px solid #111; width:34px; text-align:center; font-size:9.5pt; }
+  .p1-bubbles span.on{ background:#111; color:#fff; }
+  .p1-now{ font-style:italic; margin:8px 0 0; }
+  .bece-sec{ text-align:center; margin:14px 0 6px; }
+  .bs-head{ font-variant:small-caps; font-weight:700; font-size:12pt; letter-spacing:.03em; }
+  .bs-sub{ font-variant:small-caps; font-size:11pt; }
+  .bs-marks{ font-size:11pt; }
+  .bs-rubric{ font-style:italic; font-size:11pt; margin-top:2px; }
+  .ans-lines{ margin:4px 0 6px 2.3em; } .ans-lines i{ display:block; border-bottom:1px dotted #444; height:1.55em; }
+  .bece-rubric{ font-size:11pt; line-height:1.5; margin:6px 0; }
+  table.bece-scheme{ width:100%; border-collapse:collapse; font-size:10.5pt; margin-top:6px; }
+  table.bece-scheme th{ border:1px solid #111; background:#EDEEF1; padding:5px 8px; font-size:10pt; letter-spacing:.04em; }
+  table.bece-scheme th:first-child{ width:16%; } table.bece-scheme th:last-child{ width:26%; }
+  table.bece-scheme td{ border:1px solid #111; padding:5px 8px; vertical-align:top; line-height:1.45; }
+  table.bece-scheme tr.tot td{ background:#F7F7F8; text-align:right; } table.bece-scheme tr.tot td:nth-child(2){ text-align:left; }
+  table.bece-scheme tr.note td{ font-style:italic; }
 
   /* Fallback if the paginator ever fails: plain flowing page, browser-numbered. */
   .nopaginate #sheets{ display:none; }

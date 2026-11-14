@@ -30,7 +30,10 @@ export const DEFAULT_SECTIONS = [
 
 const MAX_QUESTIONS_PER_SECTION = 60; // edge-case guard against runaway generation
 
-export default function ExamStructureBuilder({ sections, setSections, S, F, sty }) {
+// What a candidate can actually earn / answer: an "answer any N" section counts N questions.
+const answered = (sec) => sec.answerAny ? Math.min(Number(sec.answerAny) || 0, Number(sec.questionCount) || 0) : (Number(sec.questionCount) || 0);
+
+export default function ExamStructureBuilder({ sections, setSections, S, F, sty, note }) {
   const s = S || sty; // tolerate either prop name
 
   const update = (id, patch) => {
@@ -39,11 +42,11 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty 
 
   const totalMarks = sections
     .filter(sec => sec.enabled)
-    .reduce((sum, sec) => sum + (Number(sec.questionCount) || 0) * (Number(sec.marksPerQuestion) || 0), 0);
+    .reduce((sum, sec) => sum + answered(sec) * (Number(sec.marksPerQuestion) || 0), 0);
 
   const totalQuestions = sections
     .filter(sec => sec.enabled)
-    .reduce((sum, sec) => sum + (Number(sec.questionCount) || 0), 0);
+    .reduce((sum, sec) => sum + answered(sec), 0);
 
   return (
     <div style={s.card}>
@@ -60,6 +63,12 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty 
         </div>
       </div>
 
+      {note && (
+        <div style={{ fontSize: 12.5, lineHeight: 1.55, color: "var(--text-secondary)", fontFamily: F, background: "var(--accent-soft)", border: "1px solid var(--tag-border)", borderRadius: 12, padding: "10px 14px", marginBottom: 12 }}>
+          {note}
+        </div>
+      )}
+
       {sections.map(sec => (
         <div key={sec.id} style={{
           border: "1.5px solid var(--border)", borderRadius: 14, padding: "16px 18px",
@@ -72,7 +81,7 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty 
                 onChange={e => update(sec.id, { enabled: e.target.checked })}
                 style={{ width: 17, height: 17, accentColor: "#0D9488", cursor: "pointer" }}
               />
-              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", fontFamily: F }}>{sec.label}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", fontFamily: F }}>{sec.paper ? `Paper ${sec.paper}: ` : ""}{sec.label}</span>
               {sec.type === "essay" && (
                 <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-muted)", background: "var(--border)", borderRadius: 99, padding: "2px 8px" }}>
                   Premium AI only
@@ -81,7 +90,7 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty 
             </label>
             {sec.enabled && (
               <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, fontWeight: 600 }}>
-                = {(Number(sec.questionCount) || 0) * (Number(sec.marksPerQuestion) || 0)} marks
+                {sec.answerAny ? `answer any ${answered(sec)} of ${Number(sec.questionCount) || 0}, ` : ""}= {answered(sec) * (Number(sec.marksPerQuestion) || 0)} marks
               </span>
             )}
           </div>
@@ -93,7 +102,7 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty 
                 <NumberField
                   min={1} max={MAX_QUESTIONS_PER_SECTION}
                   value={sec.questionCount}
-                  onChange={v => update(sec.id, { questionCount: v })}
+                  onChange={v => update(sec.id, { questionCount: v, ...(sec.answerAny ? { answerAny: Math.max(1, Math.min(Number(sec.answerAny) || 1, Number(v) || 1)) } : {}) })}
                   aria-label={`${sec.label}: number of questions`}
                   style={s.inp}
                 />

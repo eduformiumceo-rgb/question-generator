@@ -50,6 +50,7 @@
 
 import { screenExamInput } from "../_shared/moderation.js";
 import { buildSectionPrompt } from "../_shared/examPrompt.js";
+import { getBeceProfile, beceSections } from "../_shared/beceStyle.js";
 import { callFreeAI } from "../_shared/freeGeneration.js";
 import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "../_shared/freeTierLimits.js";
 
@@ -458,6 +459,25 @@ async function handleGenerateExamStreaming(body, env, user) {
     }
   }
 
+  // ── BECE style: the section rules (hints, rubrics, numbering, answer-any) are rebuilt HERE from the
+  // server's own profile for the subject. Only the question counts and marks come from the browser,
+  // so no browser-supplied text can reach the prompt through these fields. ──
+  const isBece = body.examStyle === "bece";
+  if (isBece && tier === "free") return jsonResp({ error: "BECE style papers need Premium AI." }, 400);
+  let runSections = sections;
+  let beceProfile = null;
+  if (isBece) {
+    beceProfile = getBeceProfile(subject);
+    const canon = Object.fromEntries(beceSections(beceProfile).map(c => [c.id, c]));
+    runSections = sections.map(sc => {
+      const c = canon[sc.id];
+      const questionCount = Math.max(1, Math.min(60, Number(sc.questionCount) || 1));
+      const marksPerQuestion = Math.max(1, Math.min(60, Number(sc.marksPerQuestion) || 1));
+      if (!c) return { id: String(sc.id).slice(0, 8), label: String(sc.label || "").slice(0, 60), type: sc.type === "objective" ? "objective" : sc.type === "essay" ? "essay" : "structured", questionCount, marksPerQuestion, paper: 2 };
+      return { ...c, questionCount, marksPerQuestion, ...(c.answerAny ? { answerAny: Math.max(1, Math.min(Number(sc.answerAny) || c.answerAny, questionCount)) } : {}) };
+    });
+  }
+
   // ── Input screening (before any credit reservation or AI call) ──
   const screen = screenExamInput({ schoolName, pastedSyllabus, topics });
   if (!screen.ok) return jsonResp({ error: screen.error }, 400);
@@ -477,7 +497,7 @@ async function handleGenerateExamStreaming(body, env, user) {
   // supports fractional amounts, same as the Lesson Planner's 0.5-coin
   // lessons (COINS_PER_LESSON in generate-premium.js).
   const perSectionRate = includeMarkingScheme ? CREDIT_COST_PER_SECTION_WITH_MARKING : CREDIT_COST_PER_SECTION_QUESTIONS_ONLY;
-  const creditCost = tier === "free" ? 0 : Math.round(sections.length * perSectionRate * 100) / 100;
+  const creditCost = tier === "free" ? 0 : Math.round(runSections.length * perSectionRate * 100) / 100;
   let balanceAfterDeduction = null;
   if (tier !== "free") {
     try {
@@ -488,7 +508,7 @@ async function handleGenerateExamStreaming(body, env, user) {
   }
 
   const aiStrategy = tier === "free" ? callFreeAI : callAI;
-  const bodyWithTierDefaults = { ...body, includeMarkingScheme };
+  const bodyWithTierDefaults = { ...body, includeMarkingScheme, ...(isBece ? { examStyle: "bece", beceScheme: beceProfile.scheme, beceLanguage: beceProfile.language || "" } : { examStyle: "school" }) };
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -496,9 +516,9 @@ async function handleGenerateExamStreaming(body, env, user) {
       const send = (obj) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
       const examData = { title: "", instructions: [], sections: [], answerKey: [] };
       try {
-        for (let i = 0; i < sections.length; i++) {
-          const section = sections[i];
-          send({ type: "progress", sectionId: section.id, sectionLabel: section.label, index: i + 1, total: sections.length });
+        for (let i = 0; i < runSections.length; i++) {
+          const section = runSections[i];
+          send({ type: "progress", sectionId: section.id, sectionLabel: section.label, index: i + 1, total: runSections.length });
 
           const ping = setInterval(() => { try { send({ type: "ping" }); } catch {} }, 8000);
           let result;

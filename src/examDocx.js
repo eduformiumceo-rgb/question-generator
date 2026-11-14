@@ -26,6 +26,10 @@ import {
   XmlComponent, HeightRule,
 } from "docx";
 import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
+import { answerableMarks, getBeceProfile, minutesLabel, BECE_OBJECTIVE_INSTRUCTIONS } from "./beceStyle.js";
+
+// Set per document by generateExamDocx (generation is synchronous up to Packer).
+let BX = { bece: false, profile: null, show: true, obj: false, ans: false };
 import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
 import { classWithProgramme, termCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
@@ -311,6 +315,36 @@ function marksTab(W) {
   return { type: TabStopType.RIGHT, position: W };
 }
 
+function beceBand(section, idx, sections, W) {
+  const out = [];
+  const prev = sections[idx - 1], next = sections[idx + 1];
+  const centre = (runs, extra = {}) => new Paragraph({ alignment: AlignmentType.CENTER, keepNext: true, spacing: { before: 60, after: 40 }, children: runs, ...extra });
+  if (!prev || prev.paper !== section.paper) {
+    const pNo = section.paper === 1 ? 1 : 2;
+    const pf = pNo === 1 ? BX.profile.paper1 : BX.profile.paper2;
+    const pMarks = sections.filter(x => x.paper === section.paper).reduce((a, x) => a + answerableMarks(x), 0);
+    const intro = pNo === 1 ? BECE_OBJECTIVE_INSTRUCTIONS : (BX.profile.paper2.intro || []);
+    out.push(new Paragraph({ keepNext: true, pageBreakBefore: pNo === 1, spacing: { before: 280, after: 20 }, tabStops: [marksTab(W)],
+      alignment: AlignmentType.CENTER, children: [new TextRun({ text: `PAPER ${pNo}`, bold: true, size: 26, smallCaps: true }), new TextRun({ text: `\t${minutesLabel(pf.minutes)}`, size: 21 })] }));
+    out.push(centre([new TextRun({ text: pf.name, size: 22, smallCaps: true })]));
+    out.push(centre([new TextRun({ text: `[${pMarks} marks]`, size: 22 })]));
+    intro.forEach(t => out.push(new Paragraph({ keepNext: true, spacing: { before: 40, after: 40 }, children: [new TextRun({ text: t, italics: true, size: 21 })] })));
+    if (pNo === 1) {
+      out.push(new Paragraph({ spacing: { before: 80, after: 20 }, indent: { left: 360 }, children: [new TextRun({ text: "Which of the following is a primary colour?  A. Green   B. Red   C. Orange   D. Purple", size: 21 })] }));
+      out.push(new Paragraph({ spacing: { after: 20 }, indent: { left: 360 }, children: [new TextRun({ text: "The correct answer is Red which is lettered B and therefore answer space B would be shaded.", size: 21 })] }));
+      out.push(new Paragraph({ keepNext: true, spacing: { after: 120 }, children: [new TextRun({ text: "Now answer the following questions.", italics: true, size: 21 })] }));
+    }
+  }
+  if (section.heading || (section.rubric && section.type !== "objective")) {
+    const m = answerableMarks(section);
+    if (section.heading) out.push(centre([new TextRun({ text: section.heading, bold: true, size: 24, smallCaps: true })], { spacing: { before: 240, after: 20 } }));
+    if (section.sub || section.theme) out.push(centre([new TextRun({ text: section.sub || section.theme, size: 22, smallCaps: true })]));
+    if (section.heading && m && section.type !== "objective") out.push(centre([new TextRun({ text: `[${m} marks]`, size: 22 })]));
+    if (section.rubric) out.push(centre([new TextRun({ text: section.rubric, italics: true, size: 22 })], { spacing: { after: 120 } }));
+  }
+  return out;
+}
+
 function sectionBand(section, W) {
   const secMarks = sumMarks(section.questions);
   return new Paragraph({
@@ -399,6 +433,10 @@ function diagramParagraphs(q, meta, sectionId, labels) {
   })];
 }
 
+function ansLinesDocx(n) {
+  return Array.from({ length: Math.max(2, Math.min(9, n)) }, () => new Paragraph({ spacing: { before: 120 }, indent: { left: NUM_INDENT + 567 }, border: { bottom: { style: BorderStyle.DOTTED, size: 4, color: "555555" } }, children: [] }));
+}
+
 function partParagraphs(parts, W, figure = null) {
   const out = [];
   (parts || []).forEach((p, pi) => {
@@ -406,15 +444,17 @@ function partParagraphs(parts, W, figure = null) {
       keepLines: true, spacing: { before: 80 },
       tabStops: [marksTab(W)],
       indent: { left: NUM_INDENT + 567, hanging: 567 },
-      children: [new TextRun({ text: `(${p.label})`, bold: true }), new TextRun({ text: "\t" }), ...textRuns(p.text), new TextRun({ text: `\t[${p.marks}]`, bold: true })],
+      children: [new TextRun({ text: `(${p.label})`, bold: true }), new TextRun({ text: "\t" }), ...textRuns(p.text), ...(BX.bece ? (BX.show && !BX.obj ? [new TextRun({ text: `\t[${p.marks} marks]` })] : []) : [new TextRun({ text: `\t[${p.marks}]`, bold: true })])],
     }));
+    if (BX.bece && BX.ans && !(p.subparts || []).length) ansLinesDocx(Math.round((Number(p.marks) || 1) * 1.5)).forEach(a => out.push(a));
     (p.subparts || []).forEach(sp => {
       out.push(new Paragraph({
         keepLines: true, spacing: { before: 40 },
         tabStops: [marksTab(W)],
         indent: { left: NUM_INDENT + 567 * 2, hanging: 567 },
-        children: [new TextRun({ text: `(${sp.label})`, bold: true }), new TextRun({ text: "\t" }), ...textRuns(sp.text), new TextRun({ text: `\t[${sp.marks}]`, bold: true })],
+        children: [new TextRun({ text: `(${sp.label})`, bold: true }), new TextRun({ text: "\t" }), ...textRuns(sp.text), ...(BX.bece ? [] : [new TextRun({ text: `\t[${sp.marks}]`, bold: true })])],
       }));
+      if (BX.bece && BX.ans) ansLinesDocx(2).forEach(a => out.push(a));
     });
     if (figure && figure.after === pi) out.push(...figure.paras);
   });
@@ -433,7 +473,7 @@ function questionParagraphs(q, section, meta, layout, W, labels) {
       new TextRun({ text: `${q.number}.`, bold: true }),
       new TextRun({ text: "\t" }),
       ...textRuns(q.text),
-      ...(hasParts ? [] : [new TextRun({ text: `\t[${q.marks}]`, bold: true })]),
+      ...(hasParts ? [] : BX.bece ? (BX.show && !BX.obj ? [new TextRun({ text: `\t[${q.marks} marks]` })] : []) : [new TextRun({ text: `\t[${q.marks}]`, bold: true })]),
     ],
   })];
   out.push(...diagramParagraphs(q, meta, section.id, labels));
@@ -442,10 +482,15 @@ function questionParagraphs(q, section, meta, layout, W, labels) {
   return out;
 }
 
-function sectionParagraphs(section, meta, layout, W, labels) {
+function sectionParagraphs(section, meta, layout, W, labels, idx = 0, all = []) {
+  BX.show = section.showPartMarks !== false; BX.obj = section.type === "objective"; BX.ans = !!(BX.bece && BX.profile && BX.profile.answerInPaper);
+  const endMark = BX.bece && (!all[idx + 1] || all[idx + 1].paper !== section.paper)
+    ? [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 300 }, children: [new TextRun({ text: section.paper === 1 ? "END OF PAPER" : "END OF ESSAY TEST", bold: true, italics: true, characterSpacing: 40 })] })]
+    : [];
   return [
-    sectionBand(section, W),
+    ...(BX.bece ? beceBand(section, idx, all, W) : [sectionBand(section, W)]),
     ...(section.questions || []).flatMap(q => questionParagraphs(q, section, meta, layout, W, labels)),
+    ...endMark,
   ];
 }
 
@@ -481,7 +526,7 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
     return out;
   }
   if (key.length) {
-    out.push(band("SECTION A: ANSWER KEY"));
+    out.push(band(BX.bece ? "PAPER 1: OBJECTIVE TEST, ANSWER KEY" : "SECTION A: ANSWER KEY"));
     const perRow = 10;
     const cw = Math.floor(W / perRow);
     const widths = Array.from({ length: perRow }, (_, i) => (i === perRow - 1 ? W - cw * (perRow - 1) : cw));
@@ -500,7 +545,8 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
     }
     out.push(table(widths, rows, { borders: NO_BORDERS }));
   }
-  out.push(band("MARKING SCHEME: SECTIONS B & C"));
+  out.push(band(BX.bece ? "PAPER 2: ESSAY, MARKING SCHEME" : "MARKING SCHEME: SECTIONS B & C"));
+  if (BX.bece) out.push(new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: "RUBRICS: ", bold: true }), new TextRun((BX.profile.paper2.intro || []).slice(0, 3).join(" "))] }));
   (examData.sections || []).filter(s => s.type !== "objective").forEach(s => {
     out.push(new Paragraph({ keepNext: true, spacing: { before: 240, after: 60 }, children: [new TextRun({ text: s.label, bold: true, underline: {} })] }));
     (s.questions || []).forEach(q => {
@@ -508,11 +554,25 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
         keepNext: true, spacing: { before: 180, after: 40 },
         tabStops: [marksTab(W)],
         border: { bottom: line(4, "BBBBBB") },
-        children: [new TextRun({ text: `Question ${q.number}`, bold: true }), new TextRun({ text: `\t[${q.marks}]`, bold: true })],
+        children: [new TextRun({ text: `Question ${q.number}`, bold: true }), new TextRun({ text: BX.bece ? `\t[${q.marks} marks]` : `\t[${q.marks}]`, bold: true })],
       }));
-      String(q.markingGuide || "").split(/\r?\n/).filter(l => l.trim()).forEach(l => {
-        out.push(new Paragraph({ spacing: { after: 40 }, children: [new TextRun(l)] }));
-      });
+      const gl = String(q.markingGuide || "").split(/\r?\n/).filter(l => l.trim());
+      if (BX.bece && gl.some(l => l.includes("::"))) {
+        const widths = [Math.round(W * 0.16), Math.round(W * 0.58), 0]; widths[2] = W - widths[0] - widths[1];
+        const mk = (w, text, bold = false, fill) => cell(w, [new Paragraph({ children: [new TextRun({ text, bold })] })], { borders: BOX, margins: { top: 50, bottom: 50, left: 80, right: 80 }, ...(fill ? { shading: { type: ShadingType.CLEAR, fill, color: "auto" } } : {}) });
+        const rows = [new TableRow({ tableHeader: true, children: [mk(widths[0], "QUESTION NO.", true, BAND), mk(widths[1], BX.profile.scheme === "table" ? "SOLUTION" : "EXPECTED ANSWERS", true, BAND), mk(widths[2], "MARKS", true, BAND)] })];
+        gl.forEach(l => {
+          const p = l.split("::").map(x => x.trim());
+          const row = p.length >= 3 ? { ref: p[0], sol: p[1], mk: p.slice(2).join(" :: ") } : { ref: "", sol: l, mk: "" };
+          const up = row.ref.toUpperCase();
+          rows.push(new TableRow({ cantSplit: true, children: [mk(widths[0], up === "TOTAL" || up === "NOTE" ? "" : row.ref), mk(widths[1], up === "TOTAL" ? "TOTAL" : row.sol, up === "TOTAL"), mk(widths[2], row.mk)] }));
+        });
+        out.push(table(widths, rows));
+      } else {
+        gl.forEach(l => {
+          out.push(new Paragraph({ spacing: { after: 40 }, children: [new TextRun(l)] }));
+        });
+      }
     });
   });
   return out;
@@ -534,17 +594,19 @@ export async function generateExamDocx(examData, meta = {}, mode = "paper") {
   const W = (landscape ? PAGE_H : PAGE_W) - 2 * MARGIN; // usable text width in twips
   const sections = examData.sections || [];
   const computed = sections.reduce((s, sec) => s + sumMarks(sec.questions), 0);
-  const totalMarks = computed || Number(examData.totalMarks) || 0;
+  const bece = examData.style === "bece";
+  BX = { bece, profile: bece ? getBeceProfile(meta.subject) : null, show: true, obj: false, ans: false };
+  const totalMarks = (bece ? sections.reduce((a, sc) => a + answerableMarks(sc), 0) : computed) || computed || Number(examData.totalMarks) || 0;
 
   const children = mode === "answerKey"
     ? answerKeyParagraphs(examData, meta, totalMarks, W)
     : [
         ...headerBlock(examData, meta, totalMarks, W),
-        ...sections.flatMap(s => sectionParagraphs(s, meta, layout, W, figureLabels(examData))),
-        new Paragraph({
+        ...sections.flatMap((s, i) => sectionParagraphs(s, meta, layout, W, figureLabels(examData), i, sections)),
+        ...(bece ? [] : [new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 400 },
           children: [new TextRun({ text: "END OF PAPER", bold: true, characterSpacing: 60 })],
-        }),
+        })]),
       ];
 
   const footerLeft = [meta.schoolName, meta.subject, meta.examVersion ? `Version ${meta.examVersion}` : ""].filter(Boolean).join("  |  ");

@@ -24,6 +24,7 @@ import { diagramDrawing } from "./examFigures.js";
 import { isSHSClass, termOptionsFor, mapTermForLevel, examTypesFor, mapExamTypeForLevel } from "./shsCourses.js";
 import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
+import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, answerableMarks } from "./beceStyle.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
 // every visit. Loaded on demand inside handleDownloadWord() instead.
@@ -301,13 +302,48 @@ function QuestionsGeneratorInner() {
   };
   const customise = (setter) => (v) => { presetChosenByUser.current = true; setPaperPreset("custom"); setter(v); };
 
-  // Sensible default: a mock exam for a final-year class (JHS 3 / SHS 3) gets the
-  // public-exam look. Only until the teacher picks a style themselves.
+  // ── Exam style: School exam, or BECE (JHS) / WASSCE (SHS) style ─────────────
+  // Sits right under Exam Type. Choosing BECE style loads everything a real BECE
+  // paper has for the chosen subject (Paper 2 then Paper 1, sections, number of
+  // questions, "answer any N", marks, time, instructions, marking scheme format),
+  // so nothing else needs setting by hand. Every mock exam uses this style.
+  const publicAvailable = isBeceClass(className) || isSHS;
+  const isMock = examType === "Mock Exam";
+  const [examStyle, setExamStyle] = useState("school"); // "school" | "public"
+  const styleChosenByUser = useRef(false);
+  const beceActive = examStyle === "public" && isBeceClass(className);
+  const beceProfile = useMemo(() => (beceActive && subject ? getBeceProfile(subject) : null), [beceActive, subject]);
+  const chooseStyle = (v) => { styleChosenByUser.current = true; setExamStyle(v); };
   useEffect(() => {
-    if (presetChosenByUser.current) return;
-    applyPreset(examType === "Mock Exam" && isPublicExamClass(className) ? "public" : "school", false);
+    if (!publicAvailable) { setExamStyle("school"); return; }
+    if (isMock) setExamStyle("public");
+    else if (!styleChosenByUser.current) setExamStyle("school");
+  }, [isMock, publicAvailable]);
+  const prevStyle = useRef("school");
+  const beceApplied = useRef(false);
+  useEffect(() => {
+    if (examStyle === "public") applyPreset("public", false);
+    else if (prevStyle.current === "public") applyPreset("school", false);
+    prevStyle.current = examStyle;
+    if (beceActive && subject) {
+      const p = getBeceProfile(subject);
+      setSections(beceSections(p).map(sc => ({ ...sc })));
+      setDurationMinutes(beceTotalMinutes(p));
+      setIncludeMarkingScheme(true);
+      setLanguageStyle("Simple");
+      setCognitiveLevels(["Recall", "Application", "Critical Thinking"]);
+      setOptionsLayout("vertical");
+      setAllowDiagrams(true);
+      beceApplied.current = true;
+    } else if (beceApplied.current) {
+      setSections(DEFAULT_SECTIONS.map(sc => ({ ...sc })));
+      setDurationMinutes(60);
+      setLanguageStyle("Balanced");
+      setCognitiveLevels(["Recall", "Application"]);
+      beceApplied.current = false;
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examType, className]);
+  }, [examStyle, beceActive, subject]);
 
   useEffect(() => {
     try {
@@ -490,6 +526,7 @@ function QuestionsGeneratorInner() {
     if (invalid) return `Section ${invalid.id} needs a valid question count and marks per question.`;
     if (Number(durationMinutes) < 10 || Number(durationMinutes) > 300) return "Duration should be between 10 and 300 minutes.";
     if (tierArg === "free") {
+      if (beceActive) return "BECE style papers have several sections and a full marking scheme, so they need Premium AI.";
       if (activeSections.length > FREE_TIER_MAX_SECTIONS) return `Free AI is limited to ${FREE_TIER_MAX_SECTIONS} sections. Reduce your sections, or use Premium AI for a full exam.`;
       const disallowed = activeSections.find(s => !FREE_TIER_ALLOWED_TYPES.includes(s.type));
       if (disallowed) return "Free AI doesn't support essay sections. Remove the essay section, or use Premium AI.";
@@ -540,6 +577,7 @@ function QuestionsGeneratorInner() {
         topics: selectedTopics, pastedSyllabus,
         difficulty, languageStyle, cognitiveLevels,
         sections: activeSections, allowDiagrams, includeMarkingScheme,
+        examStyle: beceActive ? "bece" : "school",
       };
 
       const token = getToken ? getToken() : null;
@@ -562,6 +600,7 @@ function QuestionsGeneratorInner() {
       const { ok, errors } = validateExamData(result.examData, activeSections);
       if (!ok) throw new Error(`The generated paper didn't match the requested structure: ${errors.join(" ")}`);
 
+      if (beceActive && beceProfile) result.examData = decorateBeceExam(result.examData, activeSections, beceProfile, examType);
       setExamData(result.examData);
       setExamVersion("A");
       setExamHasMarkingScheme(result.includeMarkingScheme !== false);
@@ -841,6 +880,46 @@ function QuestionsGeneratorInner() {
           })}
         </div>
 
+        {publicAvailable && (
+          <div style={{ margin: "0 0 20px", paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+            <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Exam Style</h3>
+            <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
+              {examStyle === "public"
+                ? (beceActive
+                    ? (subject ? "Sections, number of questions, marks, time, instructions and the marking scheme are set automatically from real BECE papers." : "Choose a subject above and its BECE paper structure loads automatically.")
+                    : "Index-number boxes, a sealed-paper notice and a WASSCE-style layout are applied.")
+                : "Everyday class-test layout. Choose BECE style for the real exam format."}
+              {isMock ? " Mock exams always use this style." : ""}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {[{ id: "school", label: "School exam" }, { id: "public", label: isSHS ? "WASSCE style" : "BECE style" }].map(o => {
+                const active = examStyle === o.id;
+                const locked = isMock && o.id === "school";
+                return (
+                  <button key={o.id} type="button" aria-pressed={active} disabled={locked}
+                    title={locked ? "Mock exams always follow the BECE / WASSCE format" : ""}
+                    onClick={() => chooseStyle(o.id)} style={{
+                      padding: "9px 18px", borderRadius: 99, fontFamily: F, fontSize: 13, fontWeight: 700,
+                      cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.45 : 1,
+                      border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
+                      background: active ? "var(--accent-soft)" : "var(--card-bg)",
+                      color: active ? "var(--accent)" : "var(--text-secondary)",
+                    }}>{o.label}</button>
+                );
+              })}
+            </div>
+            {beceActive && beceProfile && subject && (
+              <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: 12, padding: "10px 14px", fontFamily: F, fontSize: 12.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>
+                <div><b>Paper 2 (Essay):</b> {beceProfile.paper2.marks} marks, {minutesLabel(beceProfile.paper2.minutes)}</div>
+                <div><b>Paper 1 (Objective):</b> {beceProfile.paper1.marks} questions, {minutesLabel(beceProfile.paper1.minutes)}</div>
+                {!beceProfile.verified && (
+                  <div style={{ marginTop: 6, color: "var(--text-muted)" }}>Please check against a real paper: {beceProfile.unverified.join("; ")}.</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <h3 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Basic Information</h3>
         <div style={{ marginBottom: 14, display: "flex", gap: 12, alignItems: "flex-end" }}>
           <div style={{ flex: 1 }}>
@@ -956,7 +1035,7 @@ function QuestionsGeneratorInner() {
            message when the Free button specifically is clicked, rather
            than the whole form silently reconfiguring itself. ── */}
       {className && subject && (
-      <ExamStructureBuilder sections={sections} setSections={setSections} S={S} F={F} />
+      <ExamStructureBuilder sections={sections} setSections={setSections} S={S} F={F} note={beceActive ? "Structure loaded automatically from the real BECE paper for this subject (Paper 2, then Paper 1). You can still adjust it if you need to." : undefined} />
       )}
 
       {/* ── Output mode + diagrams - consolidated into one compact card
@@ -1176,18 +1255,10 @@ function QuestionsGeneratorInner() {
           {/* ── Paper format: live preview below updates as these change ── */}
           <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", marginBottom: 14 }}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", fontFamily: F, marginRight: 4 }}>Paper style</span>
-              {Object.values(PAPER_PRESETS).map(p => {
-                const active = paperPreset === p.id;
-                return (
-                  <button key={p.id} type="button" onClick={() => applyPreset(p.id)} aria-pressed={active} style={{
-                    padding: "7px 14px", borderRadius: 99, fontFamily: F, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                    border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
-                    background: active ? "var(--accent-soft)" : "var(--card-bg)",
-                    color: active ? "var(--accent)" : "var(--text-secondary)",
-                  }}>{p.label}</button>
-                );
-              })}
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", fontFamily: F, marginRight: 4 }}>Paper format</span>
+              <span style={{ fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F }}>
+                {examStyle === "public" ? (isSHS ? "WASSCE style" : "BECE style") : "School exam"} (change it under Exam Type, near the top)
+              </span>
               {paperPreset === "custom" && <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F }}>Custom</span>}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 22px", marginTop: 12 }}>
