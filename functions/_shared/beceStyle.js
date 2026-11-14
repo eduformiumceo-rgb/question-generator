@@ -303,6 +303,22 @@ MARKING SCHEME RULES (BECE format: "markingGuide" is written as LINES, one per r
 }
 
 /**
+ * Heading printed under the school name. The school name is the letterhead, so the
+ * paper does NOT repeat "Basic Education Certificate Examination" here; it just says
+ * what kind of paper it is (e.g. "MOCK EXAMINATION").
+ */
+export function beceExamTitle(examType = "Mock Exam") {
+  const t = String(examType || "Examination").trim().replace(/\bexam\b/i, "Examination");
+  return t.toUpperCase();
+}
+
+/** Papers saved before this change carry the old BECE title; show the new heading for them too. */
+export function cleanBeceTitle(title, examType) {
+  const t = String(title || "");
+  return /BASIC EDUCATION CERTIFICATE EXAMINATION/i.test(t) ? beceExamTitle(examType) : t;
+}
+
+/**
  * Stamps BECE layout data onto a generated paper (sections keep the paper / rubric /
  * "answer any N" fields of the structure they were generated from) and sets the
  * title and booklet instructions. Pure, so saved papers re-render identically.
@@ -319,7 +335,7 @@ export function decorateBeceExam(examData, requestedSections, profile, examType 
   });
   return {
     ...examData, sections, style: "bece",
-    title: `${examType === "Mock Exam" ? "MOCK " : ""}BASIC EDUCATION CERTIFICATE EXAMINATION`,
+    title: beceExamTitle(examType),
     instructions: beceBooklet(profile),
   };
 }

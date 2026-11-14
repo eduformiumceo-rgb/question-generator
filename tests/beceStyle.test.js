@@ -52,9 +52,21 @@ describe("BECE rendering", () => {
     expect(html.indexOf("PAPER 2")).toBeLessThan(html.indexOf("PAPER 1"));
     expect(html).toContain("SECTION B"); expect(html).toContain("Answer three questions only from this section");
     expect(html).toContain("[20 marks]"); expect(html).toContain("END OF ESSAY TEST"); expect(html).toContain("END OF PAPER");
-    expect(html).toContain("MOCK BASIC EDUCATION CERTIFICATE EXAMINATION");
+    expect(html).toContain("MOCK EXAMINATION");
+    expect(html).not.toMatch(/BASIC EDUCATION CERTIFICATE EXAMINATION/i);
     expect(html).toContain("[FIGURE 1(a): a cycle]");
     expect(html).not.toMatch(/West African Examinations/i);
+  });
+  it("papers saved with the old BECE title print the plain heading too", () => {
+    const { examData } = mkExam("Science");
+    const html = renderExamHTML({ ...examData, title: "MOCK BASIC EDUCATION CERTIFICATE EXAMINATION" }, { subject: "Science", className: "JHS 3", examType: "Mock Exam" }, "paper");
+    expect(html).toContain("MOCK EXAMINATION"); expect(html).not.toMatch(/BASIC EDUCATION CERTIFICATE EXAMINATION/i);
+  });
+  it("BECE opens with a full-page cover and Paper 2 starts on a new page", () => {
+    const { examData } = mkExam("Science");
+    const html = renderExamHTML(examData, { subject: "Science", className: "JHS 3", examType: "Mock Exam" }, "paper");
+    expect(html).toContain('class="blk hdr cover"');
+    expect(html).toMatch(/class="blk pbanner brk"[^>]*data-break="1"/);
   });
   it("total marks count only the questions a candidate answers (100 + 40 for Science)", () => {
     const { examData } = mkExam("Science");

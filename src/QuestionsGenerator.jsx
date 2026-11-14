@@ -18,13 +18,15 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from "react"
 import { F, S, Spinner } from "./sharedStyles.jsx";
 import ExamStructureBuilder, { DEFAULT_SECTIONS } from "./components/ExamStructureBuilder.jsx";
 import TopicSelector from "./components/TopicSelector.jsx";
-import DiagramManager from "./components/DiagramManager.jsx";
+import FigurePanel from "./components/FigurePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { diagramDrawing } from "./examFigures.js";
+import { ownerDrawing, ownerImageOk, setSlotDiagram, aiDiagram } from "./partFigures.js";
+import { autoDrawFigures, requestFigureSVG } from "./aiFigures.js";
 import { isSHSClass, termOptionsFor, mapTermForLevel, examTypesFor, mapExamTypeForLevel } from "./shsCourses.js";
-import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
+import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, isSafeGeneratedSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
-import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, answerableMarks } from "./beceStyle.js";
+import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, answerableMarks, cleanBeceTitle } from "./beceStyle.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
 // every visit. Loaded on demand inside handleDownloadWord() instead.
@@ -107,6 +109,28 @@ function Toggle({ checked, onChange, label }) {
 }
 
 /** Progress panel: real per-section fill, an animated "working" segment, elapsed time. */
+/** Compact segmented control: one clearly-labelled choice group (professional toolbar look). */
+function Segmented({ label, value, onChange, options, ariaLabel }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-muted)", fontFamily: F }}>{label}</span>
+      <div role="group" aria-label={ariaLabel || label} style={{ display: "inline-flex", border: "1.5px solid var(--border-strong)", borderRadius: 9, overflow: "hidden", background: "var(--card-bg)" }}>
+        {options.map((o, i) => {
+          const on = value === o.id;
+          return (
+            <button key={o.id} type="button" title={o.title} aria-pressed={on} onClick={() => onChange(o.id)} style={{
+              height: 30, padding: "0 12px", minWidth: o.compact ? 34 : undefined, border: "none", cursor: "pointer",
+              borderLeft: i === 0 ? "none" : "1px solid var(--border-strong)",
+              background: on ? "var(--accent-soft)" : "transparent", color: on ? "var(--accent)" : "var(--text)",
+              fontFamily: F, fontSize: 12, fontWeight: on ? 700 : 500,
+            }}>{o.label}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function GenerationProgress({ progress, elapsed }) {
   const total = Math.max(progress?.total || 1, 1);
   const done = progress?.sectionsDone?.size || 0;
@@ -458,6 +482,7 @@ function QuestionsGeneratorInner() {
   }, []);
 
   const handleOpenSaved = async (id) => {
+    stopFigureDrawing();
     const row = await ExamHistory.get(id);
     if (!row?.exam_json) throw new Error("That exam has no saved content.");
     const m = row.meta_json || {};
@@ -563,6 +588,7 @@ function QuestionsGeneratorInner() {
     const validationError = validate(tierArg);
     if (validationError) { setError(validationError); return; }
 
+    stopFigureDrawing();
     setLoading(true);
     setLoadingTier(tierArg);
     setExamData(null);
@@ -607,6 +633,8 @@ function QuestionsGeneratorInner() {
       setShowAnswerKey(false);
       // Save to My Exams in the background - never blocks showing the paper.
       saveExamToHistory(result.examData, metaForSave(meta, { hasMarkingScheme: result.includeMarkingScheme !== false }));
+      // The AI then draws the paper's figures one by one (never blocks the paper either).
+      if (allowDiagrams) drawFiguresFor(result.examData);
       // Server already deducted from the shared coins wallet and returns the
       // fresh raw balance - trust that over a client-side guess so the
       // header never drifts from reality.
@@ -646,18 +674,52 @@ function QuestionsGeneratorInner() {
     return () => clearInterval(id);
   }, [loading]);
 
-  const questionsNeedingDiagrams = useMemo(() => {
-    if (!examData) return [];
-    const out = [];
-    (examData.sections || []).forEach((sec, sIdx) => (sec.questions || []).forEach((q, qIdx) => {
-      // Every flagged figure is listed so the teacher can SEE what will print:
-      // drawn ones get a preview to check, the rest ask for a picture.
-      // Any other question can still get a picture from Edit.
-      // sIdx/qIdx identify the question: numbers restart in every section.
-      if (q.diagram?.needed) out.push({ sIdx, qIdx, section: sec, q });
-    }));
-    return out;
-  }, [examData]);
+  // ── Figures: the AI draws each one after generation (see aiFigures.js) ──────────
+  // figDrawState holds only the figures being drawn right now ("drawing") or that
+  // failed ("failed"), keyed by slot key. Everything else is read from the exam itself.
+  const [figDrawState, setFigDrawState] = useState({});
+  const figAbortRef = useRef(null);
+  const examDataRef = useRef(null);
+  const savedIdRef = useRef(null);
+  useEffect(() => { examDataRef.current = examData; }, [examData]);
+  useEffect(() => { savedIdRef.current = savedId; }, [savedId]);
+  const markFigure = useCallback((key, st) => setFigDrawState(prev => {
+    const next = { ...prev };
+    if (st === "done") delete next[key]; else next[key] = st;
+    return next;
+  }), []);
+  const stopFigureDrawing = useCallback(() => {
+    if (figAbortRef.current) figAbortRef.current.abort();
+    figAbortRef.current = null;
+    setFigDrawState({});
+  }, []);
+  useEffect(() => () => { if (figAbortRef.current) figAbortRef.current.abort(); }, []);
+
+  const redrawFigure = useCallback(async (slot) => {
+    markFigure(slot.key, "drawing");
+    try {
+      const svg = await requestFigureSVG({ api: EXAM_API, token: getToken ? getToken() : null, description: slot.description, subject, className });
+      setSlotDiagram(setExamData, slot, aiDiagram(slot.description, svg));
+      markFigure(slot.key, "done");
+    } catch { markFigure(slot.key, "failed"); }
+  }, [markFigure, subject, className]);
+
+  /** Draws every empty figure of a freshly generated paper, then saves the drawings with the paper in My Exams. */
+  const drawFiguresFor = async (generated) => {
+    stopFigureDrawing();
+    const ctrl = new AbortController();
+    figAbortRef.current = ctrl;
+    const drawn = await autoDrawFigures({
+      examData: generated, setExamData, api: EXAM_API, token: getToken ? getToken() : null,
+      subject, className, onSlot: markFigure, signal: ctrl.signal,
+    });
+    if (ctrl.signal.aborted || !drawn) return;
+    await new Promise(r => setTimeout(r, 80)); // let the last drawing reach state
+    for (let i = 0; i < 20 && !savedIdRef.current; i++) await new Promise(r => setTimeout(r, 500)); // the background save may still be running
+    const id = savedIdRef.current, latest = examDataRef.current;
+    if (ctrl.signal.aborted || !id || !latest) return;
+    try { await ExamHistory.update(id, { exam_json: latest }); savedExamRef.current = latest; } catch { /* the drawings are still on screen; "Save changes" remains available */ }
+  };
 
   const [examVersion, setExamVersion] = useState("A"); // A = original order, B/C = shuffled variants (anti-cheating)
   const activeExamData = useMemo(() => {
@@ -694,6 +756,12 @@ function QuestionsGeneratorInner() {
           if (diagramDrawing(q) && !q.image?.src) {
             try { docMeta.svgPngs[`${sec.id}:${q.number}`] = await svgToPngDataUrl(q.diagram.svg, 900); }
             catch (e) { console.warn("Diagram render skipped:", e); }
+          }
+          for (const p of (Array.isArray(q.parts) ? q.parts : [])) {
+            if (ownerDrawing(p) && !ownerImageOk(p) && isSafeGeneratedSVG(p.diagram.svg)) {
+              try { docMeta.svgPngs[`${sec.id}:${q.number}:${p.label}`] = await svgToPngDataUrl(p.diagram.svg, 900); }
+              catch (e) { console.warn("Figure render skipped:", e); }
+            }
           }
         }
       }
@@ -1150,53 +1218,17 @@ function QuestionsGeneratorInner() {
         Nothing is charged unless generation succeeds. Failed or timed-out requests are not billed.
       </p>
 
-      {/* ── Diagram uploads (post-generation) ──────────────────── */}
-      {examData && (
-        <DiagramManager
-          items={questionsNeedingDiagrams}
-          examData={examData}
-          setExamData={setExamData}
-          S={S} F={F}
-        />
-      )}
-
       {/* ── Output ──────────────────────────────────────────────── */}
       {examData && (
         <div style={S.out}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>
-              {examData.title || examType}: Ready
+              {(examData.style === "bece" ? cleanBeceTitle(examData.title, examType) : examData.title) || examType}: Ready
               {!examHasMarkingScheme && (
                 <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginLeft: 8 }}>(Questions Only)</span>
               )}
             </h3>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, marginRight: 4 }}>
-                <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginRight: 4 }}>Version:</span>
-                {["A", "B", "C"].map(v => (
-                  <button key={v} type="button" onClick={() => setExamVersion(v)} title={v === "A" ? "Original order" : `Shuffled variant ${v}: different question/option order, same content (anti-cheating)`} style={{
-                    width: 28, height: 28, borderRadius: 8, fontFamily: F, fontSize: 12, fontWeight: 700, cursor: "pointer",
-                    border: `1.5px solid ${examVersion === v ? "var(--accent)" : "var(--border-strong)"}`,
-                    background: examVersion === v ? "var(--accent-soft)" : "var(--card-bg)",
-                    color: examVersion === v ? "var(--accent)" : "var(--text)",
-                  }}>{v}</button>
-                ))}
-              </div>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
-                <input type="checkbox" checked={landscape} onChange={e => setLandscape(e.target.checked)} style={{ accentColor: "#0D9488" }} />
-                Landscape
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
-                Options:
-                <select
-                  value={optionsLayout}
-                  onChange={e => setOptionsLayout(e.target.value)}
-                  title="How multiple-choice options are arranged in the printed paper and Word file"
-                  style={{ height: 32, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--card-bg)", color: "var(--text)", fontFamily: F, fontSize: 12, padding: "0 6px" }}
-                >
-                  {OPTIONS_LAYOUTS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                </select>
-              </label>
               <button
                 style={editMode ? { ...S.sm, borderColor: "var(--accent)", color: "var(--accent)", background: "var(--accent-soft)" } : S.sm}
                 onClick={() => setEditMode(v => !v)}
@@ -1204,6 +1236,35 @@ function QuestionsGeneratorInner() {
                 {editMode ? "Editing" : "Edit"}
               </button>
             </div>
+          </div>
+
+          {/* ── Paper settings: version, orientation and answer-option arrangement ── */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 28px", alignItems: "flex-end", border: "1px solid var(--border)", borderRadius: 14, padding: "12px 16px", marginBottom: 14 }}>
+            <Segmented
+              label="Paper version"
+              value={examVersion}
+              onChange={setExamVersion}
+              options={[
+                { id: "A", label: "A", compact: true, title: "Original question order" },
+                { id: "B", label: "B", compact: true, title: "Shuffled variant B: different question and option order, same content" },
+                { id: "C", label: "C", compact: true, title: "Shuffled variant C: different question and option order, same content" },
+              ]}
+            />
+            <Segmented
+              label="Orientation"
+              value={landscape ? "landscape" : "portrait"}
+              onChange={v => setLandscape(v === "landscape")}
+              options={[
+                { id: "portrait", label: "Portrait", title: "Standard upright A4 page" },
+                { id: "landscape", label: "Landscape", title: "Wide A4 page" },
+              ]}
+            />
+            <Segmented
+              label="Answer options"
+              value={optionsLayout}
+              onChange={setOptionsLayout}
+              options={OPTIONS_LAYOUTS.map(o => ({ ...o, title: o.title }))}
+            />
           </div>
 
           {/* ── Candidate index number: its own card so it's easy to find ── */}
@@ -1284,6 +1345,16 @@ function QuestionsGeneratorInner() {
             />
           )}
         </div>
+      )}
+
+      {/* ── Figures: AI-drawn after generation; one "Change image" button per figure, collapsed so the page stays short ── */}
+      {examData && (
+        <FigurePanel
+          examData={examData}
+          setExamData={setExamData}
+          draw={{ state: figDrawState, redraw: redrawFigure }}
+          S={S} F={F}
+        />
       )}
       </div>
     </div>

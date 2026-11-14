@@ -408,6 +408,7 @@ export async function onRequest(context) {
   if (!user) return withCORS(jsonResp({ error: "Please sign in to generate exams." }, 401), env);
 
   if (mode === "suggest-topics") return withCORS(await handleSuggestTopics(body, env), env);
+  if (mode === "draw-figure") return withCORS(await handleDrawFigure(body, env), env);
   if (mode !== "generate-exam") return withCORS(jsonResp({ error: "Unknown mode." }, 400), env);
 
   return withCORS(await handleGenerateExamStreaming(body, env, user), env);
@@ -429,6 +430,43 @@ async function handleSuggestTopics(body, env) {
     return jsonResp({ topics });
   } catch {
     return jsonResp({ topics: [] });
+  }
+}
+
+/**
+ * mode "draw-figure": one small AI call that draws ONE exam figure as plain line-art SVG.
+ * Like suggest-topics it needs a signed-in user but costs no coins (one short call per figure).
+ * The browser re-checks the SVG against its own allowlist before it is ever shown or printed,
+ * so nothing returned here is trusted; this only does cheap shape checks.
+ */
+const FIGURE_SYSTEM_PROMPT = `You draw ONE simple black-and-white line diagram for a school exam paper in Ghana, as a single SVG. You output ONLY a JSON object {"svg": "<svg ...>...</svg>"} and nothing else.
+SVG rules (anything else is rejected):
+- Start with <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 260' ...> and end with </svg>. Use SINGLE quotes for every attribute value.
+- Allowed tags only: svg, g, line, rect, circle, ellipse, polyline, polygon, path, text, tspan. No style, class, script, image, use, foreignObject, filter, gradient, link or comment.
+- Allowed attributes only: x, y, x1, y1, x2, y2, cx, cy, r, rx, ry, d, points, fill, stroke, stroke-width, stroke-dasharray, stroke-linecap, stroke-linejoin, transform, font-family, font-size, font-weight, font-style, text-anchor, dominant-baseline, viewBox, width, height.
+- Black line art on a white page: stroke='#111', stroke-width between 1.5 and 2.5, fill='none' or fill='#fff'. No colour, no shading. Text uses font-family='Times New Roman, serif' and font-size between 13 and 16.
+- Keep the whole SVG under 6000 characters, drawn large and centred inside the viewBox with a margin of at least 12.
+Exam rules:
+- Draw exactly what the description says and keep it simple, clear and correctly proportioned, like a diagram in a BECE paper.
+- Mark every part the pupils are expected to identify with a single CAPITAL LETTER (A, B, C, ...) joined to the part by a thin leader line. NEVER write the name of a part that a pupil is meant to identify. If the description already names letters, use those letters.
+- Plain captions that give information (units, axis names, given values, a scale) are allowed.`;
+
+async function handleDrawFigure(body, env) {
+  const clean = (v, n) => String(v ?? "").replace(/[\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+  const description = clean(body.description, 500);
+  if (description.length < 4) return jsonResp({ error: "Describe the figure first." }, 400);
+  const screen = screenExamInput({ schoolName: "", pastedSyllabus: description, topics: [] });
+  if (!screen.ok) return jsonResp({ error: screen.error }, 400);
+  const subject = clean(body.subject, 60), className = clean(body.className, 30);
+  const prompt = `Subject: ${subject || "(not specified)"}${className ? `, ${className}` : ""}\nFigure to draw: ${description}`;
+  try {
+    const raw = await callAI(env, FIGURE_SYSTEM_PROMPT, prompt, 6000, 40000);
+    const svg = String(extractJSON(raw)?.svg || "").trim();
+    if (!/^<svg[\s>]/i.test(svg) || !/<\/svg>$/i.test(svg) || svg.length > 20000) throw new Error("not a usable svg");
+    return jsonResp({ svg });
+  } catch (e) {
+    console.error("[generate-exam] draw-figure failed:", e?.message);
+    return jsonResp({ error: "Couldn't draw this figure. You can try again or add your own picture." }, 502);
   }
 }
 

@@ -91,7 +91,7 @@ src/
     ExamStructureBuilder.jsx      Section A/B/C builder (free-tier aware: locks essay, caps counts)
     ExamEditor.jsx                Inline structured exam editor - see §6
     TopicSelector.jsx             Curriculum + topic picker (multi-strand, SOL auto-detect)
-    DiagramManager.jsx            Manual diagram upload (for non-AI-generatable figures)
+    FigurePanel.jsx              Collapsed per-figure list: AI-drawn figures with a "Change image" button on each
     TopUpModal.jsx                Paystack credit top-up
     PaymentSuccess.jsx            Post-payment verification screen
 functions/

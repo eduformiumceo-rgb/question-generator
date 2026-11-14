@@ -47,7 +47,7 @@ export function patchQuestionDiagram(setExamData, sectionIdx, qIdx, diagram) {
 
 const kb = (chars) => Math.round((chars * 0.75) / 1024);
 
-export default function QuestionImageControl({ question, onImage, onDiagram, otherImagesChars = 0, S, F }) {
+export default function QuestionImageControl({ question, onImage, onDiagram, otherImagesChars = 0, hideNumbering = false, S, F }) {
   const image = question?.image;
   const diagram = question?.diagram;
   const parts = Array.isArray(question?.parts) ? question.parts : [];
@@ -73,7 +73,7 @@ export default function QuestionImageControl({ question, onImage, onDiagram, oth
       return false;
     }
     setError("");
-    onImage({ src, size: imageSizeKey(image), caption: image?.caption || "", align: imageAlign(image), autoNumber: image ? !!image.autoNumber : true, ...keep });
+    onImage({ src, size: imageSizeKey(image), caption: image?.caption || "", align: imageAlign(image), autoNumber: image ? !!image.autoNumber : !hideNumbering, ...keep });
     return true;
   }, [image, onImage, otherImagesChars]);
 
@@ -171,9 +171,11 @@ export default function QuestionImageControl({ question, onImage, onDiagram, oth
             )}
             <input value={image.caption || ""} maxLength={MAX_CAPTION_LENGTH} onChange={e => set({ caption: e.target.value })} placeholder="Caption (optional), e.g. Map of Ghana" aria-label="Image caption"
               style={{ ...S.inp, height: 38, minHeight: 38, fontSize: 13, padding: "0 12px" }} />
-            <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, ...hint }}>
-              <input type="checkbox" checked={!!image.autoNumber} onChange={e => set({ autoNumber: e.target.checked })} /> Label as “Figure 1, 2, 3…” automatically (numbered in paper order)
-            </label>
+            {!hideNumbering && (
+              <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, ...hint }}>
+                <input type="checkbox" checked={!!image.autoNumber} onChange={e => set({ autoNumber: e.target.checked })} /> Label as “Figure 1, 2, 3…” automatically (numbered in paper order)
+              </label>
+            )}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, alignItems: "center" }}>
               <button type="button" style={small} disabled={busy} onClick={() => setEditing(true)}>Crop / rotate</button>
               <button type="button" style={small} disabled={busy} onClick={pick(galleryRef)}>Replace</button>

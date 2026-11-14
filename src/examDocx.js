@@ -26,7 +26,8 @@ import {
   XmlComponent, HeightRule,
 } from "docx";
 import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
-import { answerableMarks, getBeceProfile, minutesLabel, BECE_OBJECTIVE_INSTRUCTIONS } from "./beceStyle.js";
+import { removeFirstFigureLine, ownerDrawing } from "./partFigures.js";
+import { answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS } from "./beceStyle.js";
 
 // Set per document by generateExamDocx (generation is synchronous up to Packer).
 let BX = { bece: false, profile: null, show: true, obj: false, ans: false };
@@ -296,10 +297,17 @@ function headerBlock(examData, meta, totalMarks, W) {
   const items = [["Subject", subject], ["Class", classWithProgramme(className, programme)], termCell(term), ["Duration", `${durationMinutes} mins`]];
   if (totalMarks) items.push(["Total Marks", totalMarks]);
   const out = [
-    ...letterhead(meta, examData.title || examType, W),
+    ...letterhead(meta, (examData.style === "bece" ? cleanBeceTitle(examData.title, examType) : examData.title) || examType, W),
     ...(meta.notice ? [noticeBox(meta.noticeText || DEFAULT_NOTICE, W), new Paragraph({ spacing: { before: 120 }, children: [] })] : []),
+    // BECE cover page: the subject stands in the middle of the sheet and Paper 2 starts on page 2.
+    ...(examData.style === "bece" ? [
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 1300, after: 120 }, border: { top: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: String(subject || "").toUpperCase(), bold: true, size: 56, characterSpacing: 40 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: [classWithProgramme(className, programme), term].filter(Boolean).join("   |   ").toUpperCase(), size: 26, characterSpacing: 20 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 1300 }, border: { bottom: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
+    ] : []),
     metaGrid(items, W),
-    new Paragraph({ spacing: { before: 200 }, children: [] }),
+    new Paragraph({ spacing: { before: examData.style === "bece" ? 360 : 200 }, children: [] }),
     ...candidateRows(meta, totalMarks, W),
   ];
   if ((examData.instructions || []).length) {
@@ -324,7 +332,7 @@ function beceBand(section, idx, sections, W) {
     const pf = pNo === 1 ? BX.profile.paper1 : BX.profile.paper2;
     const pMarks = sections.filter(x => x.paper === section.paper).reduce((a, x) => a + answerableMarks(x), 0);
     const intro = pNo === 1 ? BECE_OBJECTIVE_INSTRUCTIONS : (BX.profile.paper2.intro || []);
-    out.push(new Paragraph({ keepNext: true, pageBreakBefore: pNo === 1, spacing: { before: 280, after: 20 }, tabStops: [marksTab(W)],
+    out.push(new Paragraph({ keepNext: true, pageBreakBefore: pNo === 1 || !prev, spacing: { before: 280, after: 20 }, tabStops: [marksTab(W)],
       alignment: AlignmentType.CENTER, children: [new TextRun({ text: `PAPER ${pNo}`, bold: true, size: 26, smallCaps: true }), new TextRun({ text: `\t${minutesLabel(pf.minutes)}`, size: 21 })] }));
     out.push(centre([new TextRun({ text: pf.name, size: 22, smallCaps: true })]));
     out.push(centre([new TextRun({ text: `[${pMarks} marks]`, size: 22 })]));
@@ -437,15 +445,18 @@ function ansLinesDocx(n) {
   return Array.from({ length: Math.max(2, Math.min(9, n)) }, () => new Paragraph({ spacing: { before: 120 }, indent: { left: NUM_INDENT + 567 }, border: { bottom: { style: BorderStyle.DOTTED, size: 4, color: "555555" } }, children: [] }));
 }
 
-function partParagraphs(parts, W, figure = null) {
+function partParagraphs(parts, W, figure = null, partFig = null) {
   const out = [];
   (parts || []).forEach((p, pi) => {
+    // A real figure for this part (picture or drawing) replaces its "[FIGURE ...]" placeholder line.
+    const fig = partFig ? partFig(p) : [];
     out.push(new Paragraph({
       keepLines: true, spacing: { before: 80 },
       tabStops: [marksTab(W)],
       indent: { left: NUM_INDENT + 567, hanging: 567 },
-      children: [new TextRun({ text: `(${p.label})`, bold: true }), new TextRun({ text: "\t" }), ...textRuns(p.text), ...(BX.bece ? (BX.show && !BX.obj ? [new TextRun({ text: `\t[${p.marks} marks]` })] : []) : [new TextRun({ text: `\t[${p.marks}]`, bold: true })])],
+      children: [new TextRun({ text: `(${p.label})`, bold: true }), new TextRun({ text: "\t" }), ...textRuns(fig.length ? removeFirstFigureLine(p.text) : p.text), ...(BX.bece ? (BX.show && !BX.obj ? [new TextRun({ text: `\t[${p.marks} marks]` })] : []) : [new TextRun({ text: `\t[${p.marks}]`, bold: true })])],
     }));
+    out.push(...fig);
     if (BX.bece && BX.ans && !(p.subparts || []).length) ansLinesDocx(Math.round((Number(p.marks) || 1) * 1.5)).forEach(a => out.push(a));
     (p.subparts || []).forEach(sp => {
       out.push(new Paragraph({
@@ -478,7 +489,13 @@ function questionParagraphs(q, section, meta, layout, W, labels) {
   })];
   out.push(...diagramParagraphs(q, meta, section.id, labels));
   if (hasOptions) out.push(...optionParagraphs(q.options, layout, W));
-  if (hasParts) out.push(...partParagraphs(q.parts, W, q.image && imagePlacement(q) >= 0 ? { after: imagePlacement(q), paras: imageParagraphs(q, labels) } : null));
+  const partFig = (p) => {
+    if (p.image && isSafeImageDataUrl(p.image.src)) return imageParagraphs(p, new Map());
+    const raw = ownerDrawing(p) ? (meta.svgPngs || {})[`${section.id}:${q.number}:${p.label}`] : null;
+    const run = raw ? imageRun(raw, 400, 250) : null;
+    return run ? [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, keepLines: true, children: [run] })] : [];
+  };
+  if (hasParts) out.push(...partParagraphs(q.parts, W, q.image && imagePlacement(q) >= 0 ? { after: imagePlacement(q), paras: imageParagraphs(q, labels) } : null, partFig));
   return out;
 }
 
@@ -634,7 +651,7 @@ export async function generateExamDocx(examData, meta = {}, mode = "paper") {
 
   const doc = new Document({
     creator: meta.schoolName || "Eduformium",
-    title: examData.title || meta.examType || "Exam",
+    title: (bece ? cleanBeceTitle(examData.title, meta.examType) : examData.title) || meta.examType || "Exam",
     styles: {
       default: {
         document: {

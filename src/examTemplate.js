@@ -19,7 +19,8 @@ import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
 import { diagramGuideText, renderDiagramTemplate } from "./diagramRegistry.js";
 import { classWithProgramme, termCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
-import { beceStyleBlock, beceSchemeBlock, answerableMarks, getBeceProfile, minutesLabel, BECE_OBJECTIVE_INSTRUCTIONS } from "./beceStyle.js";
+import { figureLines, hasPartFigureLines, ownerImageOk, ownerDrawing } from "./partFigures.js";
+import { beceStyleBlock, beceSchemeBlock, answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS } from "./beceStyle.js";
 
 /* ────────────────────────────────────────────────────────────────
    1. SYSTEM PROMPT
@@ -431,9 +432,9 @@ export function schoolCrestSVG(name) {
 export const schoolMonogramSVG = schoolCrestSVG;
 
 export const OPTIONS_LAYOUTS = [
-  { id: "vertical", label: "Vertical (A, B, C, D stacked)" },
-  { id: "two", label: "Two columns" },
-  { id: "row", label: "One row" },
+  { id: "vertical", label: "Stacked", title: "A, B, C, D listed one under another" },
+  { id: "two", label: "2 Columns", title: "Options arranged in two columns" },
+  { id: "row", label: "1 Row", title: "All options on a single line" },
 ];
 
 /** Candidate-ID styles for the paper header. */
@@ -588,12 +589,16 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const nl = (t) => esc(t).replace(/\n/g, "<br/>");
 
   // BECE papers: a line like [FIGURE 1(a): ...] becomes a figure placeholder box; marks print as [n marks].
-  const rich = (t) => {
+  // When a real figure (picture or drawing) exists for it, it takes the place of the FIRST placeholder line.
+  const rich = (t, fig = "") => {
     if (!bece) return nl(t);
     const out = [];
+    let used = false;
     String(t ?? "").split("\n").forEach(line => {
-      if (/^\s*\[FIGURE[^\]]*\]\s*$/i.test(line)) out.push(`<div class="diagram-box"><div class="diagram-placeholder">${esc(line.trim())}</div></div>`);
-      else out.push(esc(line) + "<br/>");
+      if (/^\s*\[FIGURE[^\]]*\]\s*$/i.test(line)) {
+        if (fig && !used) { out.push(fig); used = true; }
+        else out.push(`<div class="diagram-box"><div class="diagram-placeholder">${esc(line.trim())}</div></div>`);
+      } else out.push(esc(line) + "<br/>");
     });
     return out.join("").replace(/<br\/>$/, "");
   };
@@ -618,10 +623,16 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   // (geometric/graph figures the model can draw precisely) > text placeholder
   // (anything needing real illustration that a human should supply).
   const labels = figureLabels(examData);
-  const renderImage = (q) => {
-    const { maxW, maxH } = IMAGE_SIZES[imageSizeKey(q.image)];
-    const caption = captionText(q.image, labels.get(q));
-    return `<figure class="q-figure al-${imageAlign(q.image)}"><img class="q-fig-img" src="${q.image.src}" alt="${caption ? esc(caption) : `Figure for question ${q.number}`}" style="max-width:min(100%,${maxW}px);max-height:${maxH}px"/>${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
+  const renderImage = (q, o = q) => {
+    const { maxW, maxH } = IMAGE_SIZES[imageSizeKey(o.image)];
+    const caption = captionText(o.image, labels.get(o));
+    return `<figure class="q-figure al-${imageAlign(o.image)}"><img class="q-fig-img" src="${o.image.src}" alt="${caption ? esc(caption) : `Figure for question ${q.number}`}" style="max-width:min(100%,${maxW}px);max-height:${maxH}px"/>${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
+  };
+  // A figure belonging to one PART of a question (BECE 1(a), 1(b), ...): the picture, else the drawing, else nothing.
+  const partFigureHtml = (q, p) => {
+    if (ownerImageOk(p)) return renderImage(q, p);
+    const svg = ownerDrawing(p);
+    return svg && isSafeGeneratedSVG(svg) ? `<div class="diagram-box diagram-svg-wrap">${svg}</div>` : "";
   };
   const hasImage = (q) => !!(q.image && isSafeImageDataUrl(q.image.src));
   const renderDiagram = (q) => {
@@ -631,6 +642,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     const svg = diagramDrawing(q);
     // Re-checked at print time: a saved exam comes back from the database, so never trust stored markup.
     if (svg && isSafeGeneratedSVG(svg)) return `<div class="diagram-box diagram-svg-wrap">${svg}</div>`;
+    if (hasPartFigureLines(q)) return ""; // each part prints its own figure box
     return `<div class="diagram-box"><div class="diagram-placeholder">[ DIAGRAM: ${esc(q.diagram.description || "see description")} ]</div></div>`;
   };
 
@@ -650,27 +662,34 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     ).join("")}</div>`;
   };
 
-  const renderPart = (p, figure = "") => `
+  const renderPart = (p, figure = "", q = {}) => {
+    const pf = partFigureHtml(q, p);
+    const inline = bece && figureLines(p.text).length > 0;
+    return `
       <div class="row has-parts part-wrap"><span></span>
         <div class="q-body"><div class="part">
-          <div class="row part-row"><span class="lbl">(${esc(p.label)})</span><span class="txt">${rich(p.text)}</span><span class="marks">${markText(p.marks)}</span></div>
+          <div class="row part-row"><span class="lbl">(${esc(p.label)})</span><span class="txt">${rich(p.text, inline ? pf : "")}</span><span class="marks">${markText(p.marks)}</span></div>
+          ${inline ? "" : pf}
           ${renderSubparts(p.subparts)}
           ${(p.subparts && p.subparts.length) ? "" : ansLines(Math.round((Number(p.marks) || 1) * 1.5))}
           ${figure}
         </div></div>
       </div>`;
+  };
 
   /** One question -> one or more blocks (a multi-part question may break between its parts). */
   const renderQuestionBlocks = (q, keepNext) => {
     const parts = Array.isArray(q.parts) ? q.parts : [];
     const hasParts = parts.length > 0;
+    const qFigure = renderDiagram(q);
+    const qInline = bece && figureLines(q.text).length > 0;
     const stem = `
     <div class="question${bece && hasParts && !String(q.text || "").trim() && !hasImage(q) && !(q.diagram && q.diagram.needed) ? " q-empty" : ""}" data-qnum="${q.number}">
       <div class="row q-row${hasParts ? " has-parts" : ""}">
         <span class="lbl q-num">${q.number}.</span>
         <div class="q-body">
-          <div class="q-text">${rich(q.text)}</div>
-          ${renderDiagram(q)}
+          <div class="q-text">${rich(q.text, qInline ? qFigure : "")}</div>
+          ${qInline && qFigure ? "" : qFigure}
           ${renderOptions(q)}
         </div>
         ${hasParts ? "" : `<span class="marks">${markText(q.marks)}</span>`}
@@ -679,7 +698,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     if (!hasParts) return [blk(stem, "q", keepNext)];
     return [
       blk(stem, "q q-stem", true),
-      ...parts.map((p, i) => blk(renderPart(p, hasImage(q) && imagePlacement(q) === i ? renderImage(q) : ""), `q-part${i === parts.length - 1 ? " q-last" : ""}`, keepNext && i === parts.length - 1)),
+      ...parts.map((p, i) => blk(renderPart(p, hasImage(q) && imagePlacement(q) === i ? renderImage(q) : "", q), `q-part${i === parts.length - 1 ? " q-last" : ""}`, keepNext && i === parts.length - 1)),
     ];
   };
 
@@ -707,7 +726,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
           <div class="pb-top"><span></span><div class="pb-title">PAPER ${pNo}<div class="pb-sub">${esc(pf.name)}</div><div class="pb-marks">[${pMarks} marks]</div></div><span class="pb-time">${esc(minutesLabel(pf.minutes))}</span></div>
           <div class="pb-intro">${intro.map(t => `<p>${esc(t)}</p>`).join("")}</div>
           ${sample}
-        </div>`, `pbanner${pNo === 1 ? " brk" : ""}`, true));
+        </div>`, `pbanner${(pNo === 1 || !prev) ? " brk" : ""}`, true));
     }
     if (s.heading || (s.rubric && s.type !== "objective")) {
       const secMarks = answerableMarks(s);
@@ -760,7 +779,8 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
       <div class="lh-rule"></div>
       <div class="exam-title">${titleText}</div>`;
 
-  const titleText = `${esc(examData.title || examType.toUpperCase())}${examVersion ? ` <span class="exam-version">VERSION ${esc(examVersion)}</span>` : ""}`;
+  const paperTitle = bece ? cleanBeceTitle(examData.title, examType) : examData.title;
+  const titleText = `${esc(paperTitle || examType.toUpperCase())}${examVersion ? ` <span class="exam-version">VERSION ${esc(examVersion)}</span>` : ""}`;
 
   const metaCell = (label, value) =>
     `<td><div class="meta-label">${label}</div><div class="meta-value">${esc(value) || "&nbsp;"}</div></td>`;
@@ -788,10 +808,23 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
         </div>
       </div>`;
 
+  // BECE papers open with a COVER PAGE that fills the whole sheet (letterhead at the top,
+  // the subject centred in the free space, candidate details and instructions at the foot),
+  // and Paper 2 / Paper 1 then start on page 2, like a real exam booklet.
+  const coverSubject = bece ? `
+      <div class="cv-subject">
+        <div class="cv-rule"></div>
+        <div class="cv-sub-name">${esc(subject || "")}</div>
+        <div class="cv-sub-line">${esc([classWithProgramme(className, programme), term].filter(Boolean).join("  |  "))}</div>
+        ${profile ? `<div class="cv-sub-papers">${esc(profile.paper2.name)} and ${esc(profile.paper1.name)}</div>` : ""}
+        <div class="cv-rule"></div>
+      </div>` : "";
+
   const headerBlock = blk(`
-    <div class="paper-header">
+    <div class="paper-header${bece ? " cover-page" : ""}">
       ${letterhead(titleText)}
       ${notice ? `<div class="notice">${esc(noticeText || DEFAULT_NOTICE)}</div>` : ""}
+      ${coverSubject}
       <table class="meta-grid">
         <tr>
           ${metaCell("Subject", subject)}
@@ -807,7 +840,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
         <div class="instr-title">Instructions to Candidates</div>
         <ol>${examData.instructions.map(i => `<li>${esc(i)}</li>`).join("")}</ol>
       </div>` : ""}
-    </div>`, "hdr");
+    </div>`, bece ? "hdr cover" : "hdr");
 
   const renderAnswerKeyBlocks = () => {
     const key = examData.answerKey || [];
@@ -885,11 +918,11 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const PW = landscape ? 297 : 210, PH = landscape ? 210 : 297;
 
   return `<!DOCTYPE html>
-<html data-turn-over="${showTurnOver ? "1" : "0"}"${bece ? ' data-bece="1"' : ""}>
+<html data-turn-over="${showTurnOver ? "1" : "0"}"${bece ? ' data-bece="1"' : ""}${landscape ? ' data-landscape="1"' : ""}>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${esc(examData.title || examType)} - ${esc(subject)}</title>
+<title>${esc((bece ? cleanBeceTitle(examData.title, examType) : examData.title) || examType)} - ${esc(subject)}</title>
 <style>
   :root{ --pw:${PW}mm; --ph:${PH}mm; --mx:16mm; --mt:14mm; --mb:22mm; --bw:calc(var(--pw) - 2 * var(--mx)); --bh:calc(var(--ph) - var(--mt) - var(--mb)); color-scheme: light only; }
   * { box-sizing: border-box; }
@@ -953,6 +986,33 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   .instr-title{ font-weight:700; text-transform:uppercase; letter-spacing:.1em; font-size:9.5pt; border-bottom:1px solid #999; padding-bottom:3px; margin-bottom:4px; }
   .instructions ol{ margin:4px 0 0 18px; padding:0; }
   .instructions li{ margin:1px 0; }
+
+  /* ── BECE cover page: fills the sheet ───────────────────── */
+  .blk.cover .cover-page{ min-height:calc(var(--bh) - 3px); display:flex; flex-direction:column; margin-bottom:0; }
+  .cover-page .school-name{ font-size:24pt; }
+  .cover-page .exam-title{ font-size:15pt; margin:14px 0 12px; }
+  .cover-page .notice{ margin:2px 0 6px; font-size:10pt; padding:7px 12px; }
+  .cv-subject{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:16px 0; gap:10px; }
+  .cv-rule{ width:55%; border-top:2.5px solid #111; border-bottom:.75pt solid #111; height:5px; }
+  .cv-sub-name{ font-size:30pt; font-weight:700; text-transform:uppercase; letter-spacing:.08em; line-height:1.2; margin-top:8px; }
+  .cv-sub-line{ font-size:13pt; letter-spacing:.06em; text-transform:uppercase; color:#222; }
+  .cv-sub-papers{ font-size:11pt; font-style:italic; color:#333; margin-bottom:8px; }
+  .cover-page .meta-value{ font-size:12pt; }
+  .cover-page .candidate{ margin-top:26px; font-size:12pt; }
+  .cover-page .cand-row + .cand-row{ margin-top:20px; }
+  .cover-page .idcells i{ width:9.4mm; height:11mm; }
+  .cover-page .instructions{ margin-top:26px; font-size:11pt; line-height:1.6; padding:10px 16px 10px; }
+  /* Landscape sheets are short: tighten the cover so it still fits exactly on one page. */
+  html[data-landscape="1"] .cover-page .school-name{ font-size:20pt; }
+  html[data-landscape="1"] .cover-page .school-logo{ width:70px; height:70px; }
+  html[data-landscape="1"] .cover-page .exam-title{ margin:8px 0 8px; }
+  html[data-landscape="1"] .cv-subject{ padding:4px 0; gap:4px; }
+  html[data-landscape="1"] .cv-sub-name{ font-size:22pt; margin-top:2px; }
+  html[data-landscape="1"] .cv-sub-line{ font-size:11pt; }
+  html[data-landscape="1"] .cv-sub-papers, html[data-landscape="1"] .cover-page .meta-grid{ display:none; }
+  html[data-landscape="1"] .cover-page .candidate{ margin-top:12px; }
+  html[data-landscape="1"] .cover-page .cand-row + .cand-row{ margin-top:12px; }
+  html[data-landscape="1"] .cover-page .instructions{ margin-top:12px; line-height:1.4; font-size:10.5pt; }
 
   /* ── Sections ───────────────────────────────────────────── */
   .blk.sec{ padding-top:22px; padding-bottom:14px; }
