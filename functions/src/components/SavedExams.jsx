@@ -144,7 +144,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>My Exams</h1>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>Your saved papers, available on any device.</p>
       </div>
-      <button type="button" style={{ ...S.sm }} onClick={onBack}>← Back to generator</button>
+      <button type="button" style={{ ...S.sm }} onClick={onBack}>Back to generator</button>
     </div>
   );
 
@@ -174,7 +174,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
     <div role="status" style={{
       position: "fixed", left: 12, right: 12, bottom: "max(16px, env(safe-area-inset-bottom, 16px))", margin: "0 auto", maxWidth: 420, zIndex: 200,
       display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px 10px 16px", borderRadius: 12,
-      background: "var(--card-bg)", border: "1px solid var(--border-strong)", boxShadow: "0 2px 8px rgba(0,0,0,.08)", fontFamily: F, fontSize: 13, color: "var(--text)",
+      background: "var(--card-bg)", border: "1px solid var(--border-strong)", boxShadow: "none", fontFamily: F, fontSize: 13, color: "var(--text)",
     }}>
       <span>Exam deleted</span>
       <button type="button" onClick={() => undo(undoId)} style={{ ...S.sm, height: 34, fontWeight: 700, color: "var(--accent)", borderColor: "var(--accent)" }}>Undo</button>
@@ -222,7 +222,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
             <button type="button" style={{ padding: "6px 12px", fontSize: 12, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--input-bg)", color: "var(--text)", cursor: "pointer", fontFamily: F }} onClick={() => setConfirmClear(false)}>Cancel</button>
           </div>
         ) : (
-          <button type="button" style={S.danger} onClick={() => setConfirmClear(true)}><IconTrash /> Clear All</button>
+          <button type="button" style={S.danger} onClick={() => setConfirmClear(true)}>Clear All</button>
         )}
       </div>
 
@@ -256,13 +256,13 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
               <button type="button" disabled={openingId === e.id} onClick={() => open(e.id)} style={{ ...S.sm, minHeight: 38, fontWeight: 600, opacity: openingId === e.id ? 0.6 : 1 }}>
-                <IconEye /> {openingId === e.id ? "Opening…" : "Open"}
+                {openingId === e.id ? "Opening…" : "Open"}
               </button>
-              <button type="button" aria-label="Rename exam" title="Rename" style={{ ...S.sm, padding: "0 10px", minHeight: 38 }}
+              <button type="button" aria-label="Rename exam" style={{ ...S.sm, minHeight: 38 }}
                 onClick={() => { setRenamingId(e.id); setRenameVal(e.title || ""); }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+                Rename
               </button>
-              <button type="button" aria-label="Delete exam" style={{ ...S.danger, padding: "0 10px", minHeight: 38 }} onClick={() => del(e.id)}><IconTrash /></button>
+              <button type="button" aria-label="Delete exam" style={{ ...S.danger, minHeight: 38 }} onClick={() => del(e.id)}>Delete</button>
             </div>
           </div>
         );

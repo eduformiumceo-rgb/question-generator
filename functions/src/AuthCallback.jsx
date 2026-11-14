@@ -113,7 +113,7 @@ export default function AuthCallback() {
         border: "1px solid var(--border, #E1E5EB)",
         borderRadius: 20, padding: "48px 40px",
         maxWidth: 400, width: "100%", textAlign: "center",
-        boxShadow: "0 10px 30px rgba(0,0,0,.08)",
+        boxShadow: "none",
       }}>
         {/* Brand */}
         <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display',serif", marginBottom: 32 }}>

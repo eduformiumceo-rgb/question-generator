@@ -99,7 +99,7 @@ function Toggle({ checked, onChange, label }) {
     >
       <span style={{
         position: "absolute", top: 3, left: checked ? 21 : 3, width: 20, height: 20, borderRadius: "50%",
-        background: "#fff", transition: "left .15s", pointerEvents: "none", boxShadow: "0 1px 2px rgba(0,0,0,.25)",
+        background: "#fff", transition: "left .15s", pointerEvents: "none", boxShadow: "none",
       }} />
     </button>
   );
@@ -775,7 +775,7 @@ function QuestionsGeneratorInner() {
           position: "fixed", left: 12, right: 12, bottom: examData && view === "generate" ? 84 : "max(16px, env(safe-area-inset-bottom, 16px))", margin: "0 auto", maxWidth: 420, zIndex: 200,
           padding: "11px 14px", borderRadius: 12, fontFamily: F, fontSize: 13, lineHeight: 1.45,
           background: "var(--card-bg)", color: saveToast.type === "warn" ? "var(--orange-text)" : "var(--text)",
-          border: `1px solid ${saveToast.type === "warn" ? "var(--orange-text)" : "var(--border-strong)"}`, boxShadow: "0 2px 8px rgba(0,0,0,.08)",
+          border: `1px solid ${saveToast.type === "warn" ? "var(--orange-text)" : "var(--border-strong)"}`, boxShadow: "none",
         }}>{saveToast.msg}</div>
       )}
 
@@ -1000,7 +1000,9 @@ function QuestionsGeneratorInner() {
           onClick={requireLogin(() => handleGenerate("free"))}
           disabled={loading || freeUsage?.remaining === 0}
           style={{
-            ...S.sm, height: 56, flexDirection: "column", gap: 2, fontWeight: 700, fontSize: 14,
+            ...S.sm, height: 56, width: "100%", padding: "0 12px", boxSizing: "border-box",
+            flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+            gap: 3, lineHeight: 1.2, fontWeight: 700, fontSize: 14,
             opacity: (loading && loadingTier !== "free") || freeUsage?.remaining === 0 ? 0.5 : 1,
           }}
         >
@@ -1019,7 +1021,7 @@ function QuestionsGeneratorInner() {
           style={{
             height: 56, border: "none", borderRadius: 99, cursor: "pointer", fontFamily: F,
             background: "linear-gradient(135deg,#0D9488 0%,#0891B2 100%)", color: "#fff",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 3, lineHeight: 1.2, padding: "0 12px",
             opacity: loading && loadingTier !== "premium" ? 0.6 : 1,
           }}
         >
@@ -1221,7 +1223,7 @@ function QuestionsGeneratorInner() {
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 120,
         background: "var(--card-bg)", borderTop: "1px solid var(--border)",
         padding: "10px 12px max(10px, env(safe-area-inset-bottom, 10px))",
-        boxShadow: "0 -1px 6px rgba(0,0,0,.05)",
+        boxShadow: "none",
       }}>
         <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", gap: 8, alignItems: "center", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           {examHasMarkingScheme && (
@@ -1242,7 +1244,7 @@ function QuestionsGeneratorInner() {
                 {savingChanges ? "Saving…" : "Save changes"}
               </button>
             ) : (
-              <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, flexShrink: 0 }}>✓ Saved</span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, flexShrink: 0 }}>Saved</span>
             )
           )}
           <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} disabled={downloadingWord} onClick={() => handleDownloadWord(showAnswerKey ? "answerKey" : "paper")}>

@@ -160,10 +160,7 @@ export default function InstallPrompt({ onClose, deferredPromptRef }) {
                         pointerEvents: "none",
                       }} />
                     )}
-                    {installing
-                      ? <><Spin /><span>Installing…</span></>
-                      : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v13" /><path d="M8 12l4 4 4-4" /><path d="M3 19h18" /></svg><span>Install App</span></>
-                    }
+                    {installing ? "Installing…" : "Install App"}
                   </button>
                 )}
 

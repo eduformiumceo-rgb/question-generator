@@ -55,6 +55,19 @@ import { readSchemeFile, SchemeReadError, SCHEME_ACCEPT } from "../schemeReader.
 import { condenseSchemeText, matchSchemeToCurriculum } from "../schemeMatch.js";
 import { MAX_SYLLABUS_CHARS, MAX_TOPICS } from "../moderation.js";
 
+// Large scheme buttons. Flat by design (no shadows, no icons).
+// "solid" = the main action (upload); "outline" = the secondary one (load saved).
+const bigBtn = (F, variant, disabled) => ({
+  width: "100%", height: 52, padding: "0 20px", borderRadius: 12, boxSizing: "border-box",
+  display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center",
+  fontFamily: F, fontSize: 15, fontWeight: 800, letterSpacing: ".02em", lineHeight: 1.2,
+  cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.65 : 1,
+  WebkitTapHighlightColor: "transparent", touchAction: "manipulation", boxShadow: "none",
+  ...(variant === "solid"
+    ? { background: "linear-gradient(135deg,#0D9488 0%,#0891B2 100%)", color: "#fff", border: "none" }
+    : { background: "transparent", color: "var(--accent)", border: "2px solid var(--accent)" }),
+});
+
 const SOL_LOOKUP_API = "/api/exam-account/sol-lookup";
 
 // Exact grouping and order from the real App.jsx's Step 1 class Select.
@@ -303,7 +316,7 @@ export default function TopicSelector({
       {/* -- UPLOAD: Word / PDF scheme, read in the browser -- */}
       {className && (
         <div style={{ marginTop: 20 }}>
-          <label style={S.lbl}>Upload your Scheme of Learning</label>
+          <label style={S.lbl}>Start with your Scheme of Learning</label>
           <input
             ref={fileInputRef} type="file" accept={SCHEME_ACCEPT} style={{ display: "none" }}
             aria-label="Upload scheme of learning file"
@@ -311,29 +324,23 @@ export default function TopicSelector({
           />
           {!scheme && (
             <div
-              role="button" tabIndex={0} aria-busy={schemeBusy}
-              onClick={() => !schemeBusy && fileInputRef.current?.click()}
-              onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && !schemeBusy) { e.preventDefault(); fileInputRef.current?.click(); } }}
               onDragOver={e => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
               onDrop={e => { e.preventDefault(); setDragging(false); if (!schemeBusy) handleSchemeFile(e.dataTransfer.files?.[0]); }}
-              style={{
-                border: `2px dashed ${dragging ? "var(--accent)" : "var(--border-strong)"}`,
-                background: dragging ? "var(--accent-soft)" : "var(--input-bg)",
-                borderRadius: 14, padding: "20px 16px", textAlign: "center", cursor: schemeBusy ? "progress" : "pointer",
-                fontFamily: F, transition: "background .15s, border-color .15s", outline: "none",
-              }}
             >
-              {schemeBusy ? (
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-secondary)" }}>Reading your scheme…</div>
-              ) : (
-                <>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>Tap to choose your scheme, or drop it here</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4, lineHeight: 1.5 }}>
-                    Word (.docx) or PDF, up to 10 MB. Topics are picked out for you, so there's no need to type anything.
-                  </div>
-                </>
-              )}
+              <button
+                type="button" aria-busy={schemeBusy} disabled={schemeBusy}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  ...bigBtn(F, "solid", schemeBusy),
+                  ...(dragging ? { background: "var(--accent-hover)" } : null),
+                }}
+              >
+                {schemeBusy ? "Reading your scheme…" : "Upload My Scheme of Learning"}
+              </button>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 8, lineHeight: 1.5 }}>
+                Word (.docx) or PDF, up to 10 MB. The app reads it and picks out your topics for you, so there is no need to type anything. You can also drop the file onto this button.
+              </div>
             </div>
           )}
 
@@ -385,17 +392,13 @@ export default function TopicSelector({
       )}
 
       {subject && className && (!isSHS || !shsOther) && (
-        <div style={{ marginTop: 20, marginBottom: 4 }}>
-          <button type="button" onClick={loadScheme} disabled={solStatus?.loading} style={{
-            width: "100%", height: 52, padding: "0 20px", borderRadius: 12, border: "none",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            background: "linear-gradient(135deg,#0D9488 0%,#0891B2 100%)", color: "#fff",
-            fontFamily: F, fontSize: 15, fontWeight: 800, letterSpacing: ".02em",
-            boxShadow: "0 2px 8px rgba(13,148,136,.35)", WebkitTapHighlightColor: "transparent",
-            cursor: solStatus?.loading ? "default" : "pointer", opacity: solStatus?.loading ? 0.7 : 1,
-          }}>
+        <div style={{ marginTop: 16, marginBottom: 4 }}>
+          <button type="button" onClick={loadScheme} disabled={solStatus?.loading} style={bigBtn(F, "outline", solStatus?.loading)}>
             {solStatus?.loading ? "Checking your Scheme of Learning…" : "Load My Scheme of Learning"}
           </button>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 8, lineHeight: 1.5 }}>
+            Loads the Scheme of Learning you already created and saved in the Lesson Planner, so you do not have to upload it again.
+          </div>
 
           {solStatus && !solStatus.loading && solStatus.source === "scheme_of_learning" && (
             <div style={{ ...S.err, background: "var(--accent-soft)", borderColor: "var(--tag-border)", color: "var(--accent)", marginTop: 10, marginBottom: 0 }}>
