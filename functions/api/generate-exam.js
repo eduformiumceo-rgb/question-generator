@@ -51,6 +51,7 @@
 import { screenExamInput } from "../_shared/moderation.js";
 import { buildSectionPrompt } from "../_shared/examPrompt.js";
 import { getBeceProfile, beceSections } from "../_shared/beceStyle.js";
+import { getWassceProfile, wassceSections } from "../_shared/wassceStyle.js";
 import { callFreeAI } from "../_shared/freeGeneration.js";
 import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "../_shared/freeTierLimits.js";
 
@@ -501,12 +502,14 @@ async function handleGenerateExamStreaming(body, env, user) {
   // server's own profile for the subject. Only the question counts and marks come from the browser,
   // so no browser-supplied text can reach the prompt through these fields. ──
   const isBece = body.examStyle === "bece";
+  const isWassce = body.examStyle === "wassce";
   if (isBece && tier === "free") return jsonResp({ error: "BECE style papers need Premium AI." }, 400);
+  if (isWassce && tier === "free") return jsonResp({ error: "WASSCE style papers need Premium AI." }, 400);
   let runSections = sections;
   let beceProfile = null;
-  if (isBece) {
-    beceProfile = getBeceProfile(subject);
-    const canon = Object.fromEntries(beceSections(beceProfile).map(c => [c.id, c]));
+  if (isBece || isWassce) {
+    beceProfile = isWassce ? getWassceProfile(subject) : getBeceProfile(subject);
+    const canon = Object.fromEntries((isWassce ? wassceSections(beceProfile) : beceSections(beceProfile)).map(c => [c.id, c]));
     runSections = sections.map(sc => {
       const c = canon[sc.id];
       const questionCount = Math.max(1, Math.min(60, Number(sc.questionCount) || 1));
@@ -546,7 +549,7 @@ async function handleGenerateExamStreaming(body, env, user) {
   }
 
   const aiStrategy = tier === "free" ? callFreeAI : callAI;
-  const bodyWithTierDefaults = { ...body, includeMarkingScheme, ...(isBece ? { examStyle: "bece", beceScheme: beceProfile.scheme, beceLanguage: beceProfile.language || "" } : { examStyle: "school" }) };
+  const bodyWithTierDefaults = { ...body, includeMarkingScheme, ...(isWassce ? { examStyle: "wassce" } : isBece ? { examStyle: "bece", beceScheme: beceProfile.scheme, beceLanguage: beceProfile.language || "" } : { examStyle: "school" }) };
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

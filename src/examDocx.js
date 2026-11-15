@@ -27,10 +27,11 @@ import {
 } from "docx";
 import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { removeFirstFigureLine, ownerDrawing } from "./partFigures.js";
+import { getWassceProfile, wassceCoverCode, wasscePaper2Code, wassceSchemeNotes, stripMarkup } from "./wassceStyle.js";
 import { answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS, beceNeedsExaminerBox, beceSchemeNotes, beceCoverCode } from "./beceStyle.js";
 
 // Set per document by generateExamDocx (generation is synchronous up to Packer).
-let BX = { bece: false, profile: null, show: true, obj: false, ans: false };
+let BX = { bece: false, wassce: false, profile: null, show: true, obj: false, ans: false };
 import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
 import { classWithProgramme, termCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
@@ -83,10 +84,63 @@ export function turnOverField(text = "Turn over", size = 20) {
   ];
 }
 
+/** WASSCE markup: **bold**, {{italic}}, _underlined_ words. Returns [{ t, b, i, u }]. */
+function parseMarkup(ln) {
+  const parts = String(ln).split(/(\*\*.+?\*\*|\{\{.+?\}\}|(?<=^|[\s(])_[^_\n]+_(?=[\s.,;:!?)]|$))/);
+  const segs = [];
+  parts.forEach(p => {
+    if (!p) return;
+    if (/^\*\*.+\*\*$/.test(p)) segs.push({ t: p.slice(2, -2), b: true });
+    else if (/^\{\{.+\}\}$/.test(p)) segs.push({ t: p.slice(2, -2), i: true });
+    else if (/^_[^_]+_$/.test(p)) segs.push({ t: p.slice(1, -1), u: true });
+    else segs.push({ t: p });
+  });
+  return segs.length ? segs : [{ t: "" }];
+}
+
 /** Text -> runs, turning "\n" into real line breaks (Word ignores raw \n). */
 function textRuns(text, opts = {}) {
   const lines = String(text ?? "").split(/\r?\n/);
-  return lines.map((ln, i) => new TextRun({ text: ln, break: i === 0 ? undefined : 1, ...opts }));
+  return lines.flatMap((ln, i) => (BX.wassce ? parseMarkup(ln) : [{ t: ln }]).map((sg, j) => new TextRun({
+    text: sg.t, break: i > 0 && j === 0 ? 1 : undefined, ...opts,
+    ...(sg.b ? { bold: true } : {}), ...(sg.i ? { italics: true } : {}), ...(sg.u ? { underline: {} } : {}),
+  })));
+}
+
+const isPipeRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+
+/** A table the candidate reads or completes (pipe rows in the text). */
+function pipeTable(lines, W) {
+  const rows = lines.filter(l => !/^[\s|:-]+$/.test(l)).map(l => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim()));
+  const n = Math.max(...rows.map(r => r.length));
+  const tw = W - NUM_INDENT - 200;
+  const base = Math.floor(tw / n);
+  const widths = Array.from({ length: n }, (_, i) => (i === n - 1 ? tw - base * (n - 1) : base));
+  const b = { top: line(6, INK), bottom: line(6, INK), left: line(6, INK), right: line(6, INK) };
+  return table(widths, rows.map((r, ri) => new TableRow({ cantSplit: true, height: { value: 440, rule: HeightRule.ATLEAST }, children: widths.map((w, ci) =>
+    cell(w, [new Paragraph({ children: textRuns(r[ci] ?? "", ri === 0 ? { italics: true, bold: true, size: 21 } : { size: 21 }) })], { borders: b, verticalAlign: VerticalAlign.CENTER })) })),
+    { borders: NO_BORDERS, indent: { size: NUM_INDENT, type: WidthType.DXA } });
+}
+
+/** Splits text at its pipe tables: the words before the first table stay in the numbered paragraph, the rest follow it. */
+function splitPipe(text, W) {
+  if (!BX.wassce || !String(text ?? "").split("\n").some(isPipeRow)) return { text, extra: [] };
+  const lines = String(text).split("\n");
+  const head = [], extra = [];
+  let i = 0;
+  while (i < lines.length && !isPipeRow(lines[i])) head.push(lines[i++]);
+  while (i < lines.length) {
+    if (isPipeRow(lines[i])) {
+      const grp = [];
+      while (i < lines.length && isPipeRow(lines[i])) grp.push(lines[i++]);
+      extra.push(pipeTable(grp, W), new Paragraph({ spacing: { after: 60 }, children: [] }));
+    } else {
+      const t = [];
+      while (i < lines.length && !isPipeRow(lines[i])) t.push(lines[i++]);
+      extra.push(new Paragraph({ indent: { left: NUM_INDENT }, children: textRuns(t.join("\n")) }));
+    }
+  }
+  return { text: head.join("\n"), extra };
 }
 
 function dataUrlToBytes(dataUrl) {
@@ -169,9 +223,9 @@ function codeBoxDocx(cc) {
 /** "For Examiner's Use Only" mark table (printed on the cover of papers answered in the booklet). */
 function examinerBoxDocx() {
   const b = { top: line(6, INK), bottom: line(6, INK), left: line(6, INK), right: line(6, INK) };
-  const c = (w, t, bold) => cell(w, [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: t, bold: !!bold, size: 18 })] })], { borders: b, margins: { top: 25, bottom: 25, left: 60, right: 60 } });
+  const c = (w, t, bold) => cell(w, [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: t, bold: !!bold, size: 18 })] })], { borders: b, margins: { top: BX.wassce ? 15 : 25, bottom: BX.wassce ? 15 : 25, left: 60, right: 60 } });
   const head = new TableRow({ cantSplit: true, children: [c(1800, "Question Number", true), c(1800, "Mark", true)] });
-  const body = [1, 2, 3, 4, 5, 6, 7, 8, "TOTAL"].map(n => new TableRow({ cantSplit: true, children: [c(1800, String(n), n === "TOTAL"), c(1800, "", false)] }));
+  const body = [...(BX.wassce ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6, 7, 8]), "TOTAL"].map(n => new TableRow({ cantSplit: true, children: [c(1800, String(n), n === "TOTAL"), c(1800, "", false)] }));
   return table([1800, 1800], [head, ...body], { borders: NO_BORDERS, indent: { size: 0, type: WidthType.DXA } });
 }
 
@@ -297,7 +351,7 @@ function instructionsBox(instructions, W) {
       spacing: { before: 20, after: 20 },
       indent: { left: 360, hanging: 360 },
       tabStops: [{ type: TabStopType.LEFT, position: 360 }],
-      children: [new TextRun({ text: `${i + 1}.\t${ins}`, size: 21 })],
+      children: [new TextRun({ text: `${i + 1}.\t${BX.wassce ? stripMarkup(ins) : ins}`, size: 21 })],
     })),
   ];
   return table([W], [new TableRow({ children: [cell(W, kids, { borders: BOX, margins: { top: 90, bottom: 90, left: 200, right: 200 } })] })]);
@@ -315,23 +369,23 @@ function headerBlock(examData, meta, totalMarks, W) {
   const items = [["Subject", subject], ["Class", classWithProgramme(className, programme)], termCell(term), ["Duration", `${durationMinutes} mins`]];
   if (totalMarks) items.push(["Total Marks", totalMarks]);
   const out = [
-    ...letterhead(meta, (examData.style === "bece" ? cleanBeceTitle(examData.title, examType) : examData.title) || examType, W),
+    ...letterhead(meta, (BX.bece ? cleanBeceTitle(examData.title, examType) : examData.title) || examType, W),
     ...(meta.notice ? [noticeBox(meta.noticeText || DEFAULT_NOTICE, W), new Paragraph({ spacing: { before: 120 }, children: [] })] : []),
     // BECE cover page: the subject stands in the middle of the sheet and Paper 2 starts on page 2.
-    ...(examData.style === "bece" && BX.profile ? [codeBoxDocx(beceCoverCode(BX.profile))] : []),
-    ...(examData.style === "bece" ? [
-      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 1000, after: 120 }, border: { top: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
+    ...(BX.bece && BX.profile ? [codeBoxDocx(BX.wassce ? wassceCoverCode(BX.profile) : beceCoverCode(BX.profile))] : []),
+    ...(BX.bece ? [
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: BX.wassce ? 120 : 1000, after: 60 }, border: { top: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: String(subject || "").toUpperCase(), bold: true, size: 56, characterSpacing: 40 })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: [classWithProgramme(className, programme), term].filter(Boolean).join("   |   ").toUpperCase(), size: 26, characterSpacing: 20 })] }),
-      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 1300 }, border: { bottom: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: BX.wassce ? 120 : 1300 }, border: { bottom: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
     ] : []),
     metaGrid(items, W),
-    new Paragraph({ spacing: { before: examData.style === "bece" ? 360 : 200 }, children: [] }),
+    new Paragraph({ spacing: { before: BX.wassce ? 60 : BX.bece ? 360 : 200 }, children: [] }),
     ...candidateRows(meta, totalMarks, W),
-    ...(examData.style === "bece" && beceNeedsExaminerBox(BX.profile) ? [new Paragraph({ spacing: { before: 200, after: 60 }, children: [new TextRun({ text: "For Examiner's Use Only", bold: true, size: 20 })] }), examinerBoxDocx()] : []),
+    ...(BX.bece && beceNeedsExaminerBox(BX.profile) && !(BX.wassce && BX.profile.order !== "21") ? [new Paragraph({ spacing: { before: 200, after: 60 }, children: [new TextRun({ text: "For Examiner's Use Only", bold: true, size: 20 })] }), examinerBoxDocx()] : []),
   ];
   if ((examData.instructions || []).length) {
-    out.push(new Paragraph({ spacing: { before: 200 }, children: [] }));
+    out.push(new Paragraph({ spacing: { before: BX.wassce ? 60 : 200 }, children: [] }));
     out.push(instructionsBox(examData.instructions, W));
   }
   return out;
@@ -343,6 +397,23 @@ function marksTab(W) {
   return { type: TabStopType.RIGHT, position: W };
 }
 
+/** WASSCE Paper 2 booklet cover: code box, candidate lines, instructions and the examiner's table. */
+function paper2CoverDocx(W, title, pMarks) {
+  const p = BX.profile;
+  const lineP = (label) => new Paragraph({ spacing: { before: 160 }, border: { bottom: line(6, INK) }, children: [new TextRun({ text: label, bold: true, size: 20 })] });
+  return [
+    new Paragraph({ pageBreakBefore: true, spacing: { after: 100 }, children: [] }),
+    codeBoxDocx(wasscePaper2Code(p)),
+    lineP("CANDIDATE'S NAME"), lineP("INDEX NUMBER                                                  SIGNATURE"), lineP("DATE:"),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 280, after: 40 }, children: [new TextRun({ text: `${title}`, bold: true, size: 24 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${String(BX.subject || p.label || "").toUpperCase()} 2`, bold: true, size: 24 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "ESSAY", size: 22, smallCaps: true })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [new TextRun({ text: `[${pMarks} marks]`, size: 22 })] }),
+    instructionsBox((p.paper2.cover || []).flatMap(t => String(t).split("\n")), W),
+    ...(beceNeedsExaminerBox(p) ? [new Paragraph({ spacing: { before: 200, after: 60 }, children: [new TextRun({ text: "For Examiner's Use Only", bold: true, size: 20 })] }), examinerBoxDocx()] : []),
+  ];
+}
+
 function beceBand(section, idx, sections, W) {
   const out = [];
   const prev = sections[idx - 1], next = sections[idx + 1];
@@ -351,24 +422,36 @@ function beceBand(section, idx, sections, W) {
     const pNo = section.paper === 1 ? 1 : 2;
     const pf = pNo === 1 ? BX.profile.paper1 : BX.profile.paper2;
     const pMarks = sections.filter(x => x.paper === section.paper).reduce((a, x) => a + answerableMarks(x), 0);
-    const intro = pNo === 1 ? BECE_OBJECTIVE_INSTRUCTIONS : (BX.profile.paper2.intro || []);
-    out.push(new Paragraph({ keepNext: true, pageBreakBefore: pNo === 1 || !prev, spacing: { before: 280, after: 20 }, tabStops: [marksTab(W)],
+    const intro = pNo === 1 ? (BX.wassce ? BX.profile.paper1.intro : BECE_OBJECTIVE_INSTRUCTIONS) : (BX.profile.paper2.intro || []);
+    if (BX.wassce && pNo === 2 && prev && BX.profile.order !== "21" && BX.profile.paper2.cover) out.push(...paper2CoverDocx(W, BX.title, pMarks));
+    out.push(new Paragraph({ keepNext: true, pageBreakBefore: BX.wassce || pNo === 1 || !prev, spacing: { before: 280, after: 20 }, tabStops: [marksTab(W)],
       alignment: AlignmentType.CENTER, children: [new TextRun({ text: `PAPER ${pNo}`, bold: true, size: 26, smallCaps: true }), new TextRun({ text: `\t${minutesLabel(pf.minutes)}`, size: 21 })] }));
     out.push(centre([new TextRun({ text: pf.name, size: 22, smallCaps: true })]));
     out.push(centre([new TextRun({ text: `[${pMarks} marks]`, size: 22 })]));
-    intro.forEach(t => out.push(new Paragraph({ keepNext: true, spacing: { before: 40, after: 40 }, children: [new TextRun({ text: t, italics: true, size: 21 })] })));
-    if (pNo === 1) {
+    intro.forEach(t => out.push(new Paragraph({ keepNext: true, spacing: { before: 40, after: 40 }, children: textRuns(t, { italics: true, size: 21 }) })));
+    if (pNo === 1 && BX.wassce) {
+      const sm = BX.profile.paper1.sample, L = OPT_LETTERS[sm.answer];
+      out.push(new Paragraph({ keepNext: true, spacing: { before: 80, after: 20 }, indent: { left: 360 }, children: textRuns(sm.q, { size: 21 }) }));
+      sm.options.forEach((o, i) => out.push(new Paragraph({ keepNext: true, indent: { left: 720 }, children: [new TextRun({ text: `${OPT_LETTERS[i]}.  `, size: 21 }), ...textRuns(o, { size: 21 })] })));
+      out.push(new Paragraph({ spacing: { before: 40, after: 40 }, indent: { left: 360 }, children: textRuns(`The correct answer is **${stripMarkup(sm.options[sm.answer])}** which is lettered **${L}** and therefore answer space **${L}** would be shaded.`, { size: 21 }) }));
+      (BX.profile.paper1.after || []).forEach(t => out.push(new Paragraph({ keepNext: true, spacing: { before: 40, after: 40 }, children: textRuns(t, { italics: true, size: 21 }) })));
+      out.push(new Paragraph({ keepNext: true, spacing: { after: 120 }, children: [new TextRun({ text: "Now answer the following questions.", italics: true, size: 21 })] }));
+    } else if (pNo === 1) {
       out.push(new Paragraph({ spacing: { before: 80, after: 20 }, indent: { left: 360 }, children: [new TextRun({ text: "Which of the following is a primary colour?  A. Green   B. Red   C. Orange   D. Purple", size: 21 })] }));
       out.push(new Paragraph({ spacing: { after: 20 }, indent: { left: 360 }, children: [new TextRun({ text: "The correct answer is Red which is lettered B and therefore answer space B would be shaded.", size: 21 })] }));
       out.push(new Paragraph({ keepNext: true, spacing: { after: 120 }, children: [new TextRun({ text: "Now answer the following questions.", italics: true, size: 21 })] }));
     }
   }
-  if (section.heading || (section.rubric && section.type !== "objective")) {
+  if (section.heading || section.part || (section.rubric && section.type !== "objective")) {
     const m = answerableMarks(section);
-    if (section.heading) out.push(centre([new TextRun({ text: section.heading, bold: true, size: 24, smallCaps: true })], { spacing: { before: 240, after: 20 } }));
+    if (section.part) {
+      out.push(centre([new TextRun({ text: section.part, bold: true, size: 26, smallCaps: true })], { spacing: { before: 240, after: 20 } }));
+      if (section.partSub) out.push(centre([new TextRun({ text: section.partSub, size: 22, smallCaps: true })]));
+    }
+    if (section.heading) out.push(centre([new TextRun({ text: section.heading, bold: true, size: 24, smallCaps: true })], { spacing: { before: section.part ? 120 : 240, after: 20 } }));
     if (section.sub || section.theme) out.push(centre([new TextRun({ text: section.sub || section.theme, size: 22, smallCaps: true })]));
-    if (section.heading && m && section.type !== "objective") out.push(centre([new TextRun({ text: `[${m} marks]`, size: 22 })]));
-    if (section.rubric) out.push(centre([new TextRun({ text: section.rubric, italics: true, size: 22 })], { spacing: { after: 120 } }));
+    if (section.heading && m && section.type !== "objective" && !section.hideSecMarks) out.push(centre([new TextRun({ text: `[${m} marks]`, size: 22 })]));
+    if (section.rubric) out.push(centre(textRuns(String(section.rubric), { italics: true, size: 22 }), { spacing: { after: 120 } }));
   }
   return out;
 }
@@ -474,8 +557,9 @@ function partParagraphs(parts, W, figure = null, partFig = null) {
       keepLines: true, spacing: { before: 80 },
       tabStops: [marksTab(W)],
       indent: { left: NUM_INDENT + 567, hanging: 567 },
-      children: [new TextRun({ text: `(${p.label})`, bold: true }), new TextRun({ text: "\t" }), ...textRuns(fig.length ? removeFirstFigureLine(p.text) : p.text), ...(BX.bece ? (BX.show && !BX.obj ? [new TextRun({ text: `\t[${p.marks} marks]` })] : []) : [new TextRun({ text: `\t[${p.marks}]`, bold: true })])],
+      children: [new TextRun({ text: `(${p.label})`, bold: !BX.wassce, italics: BX.wassce }), new TextRun({ text: "\t" }), ...textRuns(splitPipe(fig.length ? removeFirstFigureLine(p.text) : p.text, W).text), ...(BX.bece ? (BX.show && !BX.obj ? [new TextRun({ text: `\t[${p.marks} marks]` })] : []) : [new TextRun({ text: `\t[${p.marks}]`, bold: true })])],
     }));
+    out.push(...splitPipe(fig.length ? removeFirstFigureLine(p.text) : p.text, W).extra);
     out.push(...fig);
     if (BX.bece && BX.ans && !(p.subparts || []).length) ansLinesDocx(Math.round((Number(p.marks) || 1) * 1.5)).forEach(a => out.push(a));
     (p.subparts || []).forEach(sp => {
@@ -483,7 +567,7 @@ function partParagraphs(parts, W, figure = null, partFig = null) {
         keepLines: true, spacing: { before: 40 },
         tabStops: [marksTab(W)],
         indent: { left: NUM_INDENT + 567 * 2, hanging: 567 },
-        children: [new TextRun({ text: `(${sp.label})`, bold: true }), new TextRun({ text: "\t" }), ...textRuns(sp.text), ...(BX.bece ? [] : [new TextRun({ text: `\t[${sp.marks}]`, bold: true })])],
+        children: [new TextRun({ text: `(${sp.label})`, bold: !BX.wassce, italics: BX.wassce }), new TextRun({ text: "\t" }), ...textRuns(sp.text), ...(BX.bece ? [] : [new TextRun({ text: `\t[${sp.marks}]`, bold: true })])],
       }));
       if (BX.bece && BX.ans) ansLinesDocx(2).forEach(a => out.push(a));
     });
@@ -495,6 +579,7 @@ function partParagraphs(parts, W, figure = null, partFig = null) {
 function questionParagraphs(q, section, meta, layout, W, labels) {
   const hasParts = Array.isArray(q.parts) && q.parts.length > 0;
   const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+  const stem = splitPipe(q.text, W);
   const out = [new Paragraph({
     keepNext: hasOptions || hasParts || !!q.diagram?.needed || !!q.image?.src, keepLines: true,
     spacing: { before: 220, after: 40 },
@@ -503,10 +588,11 @@ function questionParagraphs(q, section, meta, layout, W, labels) {
     children: [
       new TextRun({ text: `${q.number}.`, bold: true }),
       new TextRun({ text: "\t" }),
-      ...textRuns(q.text),
+      ...textRuns(stem.text),
       ...(hasParts ? [] : BX.bece ? (BX.show && !BX.obj ? [new TextRun({ text: `\t[${q.marks} marks]` })] : []) : [new TextRun({ text: `\t[${q.marks}]`, bold: true })]),
     ],
   })];
+  out.push(...stem.extra);
   out.push(...diagramParagraphs(q, meta, section.id, labels));
   if (hasOptions) out.push(...optionParagraphs(q.options, layout, W));
   const partFig = (p) => {
@@ -563,7 +649,7 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
     return out;
   }
   if (key.length) {
-    out.push(band(BX.bece ? "PAPER 1: OBJECTIVE TEST, ANSWER KEY" : "SECTION A: ANSWER KEY"));
+    out.push(band(BX.bece ? (BX.wassce ? `PAPER 1: OBJECTIVE TEST, ANSWER KEY (${(examData.answerKey || []).length} QUESTIONS)` : "PAPER 1: OBJECTIVE TEST, ANSWER KEY") : "SECTION A: ANSWER KEY"));
     const perRow = 10;
     const cw = Math.floor(W / perRow);
     const widths = Array.from({ length: perRow }, (_, i) => (i === perRow - 1 ? W - cw * (perRow - 1) : cw));
@@ -583,10 +669,10 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
     out.push(table(widths, rows, { borders: NO_BORDERS }));
   }
   out.push(band(BX.bece ? "PAPER 2: ESSAY, MARKING SCHEME" : "MARKING SCHEME: SECTIONS B & C"));
-  if (BX.bece) out.push(new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: "RUBRICS: ", bold: true }), new TextRun((BX.profile.paper2.intro || []).slice(0, 3).join(" "))] }));
+  if (BX.bece) out.push(new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: "RUBRICS: ", bold: true }), new TextRun(stripMarkup((BX.profile.paper2.intro || []).slice(0, 3).join(" ")))] }));
   if (BX.bece) {
     out.push(new Paragraph({ spacing: { after: 30 }, children: [new TextRun({ text: "Marking conventions", bold: true })] }));
-    beceSchemeNotes(BX.profile).forEach(n => out.push(new Paragraph({ spacing: { after: 20 }, indent: { left: 360, hanging: 240 }, children: [new TextRun({ text: "\u2022  " + n })] })));
+    (BX.wassce ? wassceSchemeNotes(BX.profile) : beceSchemeNotes(BX.profile)).forEach(n => out.push(new Paragraph({ spacing: { after: 20 }, indent: { left: 360, hanging: 240 }, children: [new TextRun({ text: "\u2022  " + n })] })));
     out.push(new Paragraph({ spacing: { after: 80 }, children: [] }));
   }
   (examData.sections || []).filter(s => s.type !== "objective").forEach(s => {
@@ -636,8 +722,9 @@ export async function generateExamDocx(examData, meta = {}, mode = "paper") {
   const W = (landscape ? PAGE_H : PAGE_W) - 2 * MARGIN; // usable text width in twips
   const sections = examData.sections || [];
   const computed = sections.reduce((s, sec) => s + sumMarks(sec.questions), 0);
-  const bece = examData.style === "bece";
-  BX = { bece, profile: bece ? getBeceProfile(meta.subject) : null, show: true, obj: false, ans: false };
+  const wassce = examData.style === "wassce";
+  const bece = examData.style === "bece" || wassce;      // "bece" = public-exam layout (BECE or WASSCE)
+  BX = { bece, wassce, profile: wassce ? getWassceProfile(meta.subject) : bece ? getBeceProfile(meta.subject) : null, show: true, obj: false, ans: false, subject: meta.subject, title: (bece ? cleanBeceTitle(examData.title, meta.examType) : examData.title) || meta.examType || "" };
   const totalMarks = (bece ? sections.reduce((a, sc) => a + answerableMarks(sc), 0) : computed) || computed || Number(examData.totalMarks) || 0;
 
   const children = mode === "answerKey"

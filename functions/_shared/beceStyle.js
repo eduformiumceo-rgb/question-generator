@@ -233,6 +233,8 @@ export const beceTotalMinutes = (profile) => (profile.paper2.minutes || 0) + (pr
 
 /** Marks a candidate can actually earn in one section (an "answer any N" section counts N questions). */
 export function answerableMarks(section) {
+  // WASSCE Social Studies: "at least one, at most two from each section" is counted per section, not per question.
+  if (section.countedMarks != null) return Number(section.countedMarks) || 0;
   const qs = section.questions || [];
   if (qs.length) {
     const per = Number(qs[0].marks) || Number(section.marksPerQuestion) || 0;

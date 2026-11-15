@@ -26,6 +26,7 @@ import { autoDrawFigures, requestFigureSVG } from "./aiFigures.js";
 import { isSHSClass, termOptionsFor, mapTermForLevel, examTypesFor, mapExamTypeForLevel } from "./shsCourses.js";
 import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, isSafeGeneratedSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
+import { getWassceProfile, wassceSections, wassceTotalMinutes, decorateWassceExam } from "./wassceStyle.js";
 import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, answerableMarks, cleanBeceTitle } from "./beceStyle.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
@@ -336,7 +337,10 @@ function QuestionsGeneratorInner() {
   const [examStyle, setExamStyle] = useState("school"); // "school" | "public"
   const styleChosenByUser = useRef(false);
   const beceActive = examStyle === "public" && isBeceClass(className);
-  const beceProfile = useMemo(() => (beceActive && subject ? getBeceProfile(subject) : null), [beceActive, subject]);
+  const wassceActive = examStyle === "public" && isSHS && !isBeceClass(className);
+  const publicActive = beceActive || wassceActive;
+  // The profile of the chosen public exam (BECE for JHS, WASSCE for SHS): both carry the same fields.
+  const beceProfile = useMemo(() => (!subject ? null : beceActive ? getBeceProfile(subject) : wassceActive ? getWassceProfile(subject) : null), [beceActive, wassceActive, subject]);
   const chooseStyle = (v) => { styleChosenByUser.current = true; setExamStyle(v); };
   useEffect(() => {
     if (!publicAvailable) { setExamStyle("school"); return; }
@@ -349,10 +353,10 @@ function QuestionsGeneratorInner() {
     if (examStyle === "public") applyPreset("public", false);
     else if (prevStyle.current === "public") applyPreset("school", false);
     prevStyle.current = examStyle;
-    if (beceActive && subject) {
-      const p = getBeceProfile(subject);
-      setSections(beceSections(p).map(sc => ({ ...sc })));
-      setDurationMinutes(beceTotalMinutes(p));
+    if (publicActive && subject) {
+      const p = wassceActive ? getWassceProfile(subject) : getBeceProfile(subject);
+      setSections((wassceActive ? wassceSections(p) : beceSections(p)).map(sc => ({ ...sc })));
+      setDurationMinutes(wassceActive ? wassceTotalMinutes(p) : beceTotalMinutes(p));
       setIncludeMarkingScheme(true);
       setLanguageStyle("Simple");
       setCognitiveLevels(["Recall", "Application", "Critical Thinking"]);
@@ -367,7 +371,7 @@ function QuestionsGeneratorInner() {
       beceApplied.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examStyle, beceActive, subject]);
+  }, [examStyle, beceActive, wassceActive, subject]);
 
   useEffect(() => {
     try {
@@ -551,7 +555,7 @@ function QuestionsGeneratorInner() {
     if (invalid) return `Section ${invalid.id} needs a valid question count and marks per question.`;
     if (Number(durationMinutes) < 10 || Number(durationMinutes) > 300) return "Duration should be between 10 and 300 minutes.";
     if (tierArg === "free") {
-      if (beceActive) return "BECE style papers have several sections and a full marking scheme, so they need Premium AI.";
+      if (publicActive) return `${wassceActive ? "WASSCE" : "BECE"} style papers have several sections and a full marking scheme, so they need Premium AI.`;
       if (activeSections.length > FREE_TIER_MAX_SECTIONS) return `Free AI is limited to ${FREE_TIER_MAX_SECTIONS} sections. Reduce your sections, or use Premium AI for a full exam.`;
       const disallowed = activeSections.find(s => !FREE_TIER_ALLOWED_TYPES.includes(s.type));
       if (disallowed) return "Free AI doesn't support essay sections. Remove the essay section, or use Premium AI.";
@@ -603,7 +607,7 @@ function QuestionsGeneratorInner() {
         topics: selectedTopics, pastedSyllabus,
         difficulty, languageStyle, cognitiveLevels,
         sections: activeSections, allowDiagrams, includeMarkingScheme,
-        examStyle: beceActive ? "bece" : "school",
+        examStyle: wassceActive ? "wassce" : beceActive ? "bece" : "school",
       };
 
       const token = getToken ? getToken() : null;
@@ -626,7 +630,8 @@ function QuestionsGeneratorInner() {
       const { ok, errors } = validateExamData(result.examData, activeSections);
       if (!ok) throw new Error(`The generated paper didn't match the requested structure: ${errors.join(" ")}`);
 
-      if (beceActive && beceProfile) result.examData = decorateBeceExam(result.examData, activeSections, beceProfile, examType);
+      if (wassceActive && beceProfile) result.examData = decorateWassceExam(result.examData, activeSections, beceProfile, examType);
+      else if (beceActive && beceProfile) result.examData = decorateBeceExam(result.examData, activeSections, beceProfile, examType);
       setExamData(result.examData);
       setExamVersion("A");
       setExamHasMarkingScheme(result.includeMarkingScheme !== false);
@@ -953,10 +958,10 @@ function QuestionsGeneratorInner() {
             <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Exam Style</h3>
             <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
               {examStyle === "public"
-                ? (beceActive
-                    ? (subject ? "Sections, number of questions, marks, time, instructions and the marking scheme are set automatically from real BECE papers." : "Choose a subject above and its BECE paper structure loads automatically.")
+                ? (publicActive
+                    ? (subject ? `Sections, number of questions, marks, time, instructions and the marking scheme are set automatically from real ${wassceActive ? "WASSCE" : "BECE"} papers.` : `Choose a subject above and its ${wassceActive ? "WASSCE" : "BECE"} paper structure loads automatically.`)
                     : "Index-number boxes, a sealed-paper notice and a WASSCE-style layout are applied.")
-                : "Everyday class-test layout. Choose BECE style for the real exam format."}
+                : `Everyday class-test layout. Choose ${isSHS ? "WASSCE" : "BECE"} style for the real exam format.`}
               {isMock ? " Mock exams always use this style." : ""}
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -976,10 +981,11 @@ function QuestionsGeneratorInner() {
                 );
               })}
             </div>
-            {beceActive && beceProfile && subject && (
+            {publicActive && beceProfile && subject && (
               <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: 12, padding: "10px 14px", fontFamily: F, fontSize: 12.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>
-                <div><b>Paper 2 (Essay):</b> {beceProfile.paper2.marks} marks, {minutesLabel(beceProfile.paper2.minutes)}</div>
-                <div><b>Paper 1 (Objective):</b> {beceProfile.paper1.marks} questions, {minutesLabel(beceProfile.paper1.minutes)}</div>
+                {(wassceActive && beceProfile.order !== "21" ? ["p1", "p2"] : ["p2", "p1"]).map(k => k === "p2"
+                  ? <div key="p2"><b>Paper 2 (Essay):</b> {beceProfile.paper2.marks} marks, {minutesLabel(beceProfile.paper2.minutes)}</div>
+                  : <div key="p1"><b>Paper 1 (Objective):</b> {beceProfile.paper1.marks} questions, {minutesLabel(beceProfile.paper1.minutes)}</div>)}
                 {!beceProfile.verified && (
                   <div style={{ marginTop: 6, color: "var(--text-muted)" }}>Please check against a real paper: {beceProfile.unverified.join("; ")}.</div>
                 )}
@@ -1103,7 +1109,7 @@ function QuestionsGeneratorInner() {
            message when the Free button specifically is clicked, rather
            than the whole form silently reconfiguring itself. ── */}
       {className && subject && (
-      <ExamStructureBuilder sections={sections} setSections={setSections} S={S} F={F} note={beceActive ? "Structure loaded automatically from the real BECE paper for this subject (Paper 2, then Paper 1). You can still adjust it if you need to." : undefined} />
+      <ExamStructureBuilder sections={sections} setSections={setSections} S={S} F={F} note={wassceActive ? `Structure loaded automatically from the real WASSCE paper for this subject (${beceProfile && beceProfile.order === "21" ? "Paper 2, then Paper 1" : "Paper 1, then Paper 2"}). You can still adjust it if you need to.` : beceActive ? "Structure loaded automatically from the real BECE paper for this subject (Paper 2, then Paper 1). You can still adjust it if you need to." : undefined} />
       )}
 
       {/* ── Output mode + diagrams - consolidated into one compact card

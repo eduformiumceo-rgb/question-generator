@@ -15,6 +15,7 @@
 
 import { DIAGRAM_GUIDE } from "./diagramGuide.js";
 import { beceStyleBlock, beceSchemeBlock } from "./beceStyle.js";
+import { wassceStyleBlock, wassceSchemeBlock } from "./wassceStyle.js";
 
 export function buildSectionPrompt(cfg, section, isFirstSection) {
   const {
@@ -26,9 +27,10 @@ export function buildSectionPrompt(cfg, section, isFirstSection) {
     includeMarkingScheme = true,
   } = cfg;
   const isBece = cfg.examStyle === "bece";
-  const startNum = isBece ? (Number(section.numberFrom) || 1) : 1;
+  const isWassce = cfg.examStyle === "wassce";
+  const startNum = (isBece || isWassce) ? (Number(section.numberFrom) || 1) : 1;
   const endNum = startNum + (Number(section.questionCount) || 1) - 1;
-  const beceNote = isBece ? "\n  Level: JHS pupils sitting the Basic Education Certificate Examination (BECE) in Ghana. Pitch every question at BECE standard and follow the BECE-STYLE PAPER rules below." : "";
+  const beceNote = isBece ? "\n  Level: JHS pupils sitting the Basic Education Certificate Examination (BECE) in Ghana. Pitch every question at BECE standard and follow the BECE-STYLE PAPER rules below." : isWassce ? "\n  Level: SHS candidates sitting the West African Senior School Certificate Examination (WASSCE) in Ghana. Pitch every question at WASSCE standard and follow the WASSCE-STYLE PAPER rules below." : "";
 
   // SHS papers name the programme and are pitched at WASSCE standard. The programme is
   // free text from the browser, so it is reduced to letters/spaces before it reaches the prompt.
@@ -51,7 +53,7 @@ export function buildSectionPrompt(cfg, section, isFirstSection) {
     ? `"markingGuide": string           // REQUIRED, professional marking scheme - see MARKING SCHEME RULES below for the exact format by question type`
     : `"markingGuide": ""               // marking scheme was NOT requested for this paper - always return an empty string here, do not write any marking guidance`;
 
-  const markingRulesBlock = (includeMarkingScheme && isBece) ? beceSchemeBlock(cfg, section) : includeMarkingScheme ? `
+  const markingRulesBlock = (includeMarkingScheme && isWassce) ? wassceSchemeBlock(cfg, section) : (includeMarkingScheme && isBece) ? beceSchemeBlock(cfg, section) : includeMarkingScheme ? `
 MARKING SCHEME RULES (GES/WAEC convention - "markingGuide" must follow the format for this section's type)
 ${section.type === "objective" ? `- Objective: one line stating the correct option's letter, then a brief clause on why it's correct AND a brief clause on why each of the other three options is a plausible-but-wrong distractor (e.g. "B is correct - mitochondria release energy via respiration. A is wrong because...; C confuses...; D confuses...").` : ""}${section.type === "structured" ? `- Structured: a POINT-BY-POINT breakdown that allocates every mark to a specific idea, step, or fact - never a vague paragraph. Format each part as a short list, e.g. "(a) [1] correct formula stated; [1] correct substitution; [1] correct final answer with unit." State any acceptable alternative methods/answers, and note common wrong answers that must NOT receive credit even if superficially similar.` : ""}${section.type === "essay" ? `- Essay: a BANDED RUBRIC with 3 levels matching WAEC/GES essay-marking convention, each with a mark range and a one-sentence descriptor of what that band's response looks like, e.g. "Level 1 (1-${Math.ceil(section.marksPerQuestion*0.3)}): superficial response, little relevant content. Level 2 (${Math.ceil(section.marksPerQuestion*0.3)+1}-${Math.ceil(section.marksPerQuestion*0.7)}): relevant content with some development, limited critical engagement. Level 3 (${Math.ceil(section.marksPerQuestion*0.7)+1}-${section.marksPerQuestion}): well-developed, critically engaged, addresses the question fully." Then list 3-5 specific content points a strong answer would include.` : ""}
 - Every marking guide must be specific enough that a different teacher, reading only the marking guide, could mark a pupil's script consistently - vague guidance like "award marks for a good answer" is not acceptable.` : `
@@ -110,6 +112,6 @@ STRICT RULES
 7. Marks per question (and parts, if used) must sum to the requested total.
 8. Output nothing but the JSON object.
 9. Never use em dashes (the long dash character) anywhere in the paper. Use commas, full stops, colons or brackets instead.
-${beceStyleBlock(cfg, section)}
+${beceStyleBlock(cfg, section)}${wassceStyleBlock(cfg, section)}
 ${markingRulesBlock}`;
 }
