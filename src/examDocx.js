@@ -23,7 +23,7 @@ import {
   Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
   Table, TableRow, TableCell, WidthType, BorderStyle, TabStopType, LeaderType,
   ShadingType, VerticalAlign, PageOrientation, Footer, PageNumber, TableLayoutType, LineRuleType,
-  XmlComponent, HeightRule,
+  XmlComponent, HeightRule, SectionType, Header, PageBorderOffsetFrom, PageBorderDisplay,
 } from "docx";
 import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { removeFirstFigureLine, ownerDrawing } from "./partFigures.js";
@@ -86,15 +86,19 @@ export function turnOverField(text = "Turn over", size = 20) {
 
 /** WASSCE markup: **bold**, {{italic}}, _underlined_ words. Returns [{ t, b, i, u }]. */
 function parseMarkup(ln) {
-  const parts = String(ln).split(/(\*\*.+?\*\*|\{\{.+?\}\}|(?<=^|[\s(])_[^_\n]+_(?=[\s.,;:!?)]|$))/);
-  const segs = [];
-  parts.forEach(p => {
-    if (!p) return;
-    if (/^\*\*.+\*\*$/.test(p)) segs.push({ t: p.slice(2, -2), b: true });
-    else if (/^\{\{.+\}\}$/.test(p)) segs.push({ t: p.slice(2, -2), i: true });
-    else if (/^_[^_]+_$/.test(p)) segs.push({ t: p.slice(1, -1), u: true });
-    else segs.push({ t: p });
-  });
+  // No lookbehind (older Safari cannot even parse it): the character before an underlined word is captured and re-emitted.
+  const re = /\*\*(.+?)\*\*|\{\{(.+?)\}\}|(^|[\s(])_([^_\n]+)_(?=[\s.,;:!?)]|$)/g;
+  const text = String(ln), segs = [];
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) segs.push({ t: text.slice(last, m.index) });
+    if (m[1] !== undefined) segs.push({ t: m[1], b: true });
+    else if (m[2] !== undefined) segs.push({ t: m[2], i: true });
+    else { if (m[3]) segs.push({ t: m[3] }); segs.push({ t: m[4], u: true }); }
+    last = m.index + m[0].length;
+    if (m[0].length === 0) re.lastIndex++;
+  }
+  if (last < text.length) segs.push({ t: text.slice(last) });
   return segs.length ? segs : [{ t: "" }];
 }
 
@@ -374,7 +378,7 @@ function headerBlock(examData, meta, totalMarks, W) {
     // BECE cover page: the subject stands in the middle of the sheet and Paper 2 starts on page 2.
     ...(BX.bece && BX.profile ? [codeBoxDocx(BX.wassce ? wassceCoverCode(BX.profile) : beceCoverCode(BX.profile))] : []),
     ...(BX.bece ? [
-      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: BX.wassce ? 120 : 1000, after: 60 }, border: { top: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: BX.wassce ? 120 : 1000, after: BX.wassce ? 60 : 120 }, border: { top: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: String(subject || "").toUpperCase(), bold: true, size: 56, characterSpacing: 40 })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: [classWithProgramme(className, programme), term].filter(Boolean).join("   |   ").toUpperCase(), size: 26, characterSpacing: 20 })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: BX.wassce ? 120 : 1300 }, border: { bottom: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
@@ -414,7 +418,7 @@ function paper2CoverDocx(W, title, pMarks) {
   ];
 }
 
-function beceBand(section, idx, sections, W) {
+function beceBand(section, idx, sections, W, parts = null) {
   const out = [];
   const prev = sections[idx - 1], next = sections[idx + 1];
   const centre = (runs, extra = {}) => new Paragraph({ alignment: AlignmentType.CENTER, keepNext: true, spacing: { before: 60, after: 40 }, children: runs, ...extra });
@@ -423,7 +427,7 @@ function beceBand(section, idx, sections, W) {
     const pf = pNo === 1 ? BX.profile.paper1 : BX.profile.paper2;
     const pMarks = sections.filter(x => x.paper === section.paper).reduce((a, x) => a + answerableMarks(x), 0);
     const intro = pNo === 1 ? (BX.wassce ? BX.profile.paper1.intro : BECE_OBJECTIVE_INSTRUCTIONS) : (BX.profile.paper2.intro || []);
-    if (BX.wassce && pNo === 2 && prev && BX.profile.order !== "21" && BX.profile.paper2.cover) out.push(...paper2CoverDocx(W, BX.title, pMarks));
+    if (BX.wassce && pNo === 2 && prev && BX.profile.order !== "21" && BX.profile.paper2.cover) { if (parts) parts.cover = paper2CoverDocx(W, BX.title, pMarks); else out.push(...paper2CoverDocx(W, BX.title, pMarks)); }
     out.push(new Paragraph({ keepNext: true, pageBreakBefore: BX.wassce || pNo === 1 || !prev, spacing: { before: 280, after: 20 }, tabStops: [marksTab(W)],
       alignment: AlignmentType.CENTER, children: [new TextRun({ text: `PAPER ${pNo}`, bold: true, size: 26, smallCaps: true }), new TextRun({ text: `\t${minutesLabel(pf.minutes)}`, size: 21 })] }));
     out.push(centre([new TextRun({ text: pf.name, size: 22, smallCaps: true })]));
@@ -557,7 +561,7 @@ function partParagraphs(parts, W, figure = null, partFig = null) {
       keepLines: true, spacing: { before: 80 },
       tabStops: [marksTab(W)],
       indent: { left: NUM_INDENT + 567, hanging: 567 },
-      children: [new TextRun({ text: `(${p.label})`, bold: !BX.wassce, italics: BX.wassce }), new TextRun({ text: "\t" }), ...textRuns(splitPipe(fig.length ? removeFirstFigureLine(p.text) : p.text, W).text), ...(BX.bece ? (BX.show && !BX.obj ? [new TextRun({ text: `\t[${p.marks} marks]` })] : []) : [new TextRun({ text: `\t[${p.marks}]`, bold: true })])],
+      children: [new TextRun({ text: `(${p.label})`, ...(BX.wassce ? { italics: true } : { bold: true }) }), new TextRun({ text: "\t" }), ...textRuns(splitPipe(fig.length ? removeFirstFigureLine(p.text) : p.text, W).text), ...(BX.bece ? (BX.show && !BX.obj ? [new TextRun({ text: `\t[${p.marks} marks]` })] : []) : [new TextRun({ text: `\t[${p.marks}]`, bold: true })])],
     }));
     out.push(...splitPipe(fig.length ? removeFirstFigureLine(p.text) : p.text, W).extra);
     out.push(...fig);
@@ -567,7 +571,7 @@ function partParagraphs(parts, W, figure = null, partFig = null) {
         keepLines: true, spacing: { before: 40 },
         tabStops: [marksTab(W)],
         indent: { left: NUM_INDENT + 567 * 2, hanging: 567 },
-        children: [new TextRun({ text: `(${sp.label})`, bold: !BX.wassce, italics: BX.wassce }), new TextRun({ text: "\t" }), ...textRuns(sp.text), ...(BX.bece ? [] : [new TextRun({ text: `\t[${sp.marks}]`, bold: true })])],
+        children: [new TextRun({ text: `(${sp.label})`, ...(BX.wassce ? { italics: true } : { bold: true }) }), new TextRun({ text: "\t" }), ...textRuns(sp.text), ...(BX.bece ? [] : [new TextRun({ text: `\t[${sp.marks}]`, bold: true })])],
       }));
       if (BX.bece && BX.ans) ansLinesDocx(2).forEach(a => out.push(a));
     });
@@ -579,8 +583,13 @@ function partParagraphs(parts, W, figure = null, partFig = null) {
 function questionParagraphs(q, section, meta, layout, W, labels) {
   const hasParts = Array.isArray(q.parts) && q.parts.length > 0;
   const hasOptions = Array.isArray(q.options) && q.options.length > 0;
-  const stem = splitPipe(q.text, W);
-  const out = [new Paragraph({
+  let qtext = q.text, subhead = "";
+  if (BX.wassce) {
+    const hm = String(q.text || "").match(/^\s*##\s*(.+?)\s*(?:\n|$)/);
+    if (hm) { subhead = hm[1]; qtext = String(q.text).replace(/^\s*##\s*.+?(?:\n|$)/, ""); }
+  }
+  const stem = splitPipe(qtext, W);
+  const out = [...(subhead ? [new Paragraph({ alignment: AlignmentType.CENTER, keepNext: true, spacing: { before: 280, after: 80 }, children: [new TextRun({ text: subhead, bold: true, size: 24, smallCaps: true })] })] : []), new Paragraph({
     keepNext: hasOptions || hasParts || !!q.diagram?.needed || !!q.image?.src, keepLines: true,
     spacing: { before: 220, after: 40 },
     tabStops: [marksTab(W)],
@@ -595,6 +604,7 @@ function questionParagraphs(q, section, meta, layout, W, labels) {
   out.push(...stem.extra);
   out.push(...diagramParagraphs(q, meta, section.id, labels));
   if (hasOptions) out.push(...optionParagraphs(q.options, layout, W));
+  if (BX.wassce && BX.ans && !hasParts && !hasOptions && !BX.obj && !String(qtext || "").split("\n").some(isPipeRow)) ansLinesDocx(Math.round((Number(q.marks) || 1) * 1.5)).forEach(a => out.push(a));
   const partFig = (p) => {
     if (p.image && isSafeImageDataUrl(p.image.src)) return imageParagraphs(p, new Map());
     const raw = ownerDrawing(p) ? (meta.svgPngs || {})[`${section.id}:${q.number}:${p.label}`] : null;
@@ -605,16 +615,16 @@ function questionParagraphs(q, section, meta, layout, W, labels) {
   return out;
 }
 
-function sectionParagraphs(section, meta, layout, W, labels, idx = 0, all = []) {
+function sectionParagraphs(section, meta, layout, W, labels, idx = 0, all = [], split = false) {
   BX.show = section.showPartMarks !== false; BX.obj = section.type === "objective"; BX.ans = !!(BX.bece && BX.profile && (section.inPaper !== undefined ? section.inPaper : BX.profile.answerInPaper));
   const endMark = BX.bece && (!all[idx + 1] || all[idx + 1].paper !== section.paper)
     ? [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 300 }, children: [new TextRun({ text: section.paper === 1 ? "END OF PAPER" : "END OF ESSAY TEST", bold: true, italics: true, characterSpacing: 40 })] })]
     : [];
-  return [
-    ...(BX.bece ? beceBand(section, idx, all, W) : [sectionBand(section, W)]),
-    ...(section.questions || []).flatMap(q => questionParagraphs(q, section, meta, layout, W, labels)),
-    ...endMark,
-  ];
+  const parts = split ? {} : null;
+  const band = BX.bece ? beceBand(section, idx, all, W, parts) : [sectionBand(section, W)];
+  const body = (section.questions || []).flatMap(q => questionParagraphs(q, section, meta, layout, W, labels));
+  if (split) return { cover: (parts && parts.cover) || [], band, body, end: endMark };
+  return [...band, ...body, ...endMark];
 }
 
 /* ── marking scheme ──────────────────────────────────────────── */
@@ -727,9 +737,30 @@ export async function generateExamDocx(examData, meta = {}, mode = "paper") {
   BX = { bece, wassce, profile: wassce ? getWassceProfile(meta.subject) : bece ? getBeceProfile(meta.subject) : null, show: true, obj: false, ans: false, subject: meta.subject, title: (bece ? cleanBeceTitle(examData.title, meta.examType) : examData.title) || meta.examType || "" };
   const totalMarks = (bece ? sections.reduce((a, sc) => a + answerableMarks(sc), 0) : computed) || computed || Number(examData.totalMarks) || 0;
 
+  // WASSCE papers are built as several Word sections: Paper 1 in two columns where the real paper has them,
+  // and a right-hand "Do not write in this margin" rule on the essay pages.
+  const splitSections = mode === "paper" && wassce && !landscape;
+  const pieces = [];
+  if (splitSections) {
+    const add = (kind, kids) => {
+      if (!kids || !kids.length) return;
+      const last = pieces[pieces.length - 1];
+      if (last && last.kind === kind) last.children.push(...kids); else pieces.push({ kind, children: [...kids] });
+    };
+    add("single", headerBlock(examData, meta, totalMarks, W));
+    sections.forEach((sec, i) => {
+      const parts = sectionParagraphs(sec, meta, layout, W, figureLabels(examData), i, sections, true);
+      const essay = sec.type !== "objective";
+      const cols = sec.paper === 1 && BX.profile && BX.profile.twoColumnP1;
+      add("single", parts.cover);
+      add(essay && sec.paper === 2 ? "margin" : "single", parts.band);
+      add(essay && sec.paper === 2 ? "margin" : cols ? "cols" : "single", parts.body);
+      add(essay && sec.paper === 2 ? "margin" : "single", parts.end);
+    });
+  }
   const children = mode === "answerKey"
     ? answerKeyParagraphs(examData, meta, totalMarks, W)
-    : [
+    : splitSections ? [] : [
         ...headerBlock(examData, meta, totalMarks, W),
         ...sections.flatMap((s, i) => sectionParagraphs(s, meta, layout, W, figureLabels(examData), i, sections)),
         ...(bece ? [] : [new Paragraph({
@@ -772,7 +803,25 @@ export async function generateExamDocx(examData, meta = {}, mode = "paper") {
         },
       },
     },
-    sections: [{
+    sections: splitSections ? pieces.map((pc, k) => {
+      const prev = pieces[k - 1];
+      const fresh = k > 0 && (pc.kind === "margin" || (prev && prev.kind === "margin"));
+      const note = new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: "Do not write in this margin.", size: 14, color: INK })] });
+      return {
+        properties: {
+          ...(k > 0 ? { type: fresh ? SectionType.NEXT_PAGE : SectionType.CONTINUOUS } : {}),
+          page: {
+            size: { width: PAGE_W, height: PAGE_H, orientation: PageOrientation.PORTRAIT },
+            margin: { top: MARGIN, bottom: MARGIN + 100, left: MARGIN, right: MARGIN, footer: 567, header: 300 },
+            ...(pc.kind === "margin" ? { borders: { pageBorders: { display: PageBorderDisplay.ALL_PAGES, offsetFrom: PageBorderOffsetFrom.TEXT }, pageBorderRight: { style: BorderStyle.SINGLE, size: 6, color: INK, space: 8 } } } : {}),
+          },
+          ...(pc.kind === "cols" ? { column: { count: 2, space: 567, separate: true } } : {}),
+        },
+        ...(k === 0 ? { footers: { default: footer } } : {}),
+        headers: { default: new Header({ children: pc.kind === "margin" ? [note] : [new Paragraph({ children: [] })] }) },
+        children: pc.children,
+      };
+    }) : [{
       properties: {
         page: {
           size: { width: PAGE_W, height: PAGE_H, orientation: landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT },

@@ -627,7 +627,7 @@ function QuestionsGeneratorInner() {
         }
       });
 
-      const { ok, errors } = validateExamData(result.examData, activeSections);
+      const { ok, errors } = validateExamData(result.examData, activeSections, { style: wassceActive ? "wassce" : "" });
       if (!ok) throw new Error(`The generated paper didn't match the requested structure: ${errors.join(" ")}`);
 
       if (wassceActive && beceProfile) result.examData = decorateWassceExam(result.examData, activeSections, beceProfile, examType);
@@ -1109,7 +1109,7 @@ function QuestionsGeneratorInner() {
            message when the Free button specifically is clicked, rather
            than the whole form silently reconfiguring itself. ── */}
       {className && subject && (
-      <ExamStructureBuilder sections={sections} setSections={setSections} S={S} F={F} note={wassceActive ? `Structure loaded automatically from the real WASSCE paper for this subject (${beceProfile && beceProfile.order === "21" ? "Paper 2, then Paper 1" : "Paper 1, then Paper 2"}). You can still adjust it if you need to.` : beceActive ? "Structure loaded automatically from the real BECE paper for this subject (Paper 2, then Paper 1). You can still adjust it if you need to." : undefined} />
+      <ExamStructureBuilder sections={sections} setSections={setSections} S={S} F={F} note={wassceActive ? (beceProfile && beceProfile.generic ? "No official WASSCE paper structure is on file for this subject, so a standard WASSCE shape (Paper 1 objective, Paper 2 essay) was loaded. Please check the sections and marks against the subject's syllabus and adjust them." : `Structure loaded automatically from the real WASSCE paper for this subject (${beceProfile && beceProfile.order === "21" ? "Paper 2, then Paper 1" : "Paper 1, then Paper 2"}). You can still adjust it if you need to.${beceProfile && beceProfile.verified === false && beceProfile.unverified && beceProfile.unverified.length ? " Some details follow WAEC's published scheme and may differ slightly from a given year's paper." : ""}`) : beceActive ? "Structure loaded automatically from the real BECE paper for this subject (Paper 2, then Paper 1). You can still adjust it if you need to." : undefined} />
       )}
 
       {/* ── Output mode + diagrams - consolidated into one compact card

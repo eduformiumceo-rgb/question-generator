@@ -23,8 +23,16 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 const selectFor = (labelText) => {
-  const label = screen.queryByText((_, el) => el?.tagName === "LABEL" && el.textContent.trim().startsWith(labelText));
-  return label ? label.parentElement.querySelector("select") : null;
+  // Field titles are <label>s or step-title <span>s depending on the field; find the one whose text starts with
+  // labelText, then the nearest ancestor that holds a <select>.
+  const cands = [...document.querySelectorAll("label, span")]
+    .filter(el => new RegExp("^" + labelText + "(\\b|\\s|\\*|$)", "i").test(el.textContent.trim()) && !el.querySelector("select"))
+    .sort((a, b) => a.textContent.length - b.textContent.length);
+  for (const el of cands) {
+    let n = el.parentElement;
+    for (let i = 0; i < 4 && n; i++, n = n.parentElement) { const s = n.querySelector("select"); if (s) return s; }
+  }
+  return null;
 };
 const opts = (sel) => [...sel.querySelectorAll("option")].map(o => o.textContent);
 

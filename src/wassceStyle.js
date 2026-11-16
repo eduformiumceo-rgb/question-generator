@@ -158,8 +158,8 @@ export const WASSCE_PROFILES = {
       sections: [
         sec({ id: "A", label: "Section A", heading: "SECTION A", rubric: "Answer **all** the questions in this section.\nAll questions carry equal marks.", questionCount: 8, marksPerQuestion: 6, numberFrom: 1,
           hint: "EIGHT compulsory questions of 6 marks each, each with one or two parts (a), (b), drawn from the Elective Mathematics syllabus: a binary operation on the set of real numbers (inverse, truth set), logic, indices and surds, quadratic and polynomial equations, functions, matrices, coordinate geometry and the circle, sequences, and a mechanics problem on a body held by two strings. Do NOT print marks against individual parts." }),
-        sec({ id: "B", label: "Section B", heading: "SECTION B", rubric: "Answer **four** questions **only** from this section with at least **one** question from each part.\nAll questions carry equal marks.", questionCount: 7, marksPerQuestion: 13, answerAny: 4, numberFrom: 9,
-          hint: "SEVEN questions of 13 marks each (candidates answer any four with at least one from each part). Questions 9 to 13 are Part I, PURE MATHEMATICS (binomial coefficients and G.P., calculus, trigonometry, permutations and probability, statistics such as standard deviation), and questions 14 and 15 are Part II, VECTORS AND MECHANICS (vectors with components i and j, motion with constant retardation, collisions, forces). Put the words PART I: PURE MATHEMATICS at the start of the text of question 9 and PART II: VECTORS AND MECHANICS at the start of the text of question 14, each on its own line in capitals. Do NOT print marks against individual parts." }),
+        sec({ id: "B", label: "Section B", heading: "SECTION B", rubric: "Answer **four** questions **only** from this section with at least **one** question from each part.\nAll questions carry equal marks.", questionCount: 7, marksPerQuestion: 13, answerAny: 4, numberFrom: 9, showPartMarks: false,
+          hint: "SEVEN questions of 13 marks each (candidates answer any four with at least one from each part), in THREE parts exactly as in the real paper: Part I PURE MATHEMATICS = questions 9, 10 and 11 (for example a binomial coefficients and exponential sequence question, surds with integration, functions with inverse and domain, simplification of indices); Part II STATISTICS AND PROBABILITY = questions 12 and 13 (an objective-test guessing probability question, a frequency table with mean, variance or standard deviation); Part III VECTORS AND MECHANICS = questions 14 and 15 (position vectors and ratio division, relative velocity, a body held by two strings, motion with constant acceleration, collisions, impulse). Begin the text of question 9 with the line '## PART I: PURE MATHEMATICS', question 12 with '## PART II: STATISTICS AND PROBABILITY' and question 14 with '## PART III: VECTORS AND MECHANICS' (a line starting with ## is a printed heading, then the question text follows on the next line). Do NOT print marks against individual parts." }),
       ] },
   },
 
@@ -285,32 +285,34 @@ Object.assign(WASSCE_PROFILES, {
   },
 
   "Economics": {
-    label: "Economics", verified: false, unverified: ["Paper 2 was not in the supplied papers: a standard essay shape is used", "Paper 1 duration read as 1 hour"],
+    label: "Economics", verified: true, unverified: ["Paper 2 layout taken from WAEC's published scheme and the 2025 paper text, not from a scan"],
+    sources: ["WAEC Economics syllabus (Paper 2: 80 marks, 2 hours; Section A two data-response questions, answer one; Section B six questions, answer three)", "supplied 2021 Paper 1 (50 objective questions, 1 hour)"],
     scheme: "points", schemeNotes: NOTES_POINTS, order: "12", examinerBox: true,
     paper1: paper1(50, 60, { hint: ARTS_P1_HINT + " Include simple calculation questions (elasticity, national income, price index) with the figures given, and questions that read a supply and demand schedule given as a table." }),
-    paper2: { name: "ESSAY", marks: 60, minutes: 120,
-      intro: ["Answer **four** questions in all, choosing any **two** questions from Section A and any **two** questions from Section B.", "All questions carry equal marks."],
-      cover: booklet2("This booklet consists of **two** sections: **A** and **B**. Answer **four** questions in all: any **two** questions from section **A** and any **two** questions from section **B**."),
+    paper2: { name: "ESSAY", marks: 80, minutes: 120,
+      intro: ["Answer **four** questions in all: **one** question only from Section A and any **three** questions from Section B.", "You are reminded of the importance of clarity of expression and orderly presentation of relevant materials.", "All questions carry equal marks."],
+      cover: booklet2("This booklet consists of **two** sections: **A** and **B**. Answer **four** questions in all: **one** question only from section **A** and any **three** questions from section **B**."),
       sections: [
-        sec({ id: "A", label: "Section A", heading: "SECTION A", sub: "ECONOMIC THEORY", rubric: "Answer **two** questions only from this section.", questionCount: 5, marksPerQuestion: 15, answerAny: 2, numberFrom: 1,
-          hint: "FIVE questions of 15 marks each (candidates answer any two) on basic economic theory (demand and supply, elasticity, production and costs, market structures, national income). Use the shapes 'Explain five ...' [15] or (a) define [3 or 4] with (b) [11 or 12], and one question that reads a table or schedule." }),
-        sec({ id: "B", label: "Section B", heading: "SECTION B", sub: "THE GHANAIAN AND WEST AFRICAN ECONOMY", rubric: "Answer **two** questions only from this section.", questionCount: 5, marksPerQuestion: 15, answerAny: 2, numberFrom: 6,
-          hint: "FIVE questions of 15 marks each (candidates answer any two) on the Ghanaian and West African economy (agriculture, industry, money and banking, public finance, international trade, ECOWAS). Same question shapes as Section A." }),
+        sec({ id: "A", label: "Section A", heading: "SECTION A", sub: "DATA RESPONSE", rubric: "Answer **one** question only from this section.", questionCount: 2, marksPerQuestion: 20, answerAny: 1, numberFrom: 1,
+          hint: "TWO data-response questions of 20 marks each (candidates answer one). Each opens with a table or short data set the candidate must read (a utility schedule of a consumer, a government revenue and expenditure table with percentages, a table of demand and supply, national income figures) written as a pipe table, then parts (a) to (e) of 2 to 6 marks each that ask the candidate to read, calculate and explain from the data ('What percentage of total revenue was collected as indirect tax?', 'State two examples of non-tax revenue', 'What was the budget surplus or deficit? Explain your answer', 'At what level of consumption is the consumer in equilibrium? Explain'). Marks of the parts add up to 20." }),
+        sec({ id: "B", label: "Section B", heading: "SECTION B", rubric: "Answer **three** questions only from this section.", questionCount: 6, marksPerQuestion: 20, answerAny: 3, numberFrom: 3,
+          hint: "SIX essay questions of 20 marks each (candidates answer any three), each with parts (a), (b), (c) and marks such as 2+9+9, 4+8+8 or 4+12: define a term ('Define indigenization', 'Define money'), then explain, outline or state three or four points with marks per point (private limited company against sole proprietorship, objectives of OPEC, minimum wage effects, features and advantages of a table in economic analysis), and one short calculation or diagram question (elasticity, a demand and supply schedule). The six questions cover different areas: Ghanaian and West African economy, public finance, money and banking, production and costs, international trade, market structures." }),
       ] },
   },
 
   "Business Management": {
-    label: "Business Management", verified: false, unverified: ["Marks of Question 1 (assumed 25 so that Paper 2 totals 70)", "Number of Section B questions (assumed 6)"],
+    label: "Business Management", verified: true, unverified: ["Paper 2 duration read as 2 hours from the supplied 2021 paper cover"],
+    sources: ["supplied 2021 paper: 'This booklet contains eight questions. Answer Question 1 (compulsory) and three other questions' [70 marks], Paper 1 [50 marks] 1 hour", "WAEC Business Management syllabus (case study of 200-250 words for 25 marks, seven essay questions of 15 marks)"],
     scheme: "points", schemeNotes: NOTES_POINTS, order: "12", examinerBox: true,
     paper1: paper1(50, 60, { hint: ARTS_P1_HINT }),
     paper2: { name: "ESSAY", marks: 70, minutes: 120,
-      intro: ["Answer **four** questions in all: Question 1 and any **three** other questions.", CREDIT],
-      cover: booklet2("This booklet consists of **two** sections: **A** and **B**. Answer **four** questions in all: Question **1** and any **three** other questions."),
+      intro: ["Answer **four** questions in all: Question **1** (compulsory) and **three** other questions.", CREDIT],
+      cover: booklet2("This booklet contains **eight** questions. You are required to answer Question **1** (compulsory) and **three** other questions."),
       sections: [
-        sec({ id: "A", label: "Section A", heading: "SECTION A", rubric: "Answer **all** the questions in this section.", questionCount: 1, marksPerQuestion: 25, numberFrom: 1,
-          hint: "ONE compulsory case-study question of 25 marks: a short case (about 120 words) about a named Ghanaian business, followed by parts (a) to (c) asking the candidate to identify the type of business or problem, explain, and recommend, with marks printed per part." }),
-        sec({ id: "B", label: "Section B", heading: "SECTION B", rubric: "Answer **three** questions only from this section.", questionCount: 6, marksPerQuestion: 15, answerAny: 3, numberFrom: 2,
-          hint: "SIX questions of 15 marks each (candidates answer any three), each (a) 'Explain / define ...' [3] and (b) 'State / Explain five ...' [12], on topics such as forms of business ownership, management functions, marketing, finance, human resources and business law." }),
+        sec({ id: "A", label: "Section A", heading: "", rubric: "", questionCount: 1, marksPerQuestion: 25, numberFrom: 1, sectionless: true,
+          hint: "ONE compulsory case-study question of 25 marks: a case of 200 to 250 words about a named Ghanaian business (its history, products, owners, staff, a problem with sales, finance, motivation or management) printed in full in the question text, followed by parts (a) to (d) with marks printed per part such as 4+6+6+9: identify the type of business or the management problem, explain how it arises, describe the role of a named officer, and recommend how the business can overcome its problems." }),
+        sec({ id: "B", label: "Section B", heading: "", rubric: "", questionCount: 7, marksPerQuestion: 15, answerAny: 3, numberFrom: 2, sectionless: true,
+          hint: "SEVEN questions of 15 marks each (candidates answer any three), each (a) 'What is ... / Explain the term ...' [3] and (b) 'Explain / State / Outline five ...' [12] (or parts such as 4+11), on different topics: motivation, contracts and their conditions, production, responsibilities of a business towards groups, bank accounts, forms of business ownership, marketing, human resources." }),
       ] },
   },
 
@@ -331,16 +333,19 @@ Object.assign(WASSCE_PROFILES, {
   },
 
   "Geography": {
-    label: "Geography", verified: false, unverified: ["Paper 2 Section C and Paper 3 (map work and practical) are not generated", "Paper 1 duration read as 1 hour"],
+    label: "Geography", verified: true, unverified: ["Paper 3 (map work and physical geography, 1h50) is not generated", "Paper 1 duration read as 1 hour from WAEC's scheme"],
+    sources: ["supplied 2021 paper (2&1 booklet, 3 hours): Paper 2 2 hours, answer four questions", "WAEC Geography syllabus: Paper 2 has nine essay questions in three sections A, B and C, three each; candidates in Ghana answer four with at least one from each section, 80 marks"],
     scheme: "points", schemeNotes: NOTES_POINTS, order: "21", booklet: "combined", examinerBox: true,
-    paper1: paper1(50, 60, { hint: "Short, clear stems with four options lettered A to D on physical and human geography, map reading and the geography of Ghana and West Africa. Include a few questions that use a small table of data or a described map." }),
-    paper2: { name: "HUMAN GEOGRAPHY", marks: 80, minutes: 120,
-      intro: ["Answer **four** questions in all, choosing at least **one** question from each of Sections A and B.", "All questions carry equal marks."],
+    paper1: paper1(50, 60, { hint: "Short, clear stems with four options lettered A to D on physical and human geography, map reading and the geography of Ghana and Africa. Include a few questions that use a small table of data or a described map." }),
+    paper2: { name: "HUMAN AND REGIONAL GEOGRAPHY", marks: 80, minutes: 120,
+      intro: ["Answer **four** questions in all, choosing at least **one** question from **each** of Sections A, B and C.", "All questions carry equal marks."],
       sections: [
-        sec({ id: "A", label: "Section A", heading: "SECTION A", sub: "FOR ALL CANDIDATES", rubric: "Answer at least **one** question from this section.", questionCount: 3, marksPerQuestion: 20, countedMarks: 40, hideSecMarks: true, numberFrom: 1,
-          hint: "THREE questions of 20 marks each on human geography (population and population density with a data table, tourism, settlement). Each has parts (a), (b), (c) with marks such as 2+10+8 or 4+8+8, and one question gives a table to calculate from." }),
-        sec({ id: "B", label: "Section B", heading: "SECTION B", sub: "FOR CANDIDATES IN GHANA", rubric: "Answer at least **one** question from this section.", questionCount: 3, marksPerQuestion: 20, countedMarks: 40, hideSecMarks: true, numberFrom: 4,
-          hint: "THREE questions of 20 marks each specific to Ghana: a sketch map of Ghana on which the candidate locates named places (Akosombo dam, Volta Lake, Kpong), a question on latitudes, longitudes and the size, location and position of Ghana, and a question on industries (towns, contributions, problems). Marks per part printed, such as 1+2+2+1 for the map and 6 and 8 for the written parts." }),
+        sec({ id: "A", label: "Section A", heading: "SECTION A", sub: "HUMAN GEOGRAPHY", rubric: "Answer at least **one** question from this section.", questionCount: 3, marksPerQuestion: 20, countedMarks: 40, hideSecMarks: true, numberFrom: 1,
+          hint: "THREE questions of 20 marks each on economic and human geography (population and population density with a data table, tourism, settlement, industry). Each has parts (a), (b), (c) with marks such as 2+10+8 or 4+8+8, and one question gives a table to calculate from." }),
+        sec({ id: "B", label: "Section B", heading: "SECTION B", sub: "REGIONAL GEOGRAPHY OF GHANA", rubric: "Answer at least **one** question from this section.", questionCount: 3, marksPerQuestion: 20, countedMarks: 20, hideSecMarks: true, numberFrom: 4,
+          hint: "THREE questions of 20 marks each specific to Ghana: a sketch map of Ghana on which the candidate locates named places (Akosombo dam, Volta Lake, Kpong), a question on the size, location and position of Ghana, vegetation (savanna and forest) and resources, and a question on industries (towns, contributions, problems). Marks per part printed, such as 1+2+2+1 for the map and 6 and 8 for the written parts." }),
+        sec({ id: "C", label: "Section C", heading: "SECTION C", sub: "GEOGRAPHY OF AFRICA", rubric: "Answer at least **one** question from this section.", questionCount: 3, marksPerQuestion: 20, countedMarks: 20, hideSecMarks: true, numberFrom: 7,
+          hint: "THREE questions of 20 marks each on the regional geography of Africa (climate and vegetation regions, population and migration, agriculture, mining and the economies of regions such as North Africa, the Nile basin or Southern Africa). Marks per part printed. Describe any sketch map in words." }),
       ] },
   },
 
@@ -348,8 +353,8 @@ Object.assign(WASSCE_PROFILES, {
     label: "Literature-in-English", verified: false, unverified: ["The genre set in Paper 2 changes every year (prose, drama or poetry): prose is used here", "Number of Paper 2 questions per section (assumed 4)"],
     scheme: "points", schemeNotes: NOTES_POINTS, order: "21", booklet: "combined", examinerBox: true,
     paper1: paper1(50, 60, { sections: [
-      p1Section(30, { id: "OBJ1", label: "Paper 1: Section A", heading: "SECTION A", sub: "GENERAL KNOWLEDGE OF LITERATURE", numberFrom: 1, rubric: "Answer **all** the questions in this section.", hint: "THIRTY questions on general knowledge of literature: terms and devices (aside, soliloquy, irony, satire, flashback), genres, features of prose, drama and poetry, and the definition and use of figures of speech, each with four options." }),
-      p1Section(20, { id: "OBJ2", label: "Paper 1: Section B", heading: "SECTION B", sub: "SET TEXTS AND EXTRACTS", numberFrom: 31, rubric: "Answer **all** the questions in this section.", hint: "TWENTY questions based on the texts named in the topics. Write short ORIGINAL extracts (never quote a published text) of about 60 words and ask about meaning, characterisation, theme and devices ('Read the extract below and answer questions 31 to 35.'); put the extract in the first question of the group." }),
+      p1Section(30, { id: "OBJ1", label: "Paper 1: Section A", heading: "SECTION A", sub: "GENERAL KNOWLEDGE OF LITERATURE", numberFrom: 1, rubric: "Answer **all** the questions in this section.", hint: "THIRTY questions in three groups. Questions 1 to 20: general knowledge of literature (terms and devices such as aside, soliloquy, irony, satire, flashback, genres, features of prose, drama and poetry, figures of speech). Questions 21 to 25: an unseen prose passage: write ONE original passage of about 90 words in the first of these questions with the line 'Read the following passage and answer questions 21 to 25.' and ask about meaning, tone, characters and devices. Questions 26 to 30: an unseen poem: write ONE original poem of 8 to 12 lines in question 26 with 'Read the following poem and answer questions 26 to 30.' Each question has four options." }),
+      p1Section(20, { id: "OBJ2", label: "Paper 1: Section B", heading: "SECTION B", sub: "THE PRESCRIBED SHAKESPEAREAN TEXT", numberFrom: 31, rubric: "Answer **all** the questions in this section.", hint: "TWENTY context questions on the prescribed Shakespearean text named in the topics. Each question gives a short ORIGINAL paraphrase of a moment in the play (never quote the play's lines) and asks who is speaking or being addressed, what has just happened, the speaker's motive, a device or the theme. Four options each." }),
     ] }),
     paper2: { name: "PROSE", marks: 50, minutes: 90,
       intro: ["Answer **two** questions in all; **one** question from each section. Develop not fewer than **five** points in your answers."],
@@ -358,6 +363,190 @@ Object.assign(WASSCE_PROFILES, {
           hint: "FOUR essay questions of 25 marks each (candidates answer one) on the African prose texts named in the topics, two per text, as a single task: 'Examine three instances of ... in the novel.', 'Discuss the meeting of ... and ...', 'Consider ... as a woman of faith and courage.' Name the author and text above each pair, for example 'BUCHI EMECHETA: Second Class Citizen'." }),
         sec({ id: "B", label: "Section B", heading: "SECTION B", sub: "NON-AFRICAN PROSE", rubric: "Answer **one** question only from this section.", questionCount: 4, marksPerQuestion: 25, answerAny: 1, numberFrom: 5,
           hint: "FOUR essay questions of 25 marks each (candidates answer one) on the non-African prose texts named in the topics, two per text, in the same form as Section A ('Comment on the character of ...', 'Compare ... to ... in the novel.', 'Examine the role of ... in the development of the plot.')." }),
+      ] },
+  },
+
+  "Management in Living": {
+    label: "Management in Living", verified: true, unverified: [],
+    sources: ["supplied 2021 paper (2&1 booklet, 3 hours): Paper 2 [100 marks] 2 hours, answer four questions only, six questions; Paper 1 [60 marks] 1 hour"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "21", booklet: "combined", examinerBox: true,
+    paper1: paper1(60, 60, { hint: "Short, clear stems with four options lettered A to D on management in living: management concepts, goals and values, family and marriage, health and sanitation, housing, consumer education, money and investment, time and energy management. Questions are direct recall and application in Ghanaian home and community situations, and a few 'which of the following is NOT ...' questions (write the word as **not**)." }),
+    paper2: { name: "ESSAY", marks: 100, minutes: 120,
+      intro: ["Answer **four** questions only.", "All questions carry equal marks.", CREDIT],
+      sections: [
+        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 25, answerAny: 4, numberFrom: 1,
+          hint: "SIX questions of 25 marks each (candidates answer any four), each with four or five parts (a) to (d) or (e) and sub-parts (i), (ii), with marks printed such as 2+5+10+8, 4+3+4+6+8 or 1+2+10+12. Typical command words: 'Explain the concept ...' [2], 'State five characteristics of ...' [5], 'Explain five factors that affect ...' [10], 'Explain four types of goals' [8], 'Differentiate between ... and ...' [4], 'List the three forms of ...' [3]. The six questions cover different areas: management and goals, family life and marriage, health and sanitation, housing, money and investment (insurance, premium, policy), and consumer matters. Marks of the parts add up to 25." }),
+      ] },
+  },
+
+  "Textiles": {
+    label: "Textiles", verified: true, unverified: [],
+    sources: ["supplied 2021 paper (2&1 booklet, 2 hours 50 minutes): Paper 2 [60 marks] 2 hours, answer four questions only, six questions; Paper 1 50 minutes [40 marks]"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "21", booklet: "combined", examinerBox: true,
+    paper1: paper1(40, 50, { hint: "Short, clear stems with four options lettered A to D on textiles: fibres and their identification, yarns, weaving and weaving calculations, knitting, dyeing and printing, finishing, fabric care labels, Ghanaian traditional fabrics (adinkra, kente), textile design, careers and safety." }),
+    paper2: { name: "ESSAY", marks: 60, minutes: 120,
+      intro: ["Answer **four** questions only.", "All questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
+      sections: [
+        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
+          hint: "SIX questions of 15 marks each (candidates answer any four), each with two or three parts and marks printed such as 3+12, 4+9+2, 3+12, 2+10+3, 10+2+3 or 9+3+3: 'Describe texture in textile design' [3] with 'Give six reasons for using textures' [12]; fibre identification and the burning test for linen, silk and nylon; a weaving calculation with the loom width, length, reed size and warp pattern given (total number of ends, width of a colour, heddles per shaft); 'Define textiles' with five reasons for studying it and three careers; block printing problems and methods of fixing; describing Ghanaian traditional fabrics such as adinkra and kente and their significance. One question may ask the candidate to identify care labels or draw a labelled diagram (give it as a [FIGURE: ...] line)." }),
+      ] },
+  },
+
+  "Basketry": {
+    label: "Basketry", verified: true, unverified: [],
+    sources: ["supplied 2021 paper (2&1 booklet, 2 hours 50 minutes): Paper 2 [60 marks] 2 hours, answer four questions only; Paper 1 50 minutes (40 questions)"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "21", booklet: "combined", examinerBox: true,
+    paper1: paper1(40, 50, { hint: "Short, clear stems with four options lettered A to D on basketry: raw materials (cane, bamboo, raffia), treatment, tools and their safe use, weaving and plaiting techniques, finishing, design, marketing of basketry articles and safety." }),
+    paper2: { name: "ESSAY", marks: 60, minutes: 120,
+      intro: ["Answer **four** questions only.", "All questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
+      sections: [
+        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
+          hint: "SIX questions of 15 marks each (candidates answer any four), each with two or three parts and marks printed such as 8+4+3, 3+6+6 or 8+4+3: 'In four steps, describe open-air treatment of bamboo' [8], 'State three precautionary measures when using the knife' [3], 'Explain braiding in basketry' [3], 'Describe three ways of finishing the edge of a basket' [6], 'Illustrate the plaiting process using three weavers' [8], 'With the aid of illustration, describe the bodkin tool' [4], and factors that promote the sale of a basketry article. Diagrams are asked for in words ('with the aid of illustration')." }),
+      ] },
+  },
+
+  "Leatherwork": {
+    label: "Leatherwork", verified: true, unverified: [],
+    sources: ["supplied 2021 paper (2&1 booklet, 2 hours 50 minutes): Paper 2 [60 marks] 2 hours, answer four questions only; Paper 1 50 minutes (40 questions)"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "21", booklet: "combined", examinerBox: true,
+    paper1: paper1(40, 50, { hint: "Short, clear stems with four options lettered A to D on leatherwork: hides and skins, tanning and finishing (scorching, nappa), tools and equipment, decoration and carving, product making, safety and marketing." }),
+    paper2: { name: "ESSAY", marks: 60, minutes: 120,
+      intro: ["Answer **four** questions only.", "All questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
+      sections: [
+        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
+          hint: "SIX questions of 15 marks each (candidates answer any four), each with two or three parts and marks printed such as 6+3+6, 'List six animals whose hides can be carved' [6], 'State six significance of tanning hides' [6], and one question that asks the candidate to describe, with the aid of illustration, each of several terms or finishes (such as scorching or nappa leather) [15 marks in all]." }),
+      ] },
+  },
+
+  "General Knowledge in Art": {
+    label: "General Knowledge in Art", verified: true, unverified: [],
+    sources: ["supplied 2021 paper (2&1 booklet, 2 hours 20 minutes): Paper 2 [60 marks] 1½ hours, answer three questions only (five questions); Paper 1 50 minutes (40 questions)"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "21", booklet: "combined", examinerBox: true,
+    paper1: paper1(40, 50, { hint: "Short, clear stems with four options lettered A to D on general knowledge in art: elements and principles of design, art appreciation, creative environment, art of West Africa and Ghana, pre-historic, Egyptian and Western art, tools and materials, careers and tourist sites." }),
+    paper2: { name: "ESSAY", marks: 60, minutes: 90,
+      intro: ["Answer **three** questions only.", "All questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
+      sections: [
+        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 5, marksPerQuestion: 20, answerAny: 3, numberFrom: 1,
+          hint: "FIVE questions of 20 marks each (candidates answer any three), each with two or three parts and marks such as 2+18, 6+12, 2+6+12 or 4+8+8: a question on a pictured work ([FIGURE: ...] line) asking the candidate to name the elements and, using the steps in appreciation, write an appreciation; 'List six tourist sites in Ghana' [6] with an explanation [12]; 'State two characteristics of a creative environment' [2]; and a question on a labelled figure asking for the function of each labelled line [8]. Marks of the parts add up to 20." }),
+      ] },
+  },
+
+  "Principles of Cost Accounting": {
+    label: "Principles of Cost Accounting", verified: true, unverified: ["Paper 1 marks (WAEC weights it 25; the paper itself prints no mark total)"],
+    sources: ["supplied 2021 paper (2&1 booklet, 3 hours): Paper 2 2 hours, two questions from Section A and three from Section B, 15 marks each (nine questions), calculators allowed; Paper 1 1 hour"],
+    scheme: "table", schemeNotes: NOTES_ACCOUNTS, order: "21", booklet: "combined", calculators: true, examinerBox: true,
+    paper1: paper1(50, 60, { hint: "Short, clear stems with four options lettered A to D on cost accounting: elements of cost, cost classification, material and labour costing, overheads, job and process costing, marginal costing, budgets, standard costing. Include calculation questions with the figures given in GH\u00a2." }),
+    paper2: { name: "ESSAY", marks: 75, minutes: 120,
+      intro: ["This paper consists of **two** sections, **A** and **B**. Answer **two** questions from Section A and **three** questions from Section B.", "You are reminded of the importance of clarity of expression and orderly presentation of relevant material.", "Calculators may be used but all workings must be shown."],
+      sections: [
+        sec({ id: "A", label: "Section A", heading: "SECTION A", sub: "THEORY", rubric: "Answer **two** questions only from this section.", questionCount: 4, marksPerQuestion: 15, answerAny: 2, numberFrom: 1,
+          hint: "FOUR theory questions of 15 marks each (candidates answer any two) with marks such as 3+12 or 3+6+6: 'What is cost?' [3] with explanation of cost concepts [12]; methods of remuneration (time rate, piece rate, bonus schemes); cost units for different firms; 'What is a budget?' [3] with 'Outline six benefits of a budget to an organisation' [12]." + ACCOUNTS_HINT }),
+        sec({ id: "B", label: "Section B", heading: "SECTION B", sub: "PRACTICE", rubric: "Answer **three** questions only from this section.", questionCount: 5, marksPerQuestion: 15, answerAny: 3, numberFrom: 5,
+          hint: "FIVE practical questions of 15 marks each (candidates answer any three), each giving figures in a pipe table or numbered list: interlocking accounts for a manufacturing firm (transactions for a named month), a job-cost statement for a tailor or similar firm with overhead absorption, process costing, a marginal costing statement with contribution and break-even, and a trading and profit statement for a sole trader." + ACCOUNTS_HINT }),
+      ] },
+  },
+
+  "Food and Nutrition": {
+    label: "Foods and Nutrition", verified: false, unverified: ["Paper 2 was not in the supplied papers: taken from WAEC's published scheme (six essay questions, answer four, 40 marks, 1 hour 15 minutes)", "Paper 3 (practical, 3 hours) is not generated"],
+    sources: ["supplied 2021 Paper 1 [60 marks] 1 hour", "WAEC Foods and Nutrition syllabus (Paper 2: six essay questions, answer four, 1 hour 15 minutes, 40 marks)"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "12", examinerBox: true,
+    paper1: paper1(60, 60, { hint: "Short, clear stems with four options lettered A to D on foods and nutrition: food nutrients and their sources and deficiency diseases, meal planning and special nutritional needs, kitchen tools and equipment, food preparation methods, food preservation and storage, hygiene and safety, food business. Questions are direct recall and application in Ghanaian food situations." }),
+    paper2: { name: "ESSAY", marks: 40, minutes: 75,
+      intro: ["Answer **four** questions only.", "All questions carry equal marks."],
+      cover: booklet2("This booklet contains **six** questions. You are required to answer **four** questions only. All questions carry equal marks."),
+      sections: [
+        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 10, answerAny: 4, numberFrom: 1,
+          hint: "SIX short essay questions of 10 marks each (candidates answer any four), each with parts (a), (b), (c) and marks such as 2+4+4 or 3+7: define a term, state or explain points (functions and sources of a nutrient, factors to consider when planning a meal, rules of kitchen safety and hygiene, methods of food preservation) and one short practical-planning item. Marks of the parts add up to 10." }),
+      ] },
+  },
+
+  "Agriculture": {
+    label: "General Agriculture", verified: false, unverified: ["Taken from WAEC's published scheme, no scan was supplied", "Paper 3 (practical) is not generated"],
+    sources: ["WAEC General Agriculture syllabus: Paper 1 fifty objective questions, 1 hour, 50 marks; Paper 2 ten essay questions in five sections A to E (two each), answer one from each section, 16 marks each, 2 hours"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "12", examinerBox: true,
+    paper1: paper1(50, 60, { hint: "Short, clear stems with four options lettered A to D on general agriculture: soil and its management, crop production, animal production and health, farm tools and machinery, agricultural economics and marketing, forestry and fisheries, agro-processing. Write chemical names with proper subscripts." }),
+    paper2: { name: "ESSAY", marks: 80, minutes: 120,
+      intro: ["Answer **five** questions in all: **one** question only from **each** of the five sections."],
+      cover: booklet2("This booklet consists of **five** sections: **A**, **B**, **C**, **D** and **E**. Answer **five** questions in all, **one** question only from **each** section."),
+      sections: ["A", "B", "C", "D", "E"].map((L, k) => sec({ id: L, label: `Section ${L}`, heading: `SECTION ${L}`, rubric: "Answer **one** question only from this section.", questionCount: 2, marksPerQuestion: 16, answerAny: 1, numberFrom: 1 + 2 * k,
+        hint: ["SECTION A covers soil science and farm tools; ", "SECTION B covers crop production and protection; ", "SECTION C covers animal production and health; ", "SECTION D covers agricultural economics, farm records and marketing; ", "SECTION E covers forestry, fisheries and agro-processing; "][k] + "TWO questions of 16 marks each (candidates answer one), each with parts (a), (b), (c) with marks such as 4+6+6 or 3+5+8: define or state, explain or describe points with marks per point, and one short practical or diagram item. Marks of the parts add up to 16." })) },
+  },
+
+  "Agricultural Science": {
+    label: "Agricultural Science", verified: false, unverified: ["Taken from WAEC's published scheme, no scan was supplied", "Paper 3 (practical) is not generated"],
+    sources: ["WAEC Agricultural Science syllabus: Paper 1 fifty objective questions, 50 minutes, 50 marks; Paper 2 six essay questions, answer five, 2 hours 10 minutes, 90 marks"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "12", examinerBox: true,
+    paper1: paper1(50, 50, { hint: "Short, clear stems with four options lettered A to D on agricultural science: agricultural ecology, soil, crop husbandry, animal husbandry (for example the device that regulates heat in an incubator), agricultural economics and extension, farm machinery." }),
+    paper2: { name: "ESSAY", marks: 90, minutes: 130,
+      intro: ["Answer **five** questions only.", "All questions carry equal marks."],
+      cover: booklet2("This booklet contains **six** questions. You are required to answer **five** questions only. All questions carry equal marks."),
+      sections: [
+        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 18, answerAny: 5, numberFrom: 1,
+          hint: "SIX questions of 18 marks each (candidates answer any five), each drawn from at least two themes of the syllabus, with parts (a) to (c) and marks such as 4+6+8 or 6+12: definitions, explain or describe points with marks per point, calculations such as seed rates, feed rations, stocking rates or farm profit, and one diagram item as a [FIGURE: ...] line. Marks of the parts add up to 18." }),
+      ] },
+  },
+
+  "History": {
+    label: "History", verified: false, unverified: ["Number of questions per section (three assumed) and Paper 1 mark weighting (WAEC weights Paper 1 at 40)"],
+    sources: ["WAEC History syllabus: Paper 1 fifty objective questions, 1 hour; Paper 2 2 hours, three sections A, B and C, answer four questions with at least one from each section, 60 marks"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "12", examinerBox: true,
+    paper1: paper1(50, 60, { hint: "Short, clear stems with four options lettered A to D on West Africa and the wider world from earliest times to 2000: early states and empires, the trans-Saharan and Atlantic trade, European contact, colonial rule, nationalism and independence, ECOWAS and the African Union, the world wars and the United Nations. Use dates and names accurately." }),
+    paper2: { name: "ESSAY", marks: 60, minutes: 120,
+      intro: ["Answer **four** questions in all, choosing at least **one** question from **each** section.", "All questions carry equal marks."],
+      cover: booklet2("This booklet consists of **three** sections: **A**, **B** and **C**. Answer **four** questions in all, choosing at least **one** question from **each** section."),
+      sections: [
+        sec({ id: "A", label: "Section A", heading: "SECTION A", sub: "GHANA: EARLY PERIOD", rubric: "Answer at least **one** question from this section.", questionCount: 3, marksPerQuestion: 15, countedMarks: 30, hideSecMarks: true, numberFrom: 1,
+          hint: "THREE questions of 15 marks each on the national history of Ghana up to about 1800 (origins and migrations of peoples, the Akan states, the rise of Asante, early European contact and trade). One-part 'Highlight / Give / Outline five ...' questions [15] or (a) [5] with (b) [10]." }),
+        sec({ id: "B", label: "Section B", heading: "SECTION B", sub: "GHANA: 19TH CENTURY AND COLONIAL RULE", rubric: "Answer at least **one** question from this section.", questionCount: 3, marksPerQuestion: 15, countedMarks: 15, hideSecMarks: true, numberFrom: 4,
+          hint: "THREE questions of 15 marks each on Ghana in the nineteenth century and under colonial rule (the Anglo-Asante wars, the Fante Confederation, the establishment of the Gold Coast colony, colonial administration, education, cocoa and the economy). Same shapes as Section A." }),
+        sec({ id: "C", label: "Section C", heading: "SECTION C", sub: "GHANA: NATIONALISM AND INDEPENDENCE", rubric: "Answer at least **one** question from this section.", questionCount: 3, marksPerQuestion: 15, countedMarks: 15, hideSecMarks: true, numberFrom: 7,
+          hint: "THREE questions of 15 marks each on nationalism, independence and the republic (the UGCC and the CPP, the 1948 disturbances, constitutional reforms, independence in 1957, the Nkrumah era, coups and the return to constitutional rule). Same shapes as Section A." }),
+      ] },
+  },
+
+  "French": {
+    label: "French", language: "French", verified: false, unverified: ["Taken from WAEC's published scheme, no scan was supplied", "Paper 3 (oral) is not generated"],
+    sources: ["WAEC French syllabus: Paper 1 forty objective questions, 1 hour, 40 marks; Paper 2 two sections of three questions each (essay; letter writing), answer one from each, 1 hour 15 minutes, 40 marks"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "12", examinerBox: true,
+    paper1: paper1(40, 60, { hint: "Questions entirely in French with four options lettered A to D: grammar (articles, prepositions, tenses, pronouns), vocabulary, comprehension of short passages written in French, and background studies of the French-speaking world. Passages are original." }),
+    paper2: { name: "ESSAY", marks: 40, minutes: 75,
+      intro: ["Answer **two** questions in all: **one** question from Section A and **one** question from Section B."],
+      cover: booklet2("This booklet consists of **two** sections: **A** and **B**. Answer **two** questions in all: **one** question from section **A** and **one** question from section **B**."),
+      sections: [
+        sec({ id: "A", label: "Section A: Essay", type: "essay", heading: "SECTION A", sub: "COMPOSITION", rubric: "Answer **one** question only from this section.", questionCount: 3, marksPerQuestion: 20, answerAny: 1, numberFrom: 1, showPartMarks: false,
+          hint: "THREE composition topics of 20 marks each (candidates answer one), written in French, each a short situation with the expected length (about 150 words): a description, a narrative (une histoire), a dialogue or a discussion on a theme such as la vie scolaire, la famille, la santé, les loisirs, l'environnement." }),
+        sec({ id: "B", label: "Section B: Letter writing", type: "essay", heading: "SECTION B", sub: "LETTRE", rubric: "Answer **one** question only from this section.", questionCount: 3, marksPerQuestion: 20, answerAny: 1, numberFrom: 4, showPartMarks: false,
+          hint: "THREE letter-writing tasks of 20 marks each (candidates answer one), written in French: a letter to a friend (lettre amicale) or a formal letter (lettre formelle), each with a stated purpose, the person addressed and three points to cover (about 150 words)." }),
+      ] },
+  },
+
+  "Islamic Religious Studies": {
+    label: "Islamic Religious Studies", verified: false, unverified: ["Paper 2 duration and marks follow the WAEC Islamic Studies scheme (compulsory question plus any three, 100 marks, 2 hours); no scan was supplied"],
+    sources: ["WAEC Islamic Religious Studies syllabus: Paper 1 fifty objective questions, 50 minutes, 50 marks; Paper 2 six essay questions, one compulsory"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "12", examinerBox: true,
+    paper1: paper1(50, 50, { hint: "Short, clear stems with four options lettered A to D on Islamic religious studies: Tarikh (history of Islam), the Qur'an, Hadith, Tawhid and Fiqh. Use correct transliterations (Salat, Zakat, Sawm, Hajj)." }),
+    paper2: { name: "ESSAY", marks: 100, minutes: 120,
+      intro: ["Answer **four** questions in all: Question **1** (compulsory) and any **three** other questions.", "All questions carry equal marks."],
+      cover: booklet2("This booklet contains **six** questions. You are required to answer Question **1** (compulsory) and any **three** other questions. All questions carry equal marks."),
+      sections: [
+        sec({ id: "A", label: "Section A", heading: "", rubric: "", questionCount: 1, marksPerQuestion: 25, numberFrom: 1,
+          hint: "ONE compulsory question of 25 marks with parts (a) to (c) on the Qur'an, Hadith or Fiqh, marks printed per part." }),
+        sec({ id: "B", label: "Section B", heading: "", rubric: "", questionCount: 5, marksPerQuestion: 25, answerAny: 3, numberFrom: 2,
+          hint: "FIVE questions of 25 marks each (candidates answer any three) with parts (a) to (c), on Tarikh, the Qur'an, Hadith, Tawhid and Fiqh, marks printed per part." }),
+      ] },
+  },
+
+  "Music": {
+    label: "Music", verified: false, unverified: ["Taken from WAEC's published scheme, no scan was supplied", "Paper 3 (practical performance) is not generated; musical notation cannot be typeset, so notation items are described in words"],
+    sources: ["WAEC Music syllabus: Paper 1 forty objective questions, 1 hour, 40 marks; Paper 2 five essay questions, answer three, 2 hours, 60 marks"],
+    scheme: "points", schemeNotes: NOTES_POINTS, order: "12", examinerBox: true,
+    paper1: paper1(40, 60, { hint: "Short, clear stems with four options lettered A to D on music: rudiments (staff, clefs, note values, scales, intervals, time signatures), history of Western music, African and Ghanaian music, instruments, voices and choral music. Describe any note or interval in words (for example 'the note C in the treble clef') because notation cannot be printed." }),
+    paper2: { name: "ESSAY", marks: 60, minutes: 120,
+      intro: ["Answer **three** questions only.", "All questions carry equal marks."],
+      cover: booklet2("This booklet contains **five** questions. You are required to answer **three** questions only. All questions carry equal marks."),
+      sections: [
+        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 5, marksPerQuestion: 20, answerAny: 3, numberFrom: 1,
+          hint: "FIVE questions of 20 marks each (candidates answer any three), each with parts (a) to (c): music theory (key signatures, scales and transposition described in words), history of music (composers and periods), African and Ghanaian music (instruments, forms, functions), and composition or harmony tasks described in words. Marks of the parts add up to 20." }),
       ] },
   },
 });
@@ -384,16 +573,18 @@ const ALIASES = {
   "Elective Mathematics": "Additional Mathematics", "Further Mathematics": "Additional Mathematics", "Elective Maths": "Additional Mathematics",
   "ICT": "Information Communication Technology", "Information and Communications Technology": "Information Communication Technology", "Computing": "Information Communication Technology",
   "English": "English Language",
+  "Clothing and Textiles": "Textiles", "General Agriculture": "Agriculture", "Art and Design Foundation": "General Knowledge in Art", "Foods and Nutrition": "Food and Nutrition", "Cost Accounting": "Principles of Cost Accounting", "Financial Accounting": "Accounting", "Islamic Studies": "Islamic Religious Studies", "Literature-in-English": "Literature in English", "Management In Living": "Management in Living",
 };
 
 /** WASSCE style applies to every SHS class (and so to every SHS mock exam). */
 export const isWassceClass = (cls) => /^SHS\s*[123]$/i.test(String(cls || "").trim());
 
 export function getWassceProfile(subject) {
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   const raw = String(subject || "").trim();
-  const s = WASSCE_PROFILES[raw] || ALIASES[raw] ? raw : raw.replace(/\s*\([^)]*\)\s*$/, "");   // "Biology (GS)" -> "Biology"
-  const key = ALIASES[s] || s;
-  const p = WASSCE_PROFILES[key];
+  const s = own(WASSCE_PROFILES, raw) || own(ALIASES, raw) ? raw : raw.replace(/\s*\([^)]*\)\s*$/, "");   // "Biology (GS)" -> "Biology"
+  const key = own(ALIASES, s) ? ALIASES[s] : s;
+  const p = own(WASSCE_PROFILES, key) ? WASSCE_PROFILES[key] : null;
   if (p) return { key, ...p };
   return { key: s, ...GENERIC, label: s || "Subject" };
 }
@@ -453,13 +644,15 @@ export function wassceStyleBlock(cfg, section) {
   const isObj = section.type === "objective";
   const num = Number(section.numberFrom) || 1;
   const rubric = section.rubric ? `\n- Rubric printed above this section: "${stripMarkup(section.rubric).replace(/\n/g, " ")}".` : "";
+  const pLang = getWassceProfile(cfg.subject).language;
+  const langLine = pLang ? `\n- Language of the paper: write ALL question text, options, passages and the marking scheme answers in ${pLang} (the printed rubrics are already supplied). Use correct accents and punctuation.` : "";
   const answerAny = section.answerAny ? `\n- Candidates answer only ${section.answerAny} of the ${section.questionCount} questions here, so write ALL ${section.questionCount} questions at the same standard and the same mark value. Do not label any question "optional".` : "";
   const marksShown = section.showPartMarks === false
     ? "- Do NOT print marks against individual parts in the question text; still fill in each part's \"marks\" (they are used by the marking scheme)."
     : "- Marks for each lettered part are printed at the right as [n marks] by the paper layout; set them correctly on every part.";
   const head = `\n\nWASSCE-STYLE PAPER (this must read like a real WASSCE paper set by the West African Examinations Council for the West African Senior School Certificate Examination, school candidates)
 - This is ${section.paper === 1 ? "Paper 1 (Objective Test)" : "Paper 2 (Essay)"}${section.heading ? `, ${section.heading}` : ""}${section.part ? ` (${section.part}${section.partSub ? `: ${section.partSub}` : ""})` : ""}.${rubric}
-- Question numbers in this section start at ${num} (so the first question is ${num}) and run on in order.${answerAny}`;
+- Question numbers in this section start at ${num} (so the first question is ${num}) and run on in order.${answerAny}${langLine}`;
   const markup = `
 - Text markup the layout understands: **word** prints in bold (use it for the number or command word WAEC emphasises: "State **three** ...", "**each**", "**not**", "**only**") and {{word}} prints in italics (scientific names, a term being defined). Use them sparingly, as the real papers do.
 - Write scientific notation with proper characters: subscripts and superscripts as Unicode (H₂O, SO₄²⁻, cm³, m s⁻²), × for multiplication, ° for degrees.
@@ -522,4 +715,78 @@ export function decorateWassceExam(examData, requestedSections, profile, examTyp
     return { ...gs, ...meta };
   });
   return { ...examData, sections, style: "wassce", title: wassceExamTitle(examType), instructions: wassceBooklet(profile) };
+}
+
+/* ── checking and repairing what the model returns ─────────────────────────────── */
+
+/** "A. one", "B) two", "(C) three", "D: four": the model sometimes writes the letters itself. Only removed when ALL four options carry them in order. */
+const letterPrefix = (letter) => new RegExp("^\\s*(?:\\(" + letter + "\\)|" + letter + "[\\.\\):])\\s+", "i");
+const stripLetters = (opts) => {
+  const L = ["A", "B", "C", "D"];
+  if (!Array.isArray(opts) || opts.length !== 4) return opts;
+  return opts.every((o, i) => letterPrefix(L[i]).test(String(o ?? ""))) ? opts.map((o, i) => String(o).replace(letterPrefix(L[i]), "")) : opts;
+};
+
+/**
+ * Fixes small, safe things in a generated WASSCE section in place: question numbers run on from
+ * the section's start, option text carries no "A." prefix (the layout adds the letters), and
+ * unmatched ** / {{ }} markup cannot leak into the printed paper. Returns the same object.
+ */
+export function repairWassceSection(section, parsed) {
+  const qs = parsed && parsed.section && Array.isArray(parsed.section.questions) ? parsed.section.questions : [];
+  const balanced = (t) => {
+    let out = String(t ?? "");
+    if ((out.match(/\*\*/g) || []).length % 2) out = out.replace(/\*\*/g, "");
+    const open = (out.match(/\{\{/g) || []).length, close = (out.match(/\}\}/g) || []).length;
+    if (open !== close) out = out.replace(/\{\{|\}\}/g, "");
+    return out;
+  };
+  const start = Number(section.numberFrom) || 1;
+  qs.forEach((q, i) => {
+    q.number = start + i;
+    if (typeof q.text === "string") q.text = balanced(q.text);
+    if (typeof q.markingGuide === "string") q.markingGuide = stripMarkup(q.markingGuide);   // the scheme is plain text
+    if (Array.isArray(q.options)) q.options = stripLetters(q.options).map(o => balanced(String(o ?? "").trim()));
+    if (typeof q.correctOption === "string") q.correctOption = q.correctOption.trim().toUpperCase().replace(/[^A-D]/g, "").slice(0, 1);
+    (q.parts || []).forEach(p => {
+      if (typeof p.text === "string") p.text = balanced(p.text);
+      (p.subparts || []).forEach(sp => { if (typeof sp.text === "string") sp.text = balanced(sp.text); });
+    });
+  });
+  return parsed;
+}
+
+/** Hard structural checks for one generated section. Returns an error message, or "" when the section is sound. */
+export function checkWassceSection(section, questions) {
+  const id = section.id;
+  for (const q of questions || []) {
+    if (section.type === "objective") {
+      if (!Array.isArray(q.options) || q.options.length !== 4 || q.options.some(o => !String(o || "").trim())) return `Section ${id}, Question ${q.number}: an objective question needs exactly four non-empty options.`;
+      if (!/^[A-D]$/.test(String(q.correctOption || ""))) return `Section ${id}, Question ${q.number}: correctOption must be A, B, C or D.`;
+      if (new Set(q.options.map(o => String(o).trim().toLowerCase())).size !== 4) return `Section ${id}, Question ${q.number}: the four options must all be different.`;
+    } else {
+      if (!String(q.text || "").trim() && !(Array.isArray(q.parts) && q.parts.length)) return `Section ${id}, Question ${q.number}: the question has no text.`;
+      for (const p of q.parts || []) {
+        if (Array.isArray(p.subparts) && p.subparts.length) {
+          const sum = p.subparts.reduce((a, sp) => a + (Number(sp.marks) || 0), 0);
+          if (sum !== Number(p.marks)) return `Section ${id}, Question ${q.number}(${p.label}): sub-part marks (${sum}) don't add up to the part's marks (${p.marks}).`;
+        }
+      }
+    }
+  }
+  return "";
+}
+
+/**
+ * Question numbers run on through a paper (1 to N), so when a teacher changes a section's question count the sections after it
+ * must start where the one before now ends. Returns new section objects; input order is the printed order.
+ */
+export function renumberWassceSections(sections) {
+  const next = { 1: 1, 2: 1 };
+  return (sections || []).map(s => {
+    const p = s.paper === 1 ? 1 : 2;
+    const out = { ...s, numberFrom: next[p] };
+    next[p] += Number(s.questionCount) || 0;
+    return out;
+  });
 }

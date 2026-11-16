@@ -566,24 +566,24 @@ teacher to check their balance rather than assuming success or failure.
 Choosing **WASSCE style** for an SHS class (SHS 1 to 3) builds the paper the way a real WASSCE (School Candidates) paper is set. It works exactly like BECE style: sections, question counts, marks, "answer any N" rules, duration, instructions and the marking scheme are all set automatically from the subject.
 
 **Files**
-- `src/wassceStyle.js` and `functions/_shared/wassceStyle.js` (identical; `tests/wassceStyle.test.js` fails if they drift). One profile per subject, the prompt block, the marking-scheme block and `decorateWassceExam`.
-- `src/beceStyle.js` / `functions/_shared/beceStyle.js`: `answerableMarks` now honours `section.countedMarks` (Social Studies, CRS and Geography use "at least one from each section" rules).
-- `src/examTemplate.js`, `functions/_shared/examPrompt.js` (identical `buildSectionPrompt`), `src/examDocx.js`, `functions/api/generate-exam.js`, `src/QuestionsGenerator.jsx`: `examStyle` is now `"school" | "bece" | "wassce"`.
+- `src/wassceStyle.js` and `functions/_shared/wassceStyle.js` (identical; `tests/wassceStyle.test.js` fails if they drift). One profile per subject, the prompt block, the marking-scheme block, `decorateWassceExam`, and `repairWassceSection` / `checkWassceSection` (run on every generated section).
+- `src/beceStyle.js` / `functions/_shared/beceStyle.js`: `answerableMarks` honours `section.countedMarks` (rules such as "at least one from each section").
+- `src/examTemplate.js`, `functions/_shared/examPrompt.js` (identical `buildSectionPrompt`), `src/examDocx.js`, `functions/api/generate-exam.js`, `src/QuestionsGenerator.jsx`: `examStyle` is `"school" | "bece" | "wassce"`.
 
-**What the layout does for WASSCE**
-- Paper order per subject: Paper 1 first (separate booklets) or Paper 2 first (a "2&1" booklet: Chemistry, Graphic Design, CRS, Geography, Literature).
-- Paper 1: real instruction wording with a worked example and shading bubbles; two columns with a divider for Biology and Elective Maths.
-- Paper 2 (separate booklets): its own cover page with a code box, candidate boxes, instructions and the examiner's table.
-- Essay pages: italic part labels, `[n marks]`, answer lines, and the "Do not write in this margin" column.
-- Text markup in questions: `**bold**`, `{{italic}}`, `_underlined_`, and pipe tables (`| a | b |`, empty cell = candidate writes there). The model is told how to use them (see `wassceStyleBlock`).
-- The paper title is the school's exam type (e.g. MOCK EXAMINATION); WAEC's name is never printed.
+**Subjects:** 30 profiles. Each lists its `sources` and anything still assumed under `unverified`; see `WASSCE_STYLE_NOTES.md` (generated from the profiles). Subjects with no official structure on file get a generic shape (`generic: true`) and the screen tells the teacher to check it. Programme suffixes such as "Biology (GS)" resolve to the base subject.
 
-**Subjects**
-- Read from the supplied 2025 papers: Biology, Chemistry, Physics, Core Mathematics, Elective Mathematics (`Additional Mathematics`), English Language, Integrated Science (`General Science`), Social Studies, ICT, Graphic Design.
-- Read from the supplied 2021 papers: Government, Accounting (Financial Accounting), Economics (Paper 1 only), Business Management, Christian Religious Studies, Geography, Literature in English. Each profile lists what could not be seen under `unverified`.
-- Any other subject gets a generic WASSCE shape (`generic: true`, `verified: false`).
-- Programme suffixes such as "Biology (GS)" resolve to the base subject.
+**Layout:** paper order per subject (Paper 1 first, or Paper 2 first for a "2&1" booklet); Paper 1 in two columns where the real paper has them; real instruction wording with a worked example; a Paper 2 cover page; the "Do not write in this margin" column; italic part labels; `[n marks]`; answer lines. The Word export has the same, built as several Word sections (two columns, margin rule).
+
+**Text markup in questions:** `**bold**`, `{{italic}}`, `_underline_`, pipe tables (`| a | b |`, an empty cell is where the candidate writes), and a first line `## HEADING` for a printed part heading.
+
+**Generated content:** sections are repaired (numbering, option letters, unmatched markup) and checked (four distinct options, a valid answer letter, sub-part marks) before they are accepted; a failed check triggers a retry. French papers are written in French.
+
+**Version A/B papers:** WASSCE papers keep question order and numbering (questions share tables and passages, and each objective section continues the numbering of the one before). Options are shuffled, except Roman-numeral answers ("I only", "I and II only"), numeric answers and options that refer to each other; the answer key follows any shuffle.
+
+**Teacher edits:** if a section's question count is changed, later sections are renumbered on the server so numbering stays continuous.
+
+**Tests:** `tests/wassceStyle.test.js` (profiles, prompts, rendering, Word, repair/check, regressions), `tests/generateExam.wassce.test.js` (the real server handler with the AI and Supabase mocked: numbering, repair, retry, refund, renumbering, free-tier rule, auth), `tests/generator.wassce.test.jsx` (the real generator screen).
 
 **Not generated:** Paper 3 (practical) papers.
 
-**Adding or correcting a subject:** edit its entry in `WASSCE_PROFILES`, copy the file to `functions/_shared/`, and run `npx vitest run tests/wassceStyle.test.js`. The test checks that Paper 1 and Paper 2 marks equal the profile's declared totals and that question numbers run on without gaps.
+**Adding or correcting a subject:** edit its entry in `WASSCE_PROFILES`, copy the file to `functions/_shared/`, run `npx vitest run tests/wassceStyle.test.js`. The test checks that Paper 1 and Paper 2 marks equal the profile's declared totals and that question numbers run on without gaps.

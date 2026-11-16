@@ -31,7 +31,18 @@ function Harness() {
     />
   );
 }
-const selectFor = (t) => screen.queryByText((_, el) => el?.tagName === "LABEL" && el.textContent.trim().startsWith(t))?.parentElement.querySelector("select");
+const selectFor = (t) => {
+  // Field titles are <label>s or step-title <span>s depending on the field; find the one whose text starts with
+  // t, then the nearest ancestor that holds a <select>.
+  const cands = [...document.querySelectorAll("label, span")]
+    .filter(el => new RegExp("^" + t + "(\\b|\\s|\\*|$)", "i").test(el.textContent.trim()) && !el.querySelector("select"))
+    .sort((a, b) => a.textContent.length - b.textContent.length);
+  for (const el of cands) {
+    let n = el.parentElement;
+    for (let i = 0; i < 4 && n; i++, n = n.parentElement) { const s = n.querySelector("select"); if (s) return s; }
+  }
+  return null;
+};
 const upload = (f) => fireEvent.change(screen.getByLabelText("Upload scheme of learning file"), { target: { files: [f] } });
 const docxFile = async (rows = SCHEME_ROWS) => new File([await makeDocx(rows)], "Term 1 Scheme.docx");
 

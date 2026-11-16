@@ -20,7 +20,7 @@ import { diagramGuideText, renderDiagramTemplate } from "./diagramRegistry.js";
 import { classWithProgramme, termCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
 import { figureLines, hasPartFigureLines, ownerImageOk, ownerDrawing } from "./partFigures.js";
-import { wassceStyleBlock, wassceSchemeBlock, getWassceProfile, wassceCoverCode, wasscePaper2Code, wassceSchemeNotes } from "./wassceStyle.js";
+import { checkWassceSection, wassceStyleBlock, wassceSchemeBlock, getWassceProfile, wassceCoverCode, wasscePaper2Code, wassceSchemeNotes } from "./wassceStyle.js";
 import { beceStyleBlock, beceSchemeBlock, answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS, beceNeedsExaminerBox, beceSchemeNotes, beceCoverCode } from "./beceStyle.js";
 
 /* ────────────────────────────────────────────────────────────────
@@ -274,8 +274,23 @@ const OPT_LETTERS = ["A", "B", "C", "D", "E", "F"];
  * @param {String} seed - anything stable, e.g. "B" or "version-2"
  * @returns {Object} a new examData with shuffled order - the original is untouched
  */
+/**
+ * WASSCE option lists that must keep their printed order: Roman-numeral answers ("I only", "I and II only"),
+ * numeric answers (real papers list them in order of size), and options that refer to each other.
+ */
+export function hasFixedOptionOrder(options = []) {
+  const opts = options.map(o => String(o ?? "").trim());
+  if (opts.length && opts.every(o => /^[IV]+(?:\s*(?:,|and\b|&|only\b)|$)/.test(o))) return true;
+  if (opts.some(o => /\b(?:all|none|both|neither)\s+of\s+the\b|\b(?:above|below)\b|\b(?:A|B|C|D)\s+(?:and|or)\s+(?:A|B|C|D)\b/i.test(o))) return true;
+  const numeric = opts.filter(o => o.length <= 28 && /^[\s\-\u2212+]?(?:GH\u00a2|[$\u00a3\u20ac\u00a2])?\s*\d/.test(o)).length;
+  return numeric >= Math.max(3, opts.length - 1);
+}
+
 export function createExamVariant(examData, seed) {
   const rng = seededRandom(seed);
+  // WASSCE papers keep question order and numbers: questions share tables/passages ("Use it to answer questions 4 and 5"),
+  // and each objective section continues the numbering of the one before it.
+  const wassce = examData.style === "wassce";
   const shuffle = (arr) => {
     const copy = [...arr];
     for (let i = copy.length - 1; i > 0; i--) {
@@ -287,12 +302,12 @@ export function createExamVariant(examData, seed) {
 
   const newAnswerKey = [];
   const newSections = (examData.sections || []).map(section => {
-    const keepOrder = (examData.style === "bece" || examData.style === "wassce") && section.type !== "objective";
+    const keepOrder = wassce || (examData.style === "bece" && section.type !== "objective");
     const shuffledQuestions = (keepOrder ? (section.questions || []) : shuffle(section.questions || [])).map((q, idx) => {
       const newNumber = keepOrder ? q.number : idx + 1;
       let newQ = { ...q, number: newNumber };
 
-      if (Array.isArray(q.options) && q.options.length && q.correctOption) {
+      if (Array.isArray(q.options) && q.options.length && q.correctOption && !(wassce && hasFixedOptionOrder(q.options))) {
         const letters = ["A", "B", "C", "D", "E", "F"].slice(0, q.options.length);
         const correctIdx = letters.indexOf(q.correctOption);
         const pairs = q.options.map((opt, i) => ({ opt, wasCorrect: i === correctIdx }));
@@ -679,7 +694,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     const cols = layout === "row" ? Math.min(q.options.length, 4) : 2;
     const style = layout === "vertical" ? "" : ` style="grid-template-columns:repeat(${cols},1fr)"`;
     return `<div class="opts opts-${layout}"${style}>${q.options.map((o, i) =>
-      `<div class="opt"><span class="opt-letter">${OPT_LETTERS[i]}.</span><span class="opt-text">${nl(o)}</span></div>`
+      `<div class="opt"><span class="opt-letter">${OPT_LETTERS[i]}.</span><span class="opt-text">${wassce ? inl(o).replace(/\n/g, "<br/>") : nl(o)}</span></div>`
     ).join("")}</div>`;
   };
 
@@ -709,21 +724,27 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const renderQuestionBlocks = (q, keepNext) => {
     const parts = Array.isArray(q.parts) ? q.parts : [];
     const hasParts = parts.length > 0;
+    // A first line "## PART II: ..." is a printed heading (WASSCE Elective Maths Parts I to III).
+    let qText = q.text, subhead = "";
+    if (wassce) {
+      const hm = String(q.text || "").match(/^\s*##\s*(.+?)\s*(?:\n|$)/);
+      if (hm) { subhead = hm[1]; qText = String(q.text).replace(/^\s*##\s*.+?(?:\n|$)/, ""); }
+    }
     const qFigure = renderDiagram(q);
-    const qInline = bece && figureLines(q.text).length > 0;
-    const stem = `
-    <div class="question${bece && hasParts && !String(q.text || "").trim() && !hasImage(q) && !(q.diagram && q.diagram.needed) ? " q-empty" : ""}" data-qnum="${q.number}">
+    const qInline = bece && figureLines(qText).length > 0;
+    const stem = `${subhead ? `<div class="q-subhead">${inl(subhead)}</div>` : ""}
+    <div class="question${bece && hasParts && !String(qText || "").trim() && !hasImage(q) && !(q.diagram && q.diagram.needed) ? " q-empty" : ""}" data-qnum="${q.number}">
       <div class="row q-row${hasParts ? " has-parts" : ""}">
         <span class="lbl q-num">${q.number}.</span>
         <div class="q-body">
-          <div class="q-text">${rich(q.text, qInline ? qFigure : "")}</div>
+          <div class="q-text">${rich(qText, qInline ? qFigure : "")}</div>
           ${qInline && qFigure ? "" : qFigure}
           ${renderOptions(q)}
         </div>
         ${hasParts ? "" : `<span class="marks">${markText(q.marks)}</span>`}
       </div>
     </div>`;
-    if (!hasParts) return [blk(stem + (wassce ? ansLines(Math.round((Number(q.marks) || 1) * 1.5), q.text) : ""), "q", keepNext)];
+    if (!hasParts) return [blk(stem + (wassce ? ansLines(Math.round((Number(q.marks) || 1) * 1.5), qText) : ""), "q", keepNext)];
     return [
       blk(stem, "q q-stem", true),
       ...parts.map((p, i) => blk(renderPart(p, hasImage(q) && imagePlacement(q) === i ? renderImage(q) : "", q), `q-part${i === parts.length - 1 ? " q-last" : ""}`, keepNext && i === parts.length - 1)),
@@ -1215,6 +1236,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   html[data-wassce="1"] .cols2{ column-rule:1px solid #111; }
   html[data-wassce="1"] .p1-after{ font-style:italic; margin:8px 0 0; line-height:1.5; }
   html[data-wassce="1"] .q-text{ line-height:1.5; }
+  .q-subhead{ text-align:center; font-weight:700; font-variant:small-caps; letter-spacing:.04em; font-size:12pt; margin:16px 0 8px; }
   .sheet.w-margin::after{ content:""; position:absolute; top:var(--mt); bottom:var(--mb); right:13mm; border-left:1px solid #111; }
   .w-margin-note{ position:absolute; top:var(--mt); right:3.5mm; width:9mm; font-size:6pt; line-height:1.25; color:#111; }
   table.w-table{ border-collapse:collapse; margin:8px 0 8px 0; max-width:100%; font-size:10.5pt; }
@@ -1331,7 +1353,7 @@ export function prepareDiagram(q) {
  * malformed/truncated AI output is caught before rendering.
  * Returns { ok:boolean, errors:string[] }
  */
-export function validateExamData(examData, expectedSections = []) {
+export function validateExamData(examData, expectedSections = [], opts = {}) {
   const errors = [];
   if (!examData || typeof examData !== "object") return { ok: false, errors: ["Empty or unparsable response."] };
   if (!Array.isArray(examData.sections) || !examData.sections.length) errors.push("No sections returned.");
@@ -1354,6 +1376,10 @@ export function validateExamData(examData, expectedSections = []) {
     const actualSectionMarks = questions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
     if (actualSectionMarks !== expectedSectionMarks) {
       errors.push(`Section ${exp.id} marks don't add up: expected ${expectedSectionMarks} total, got ${actualSectionMarks}.`);
+    }
+    if (opts.style === "wassce") {
+      const w = checkWassceSection(exp, questions);
+      if (w) errors.push(w);
     }
     questions.forEach(q => {
       if (Array.isArray(q.parts) && q.parts.length) {
