@@ -43,14 +43,21 @@ const selectFor = (t) => {
   }
   return null;
 };
+// The paste box lives in a collapsed "Type or paste topics" accordion; open it if it is closed.
+const openPaste = async (u) => {
+  if (screen.queryByPlaceholderText(/List the topics/)) return;
+  await u.click(screen.getByRole("button", { name: /Type or paste topics/i }));
+};
 const upload = (f) => fireEvent.change(screen.getByLabelText("Upload scheme of learning file"), { target: { files: [f] } });
 const docxFile = async (rows = SCHEME_ROWS) => new File([await makeDocx(rows)], "Term 1 Scheme.docx");
 
 describe("Upload your Scheme of Learning", () => {
-  it("is offered as soon as a class is chosen, not before", async () => {
+  it("is offered once a subject is chosen (the topics step), not before", async () => {
     const u = userEvent.setup(); render(<Harness />);
     expect(screen.queryByLabelText("Upload scheme of learning file")).toBeNull();
     await u.selectOptions(selectFor("Class"), "Basic 7");
+    expect(screen.queryByLabelText("Upload scheme of learning file")).toBeNull();
+    await u.selectOptions(selectFor("Subject"), "Mathematics");
     expect(screen.getByLabelText("Upload scheme of learning file")).toBeTruthy();
   });
 
@@ -66,16 +73,6 @@ describe("Upload your Scheme of Learning", () => {
     expect(latest.pastedSyllabus).toContain("2 | Number | Number Operations | B7.1.2.1");
     expect(screen.getByText("Term 1 Scheme.docx")).toBeTruthy();
     expect(screen.getByText(/Found 3 topics/)).toBeTruthy();
-  });
-
-  it("upload FIRST, subject afterwards: topics are ticked once the subject is picked", async () => {
-    const u = userEvent.setup(); render(<Harness />);
-    await u.selectOptions(selectFor("Class"), "Basic 7");
-    upload(await docxFile());
-    await screen.findByText(/choose your subject/i);
-    expect(latest.selectedTopics).toEqual([]);
-    await u.selectOptions(selectFor("Subject"), "Mathematics");
-    await waitFor(() => expect(latest.selectedTopics.length).toBe(3));
   });
 
   it("works for a PDF too", async () => {
@@ -147,7 +144,10 @@ describe("Upload your Scheme of Learning", () => {
   it("Remove keeps text the teacher has edited", async () => {
     const u = userEvent.setup(); render(<Harness />);
     await u.selectOptions(selectFor("Class"), "Basic 7");
+    await u.selectOptions(selectFor("Subject"), "Mathematics");
     upload(await docxFile());
+    await waitFor(() => expect(latest.pastedSyllabus).toContain("Number Operations"));
+    await openPaste(u);
     const box = await screen.findByPlaceholderText(/List the topics/);
     await waitFor(() => expect(box.value).toContain("Number Operations"));
     await u.type(box, " my note");
@@ -158,6 +158,7 @@ describe("Upload your Scheme of Learning", () => {
   it("shows a clear message for a bad file and leaves the form usable", async () => {
     const u = userEvent.setup(); render(<Harness />);
     await u.selectOptions(selectFor("Class"), "Basic 7");
+    await u.selectOptions(selectFor("Subject"), "Mathematics");
     upload(new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4])], "photo.jpg", { type: "image/jpeg" }));
     expect(await screen.findByText(/isn't supported/)).toBeTruthy();
     expect(screen.getByLabelText("Upload scheme of learning file")).toBeTruthy();
@@ -166,6 +167,7 @@ describe("Upload your Scheme of Learning", () => {
   it("warns when a long scheme had to be cut to the limit", async () => {
     const u = userEvent.setup(); render(<Harness />);
     await u.selectOptions(selectFor("Class"), "Basic 7");
+    await u.selectOptions(selectFor("Subject"), "Mathematics");
     const rows = [["Week", "Topic"], ...Array.from({ length: 400 }, (_, i) => [String(i), `Unique lesson topic number ${i} with a fairly long descriptive sentence about it`])];
     upload(await docxFile(rows));
     expect(await screen.findByText(/Your scheme is long/)).toBeTruthy();

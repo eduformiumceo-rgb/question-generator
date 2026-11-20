@@ -587,3 +587,24 @@ Choosing **WASSCE style** for an SHS class (SHS 1 to 3) builds the paper the way
 **Not generated:** Paper 3 (practical) papers.
 
 **Adding or correcting a subject:** edit its entry in `WASSCE_PROFILES`, copy the file to `functions/_shared/`, run `npx vitest run tests/wassceStyle.test.js`. The test checks that Paper 1 and Paper 2 marks equal the profile's declared totals and that question numbers run on without gaps.
+
+## BECE audit notes (fixes made alongside WASSCE)
+
+- **Version A/B papers:** BECE English items that point at each other by number ("the sentence in Question 12 below") now keep their order; Roman-numeral, numeric and cross-referencing options are no longer shuffled. Other BECE objective sections still shuffle and renumber.
+- **Generated objective sections** are now repaired and checked on the server like WASSCE (question numbers run on, option letters the model wrote itself are removed only when all four carry them, four distinct options and a valid answer letter are required, otherwise the section is retried). BECE text is never altered by the markup rules.
+- **Edited question counts:** if a teacher changes a section's question count, later sections are renumbered (previously Career Technology A 3 to 2 printed Q1, Q2, Q4, Q5, Q6).
+- **Underlined words:** the BECE English prompts ask for `_word_`; both renderers now print it as an underline (previously the underscores were printed literally). Blanks (`______`) and names such as `user_name` are left alone.
+- **Durations corrected from real papers and WAEC's published 2024 structure:** English Paper 2 is 1 hour 15 minutes (the real June 2025 cover: 2 hours in all), Science Paper 2 is 1 hour 25 minutes. Each profile lists its `sources` and anything still assumed under `unverified`.
+- **Checked and left unchanged:** Mathematics, Social Studies, RME, Computing, Career Technology and Creative Arts match WAEC's structure and real 2025/2026 papers. French keeps the real 2025 paper's 20 + 40 marks (WAEC's summary article lists 20 + 20; the conflict is recorded in the profile). Arabic has no BECE profile yet and uses a generic shape.
+- **Tests:** `tests/generateExam.bece.test.js` (real handler, mocked AI), `tests/beceVariants.test.js`, `tests/beceUnderline.test.js`, `tests/generator.bece.test.jsx` (real screen).
+
+## Whole-app audit: fixes
+
+- **Payments (`exam-payment`):** crediting now happens exactly once. Previously, if the atomic "add credits" call succeeded but the following balance read failed, the code fell into the read-then-write fallback and credited a second time. The payment `reference` is also validated (letters, digits, `_ . = -`, 6 to 100 characters) before it is used in database queries, and the success page copes with a missing balance.
+- **Generation (`generate-exam`):** the server now sets each section's `id` itself. The client matches finished sections to the requested structure by id, so a model that dropped or mistyped one would have caused a paper to be rejected after the teacher had been charged.
+- **Accounts (`exam-account`):** `/history/:id` accepts only UUIDs (anything else is a clean 404 and never reaches a database query) and malformed JSON bodies return 400 instead of 500.
+- **Authentication (`auth`):** verification codes use a cryptographically secure generator instead of `Math.random()`. If the `OTP_KV` storage binding is missing, sending a code now fails up front with a clear 503 instead of e-mailing a code that could never be verified. **Note:** `wrangler.toml` has the KV binding commented out; confirm `OTP_KV` is bound in the Cloudflare dashboard, otherwise sign-up, sign-in lockout and password reset cannot work.
+- **Client:** a stale hook dependency in `QuestionImageControl` (`hideNumbering`) was fixed; stray markdown bold in BECE text is removed (exponents such as `2**3` are untouched); WASSCE section cards no longer repeat "Paper 1: Paper 1".
+- **Tests:** new suites for payments (`examPayment`), accounts (`examAccount`) and authentication (`auth`), each driving the real handler against in-memory Supabase/KV/Paystack/e-mail fakes. The ten previously failing topic-selector and upload tests were updated for the current layout (strands and the paste box sit in collapsed accordions, and the upload control appears once a subject is chosen).
+- **Open design notes (not changed):** comments at the top of `TopicSelector.jsx` still describe "upload first, pick the subject afterwards", which the current layout no longer allows. Sign-in and reset reveal whether an e-mail has an account. A signed-in token stays valid for its full lifetime after a password reset. Ten failed sign-ins lock an e-mail for 15 minutes, which could be used to lock someone out.
+

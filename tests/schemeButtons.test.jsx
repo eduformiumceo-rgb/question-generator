@@ -52,6 +52,6 @@ describe("Scheme of Learning upload button", () => {
     expect(upload.querySelector("svg, img")).toBeNull();
 
     expect(screen.queryByRole("button", { name: /Load My Scheme of Learning/ })).toBeNull();
-    expect(screen.getByText("Or list topics (optional)")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Type or paste topics/i })).toBeTruthy();   // the "list topics" way in is now a collapsed accordion
   });
 });

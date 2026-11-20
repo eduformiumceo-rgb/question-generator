@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { WASSCE_PROFILES, getWassceProfile, wassceSections, wassceTotalMinutes, wassceStyleBlock, wassceSchemeBlock, decorateWassceExam, isWassceClass, wassceCoverCode, stripMarkup, repairWassceSection, checkWassceSection, renumberWassceSections } from "../src/wassceStyle.js";
+import { WASSCE_PROFILES, getWassceProfile, wassceSections, wassceTotalMinutes, wassceStyleBlock, wassceSchemeBlock, decorateWassceExam, isWassceClass, wassceCoverCode, stripMarkup, repairWassceSection, checkWassceSection, renumberWassceSections, stripBoldMarkers } from "../src/wassceStyle.js";
 import { answerableMarks } from "../src/beceStyle.js";
 import { renderExamHTML, buildSectionPrompt, createExamVariant, hasFixedOptionOrder } from "../src/examTemplate.js";
 import { generateExamDocx } from "../src/examDocx.js";
@@ -492,3 +492,31 @@ describe("regressions found while auditing", () => {
     expect(new Uint8Array(await blob.arrayBuffer()).length).toBeGreaterThan(5000);
   });
 });
+
+describe("section labels (the structure builder already prefixes 'Paper N:')", () => {
+  it("no WASSCE section label repeats 'Paper 1' or 'Paper 2'", () => {
+    for (const [k, p] of Object.entries(WASSCE_PROFILES)) for (const sec of wassceSections(p)) expect(sec.label, `${k} ${sec.id}`).not.toMatch(/^Paper \d/);
+  });
+});
+
+describe("stray markdown bold in a style that does not render it (BECE)", () => {
+  it("keeps the words and drops the asterisks, but never touches exponents or unmatched markers", () => {
+    expect(stripBoldMarkers("Which is **not** a mineral?")).toBe("Which is not a mineral?");
+    expect(stripBoldMarkers("**State** the **three** reasons.")).toBe("State the three reasons.");
+    expect(stripBoldMarkers("(**yes**)")).toBe("(yes)");
+    expect(stripBoldMarkers("2**3 and 4**5 are powers")).toBe("2**3 and 4**5 are powers");
+    expect(stripBoldMarkers("x**2 + **bold** here")).toBe("x**2 + bold here");
+    expect(stripBoldMarkers("**unclosed")).toBe("**unclosed");
+    expect(stripBoldMarkers("a **b ** c")).toBe("a **b ** c");
+  });
+  it("applies to BECE text, options, parts and the marking guide, and leaves WASSCE bold alone", () => {
+    const mk = () => ({ section: { questions: [{ text: "Is it **not** so?", options: ["**one**", "two", "three", "four"], correctOption: "A", markingGuide: "1 :: **ans** :: 1", parts: [{ label: "a", text: "State **two**", subparts: [{ label: "i", text: "**x** done" }] }] }] } });
+    const bece = mk(); repairWassceSection({ numberFrom: 1 }, bece, { markup: false });
+    const q = bece.section.questions[0];
+    expect([q.text, q.options[0], q.markingGuide, q.parts[0].text, q.parts[0].subparts[0].text]).toEqual(["Is it not so?", "one", "1 :: ans :: 1", "State two", "x done"]);
+    const wassce = mk(); repairWassceSection({ numberFrom: 1 }, wassce);
+    expect(wassce.section.questions[0].text).toBe("Is it **not** so?");          // WASSCE renders it as bold
+    expect(wassce.section.questions[0].markingGuide).toBe("1 :: ans :: 1");      // but the scheme is plain text
+  });
+});
+

@@ -49,6 +49,12 @@ const selectFor = (labelText) => {
 const optionTexts = (sel) => [...sel.querySelectorAll("option")].map(o => o.textContent);
 const user = () => userEvent.setup();
 
+// The strands live inside a collapsed "Choose from the curriculum" accordion (topics step); open it if it is closed.
+const openStrands = async (u) => {
+  if (screen.queryAllByRole("button").some(b => /^1\.\s/.test(b.textContent.trim()))) return;
+  await u.click(screen.getByRole("button", { name: /Choose from the curriculum/i }));
+};
+
 describe("SHS flow: Class -> Programme -> Subject -> Strands -> Topics", () => {
   it("shows the Programme list as soon as an SHS class is chosen, and no subject yet", async () => {
     const u = user(); render(<Harness />);
@@ -87,6 +93,7 @@ describe("SHS flow: Class -> Programme -> Subject -> Strands -> Topics", () => {
     expect(latest.shsKey).toBe("Biology (GS)");
     expect(latest.shsCourse).toBe("General Science");
     // the real SHS 2 strands appear
+    await openStrands(u);
     for (const st of getStrands("Biology (GS)", "SHS 2")) expect(screen.getByRole("button", { name: st.strand })).toBeTruthy();
   });
 
@@ -98,6 +105,7 @@ describe("SHS flow: Class -> Programme -> Subject -> Strands -> Topics", () => {
     const strand = getStrands("Mathematics", "SHS 1")[0].strand;
     const subs = getSubStrands("Mathematics", "SHS 1", strand).map(s => s.name);
     expect(subs.length).toBeGreaterThan(0);
+    await openStrands(u);
     await u.click(screen.getByRole("button", { name: strand }));
     await u.click(screen.getByRole("button", { name: subs[0] }));
     expect(latest.selectedTopics).toEqual([subs[0]]);
@@ -109,6 +117,7 @@ describe("SHS flow: Class -> Programme -> Subject -> Strands -> Topics", () => {
     await u.selectOptions(selectFor("Programme"), "Business");
     await u.selectOptions(selectFor("Subject"), "Accounting");
     const strand = getStrands("Accounting", "SHS 1")[0].strand;
+    await openStrands(u);
     await u.click(screen.getByRole("button", { name: strand }));
     await u.click(screen.getByRole("button", { name: getSubStrands("Accounting", "SHS 1", strand)[0].name }));
     expect(latest.selectedTopics).toHaveLength(1);
@@ -117,6 +126,7 @@ describe("SHS flow: Class -> Programme -> Subject -> Strands -> Topics", () => {
     expect(latest.shsCourse).toBe("Business");
     expect(latest.subject).toBe("Accounting");
     expect(latest.selectedTopics).toEqual([]);
+    await openStrands(u);
     for (const st of getStrands("Accounting", "SHS 3")) expect(screen.getByRole("button", { name: st.strand })).toBeTruthy();
   });
 

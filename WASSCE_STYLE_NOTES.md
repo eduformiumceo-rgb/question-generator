@@ -16,10 +16,10 @@ Each profile lists its `sources` and anything still assumed under `unverified`.
 | Core Mathematics | 50 Q, 90 min | 100 marks, 150 min: SECTION A: 5 x 8; SECTION B: 8 x 12 (any 5) | Paper 1 then 2 | Yes |
 | Elective Mathematics | 40 Q, 90 min, two columns | 100 marks, 150 min: SECTION A: 8 x 6; SECTION B: 7 x 13 (any 4) | Paper 1 then 2 | Yes |
 | English Language | 80 Q, 60 min | 100 marks, 120 min: SECTION A: 5 x 50 (any 1); SECTION B: 1 x 20; SECTION C: 1 x 30 | Paper 1 then 2 | Yes |
-| Integrated Science | 50 Q, 60 min | 80 marks, 90 min: Paper 2: 6 x 20 (any 4) | Paper 1 then 2 | Yes |
+| Integrated Science | 50 Q, 60 min | 80 marks, 90 min: Essay: 6 x 20 (any 4) | Paper 1 then 2 | Yes |
 | Social Studies | 50 Q, 50 min | 100 marks, 180 min: SECTION A: 4 x 20 (counts 40); SECTION B: 3 x 20 (counts 30); SECTION C: 3 x 20 (counts 30) | Paper 1 then 2 | Yes |
-| Information and Communications Technology (Elective) | 50 Q, 60 min | 30 marks, 60 min: Paper 2: 5 x 10 (any 3) | Paper 1 then 2 | Yes |
-| Graphic Design | 40 Q, 50 min | 60 marks, 120 min: Paper 2: 6 x 15 (any 4) | 2&1 (Paper 2 first) | Yes |
+| Information and Communications Technology (Elective) | 50 Q, 60 min | 30 marks, 60 min: Essay: 5 x 10 (any 3) | Paper 1 then 2 | Yes |
+| Graphic Design | 40 Q, 50 min | 60 marks, 120 min: Essay: 6 x 15 (any 4) | 2&1 (Paper 2 first) | Yes |
 | Government | 50 Q, 60 min | 60 marks, 120 min: SECTION A: 5 x 15 (any 2); SECTION B: 5 x 15 (any 2) | Paper 1 then 2 | Yes |
 | Financial Accounting | 50 Q, 60 min | 75 marks, 150 min: SECTION A: 4 x 15 (any 2); SECTION B: 5 x 15 (any 3) | Paper 1 then 2 | Yes |
 | Economics | 50 Q, 60 min | 80 marks, 120 min: SECTION A: 2 x 20 (any 1); SECTION B: 6 x 20 (any 3) | Paper 1 then 2 | Yes |
@@ -27,19 +27,19 @@ Each profile lists its `sources` and anything still assumed under `unverified`.
 | Christian Religious Studies | 40 Q, 60 min | 60 marks, 120 min: SECTION A: 4 x 15 (counts 30); SECTION B: 3 x 15 (counts 15); SECTION C: 2 x 15 (counts 15) | 2&1 (Paper 2 first) | Yes |
 | Geography | 50 Q, 60 min | 80 marks, 120 min: SECTION A: 3 x 20 (counts 40); SECTION B: 3 x 20 (counts 20); SECTION C: 3 x 20 (counts 20) | 2&1 (Paper 2 first) | Yes |
 | Literature-in-English | 50 Q, 60 min | 50 marks, 90 min: SECTION A: 4 x 25 (any 1); SECTION B: 4 x 25 (any 1) | 2&1 (Paper 2 first) | Partly |
-| Management in Living | 60 Q, 60 min | 100 marks, 120 min: Paper 2: 6 x 25 (any 4) | 2&1 (Paper 2 first) | Yes |
-| Textiles | 40 Q, 50 min | 60 marks, 120 min: Paper 2: 6 x 15 (any 4) | 2&1 (Paper 2 first) | Yes |
-| Basketry | 40 Q, 50 min | 60 marks, 120 min: Paper 2: 6 x 15 (any 4) | 2&1 (Paper 2 first) | Yes |
-| Leatherwork | 40 Q, 50 min | 60 marks, 120 min: Paper 2: 6 x 15 (any 4) | 2&1 (Paper 2 first) | Yes |
-| General Knowledge in Art | 40 Q, 50 min | 60 marks, 90 min: Paper 2: 5 x 20 (any 3) | 2&1 (Paper 2 first) | Yes |
+| Management in Living | 60 Q, 60 min | 100 marks, 120 min: Essay: 6 x 25 (any 4) | 2&1 (Paper 2 first) | Yes |
+| Textiles | 40 Q, 50 min | 60 marks, 120 min: Essay: 6 x 15 (any 4) | 2&1 (Paper 2 first) | Yes |
+| Basketry | 40 Q, 50 min | 60 marks, 120 min: Essay: 6 x 15 (any 4) | 2&1 (Paper 2 first) | Yes |
+| Leatherwork | 40 Q, 50 min | 60 marks, 120 min: Essay: 6 x 15 (any 4) | 2&1 (Paper 2 first) | Yes |
+| General Knowledge in Art | 40 Q, 50 min | 60 marks, 90 min: Essay: 5 x 20 (any 3) | 2&1 (Paper 2 first) | Yes |
 | Principles of Cost Accounting | 50 Q, 60 min | 75 marks, 120 min: SECTION A: 4 x 15 (any 2); SECTION B: 5 x 15 (any 3) | 2&1 (Paper 2 first) | Yes |
-| Foods and Nutrition | 60 Q, 60 min | 40 marks, 75 min: Paper 2: 6 x 10 (any 4) | Paper 1 then 2 | Partly |
+| Foods and Nutrition | 60 Q, 60 min | 40 marks, 75 min: Essay: 6 x 10 (any 4) | Paper 1 then 2 | Partly |
 | General Agriculture | 50 Q, 60 min | 80 marks, 120 min: SECTION A: 2 x 16 (any 1); SECTION B: 2 x 16 (any 1); SECTION C: 2 x 16 (any 1); SECTION D: 2 x 16 (any 1); SECTION E: 2 x 16 (any 1) | Paper 1 then 2 | Partly |
-| Agricultural Science | 50 Q, 50 min | 90 marks, 130 min: Paper 2: 6 x 18 (any 5) | Paper 1 then 2 | Partly |
+| Agricultural Science | 50 Q, 50 min | 90 marks, 130 min: Essay: 6 x 18 (any 5) | Paper 1 then 2 | Partly |
 | History | 50 Q, 60 min | 60 marks, 120 min: SECTION A: 3 x 15 (counts 30); SECTION B: 3 x 15 (counts 15); SECTION C: 3 x 15 (counts 15) | Paper 1 then 2 | Partly |
 | French | 40 Q, 60 min | 40 marks, 75 min: SECTION A: 3 x 20 (any 1); SECTION B: 3 x 20 (any 1) | Paper 1 then 2 | Partly |
 | Islamic Religious Studies | 50 Q, 50 min | 100 marks, 120 min: Section A: 1 x 25; Section B: 5 x 25 (any 3) | Paper 1 then 2 | Partly |
-| Music | 40 Q, 60 min | 60 marks, 120 min: Paper 2: 5 x 20 (any 3) | Paper 1 then 2 | Partly |
+| Music | 40 Q, 60 min | 60 marks, 120 min: Essay: 5 x 20 (any 3) | Paper 1 then 2 | Partly |
 
 ## Details still assumed (`unverified`)
 - **Biology**: Paper 3 (practical) is not generated
