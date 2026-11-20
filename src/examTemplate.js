@@ -291,6 +291,7 @@ export function createExamVariant(examData, seed) {
   // WASSCE papers keep question order and numbers: questions share tables/passages ("Use it to answer questions 4 and 5"),
   // and each objective section continues the numbering of the one before it.
   const wassce = examData.style === "wassce";
+  const publicStyle = wassce || examData.style === "bece";
   const shuffle = (arr) => {
     const copy = [...arr];
     for (let i = copy.length - 1; i > 0; i--) {
@@ -302,12 +303,14 @@ export function createExamVariant(examData, seed) {
 
   const newAnswerKey = [];
   const newSections = (examData.sections || []).map(section => {
-    const keepOrder = wassce || (examData.style === "bece" && section.type !== "objective");
+    // Questions that point at each other by number ("the reported speech for the sentence in Question 12 below") must stay in order.
+    const crossRefs = (section.questions || []).some(q => /\bquestions?\s+\d+/i.test(String(q.text || "")));
+    const keepOrder = wassce || (examData.style === "bece" && (section.type !== "objective" || crossRefs));
     const shuffledQuestions = (keepOrder ? (section.questions || []) : shuffle(section.questions || [])).map((q, idx) => {
       const newNumber = keepOrder ? q.number : idx + 1;
       let newQ = { ...q, number: newNumber };
 
-      if (Array.isArray(q.options) && q.options.length && q.correctOption && !(wassce && hasFixedOptionOrder(q.options))) {
+      if (Array.isArray(q.options) && q.options.length && q.correctOption && !(publicStyle && hasFixedOptionOrder(q.options))) {
         const letters = ["A", "B", "C", "D", "E", "F"].slice(0, q.options.length);
         const correctIdx = letters.indexOf(q.correctOption);
         const pairs = q.options.map((opt, i) => ({ opt, wasCorrect: i === correctIdx }));
@@ -613,7 +616,9 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
     .replace(/\{\{(.+?)\}\}/g, "<i>$1</i>")
     .replace(/(^|[\s(>])_([^_\n<]+)_(?=[\s.,;:!?)<]|$)/g, "$1<u>$2</u>");
-  const inl = (t) => wassce ? fmtInline(esc(t)) : esc(t);
+  // BECE prompts ask the model to mark underlined words with plain underscores (_word_), so BECE gets underline only.
+  const underlineOnly = (h) => h.replace(/(^|[\s(>])_([^_\n<]+)_(?=[\s.,;:!?)<]|$)/g, "$1<u>$2</u>");
+  const inl = (t) => wassce ? fmtInline(esc(t)) : bece ? underlineOnly(esc(t)) : esc(t);
   const isPipeRow = (l) => /^\s*\|.*\|\s*$/.test(l);
   const tableHtml = (lines) => {
     const rows = lines.filter(l => !/^[\s|:-]+$/.test(l)).map(l => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim()));
@@ -694,7 +699,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     const cols = layout === "row" ? Math.min(q.options.length, 4) : 2;
     const style = layout === "vertical" ? "" : ` style="grid-template-columns:repeat(${cols},1fr)"`;
     return `<div class="opts opts-${layout}"${style}>${q.options.map((o, i) =>
-      `<div class="opt"><span class="opt-letter">${OPT_LETTERS[i]}.</span><span class="opt-text">${wassce ? inl(o).replace(/\n/g, "<br/>") : nl(o)}</span></div>`
+      `<div class="opt"><span class="opt-letter">${OPT_LETTERS[i]}.</span><span class="opt-text">${bece ? inl(o).replace(/\n/g, "<br/>") : nl(o)}</span></div>`
     ).join("")}</div>`;
   };
 

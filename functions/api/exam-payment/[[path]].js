@@ -175,8 +175,11 @@ export async function onRequest(context) {
     let verifyUser;
     try { verifyUser = await verifyToken(env, token); } catch (e) { return errResp(e.message, 401, corsHdrs); }
 
-    const ref = body.reference;
+    const ref = typeof body.reference === "string" ? body.reference.trim() : "";
     if (!ref) return errResp("Missing reference.", 400, corsHdrs);
+    // The reference goes into database query strings: accept only the characters our own references (and Paystack's) use,
+    // so a crafted value can never add filters or columns to those queries.
+    if (!/^[A-Za-z0-9_.=-]{6,100}$/.test(ref)) return errResp("Invalid reference.", 400, corsHdrs);
 
     const existing = await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}&status=eq.completed&select=id,user_id,coins_purchased`);
     if (existing?.length > 0) {
@@ -217,12 +220,16 @@ export async function onRequest(context) {
     });
     if (!claimResult?.length) return jsonResp({ message: "Already processed.", already_credited: true, credits_added: credits }, 200, corsHdrs);
 
-    let newTotalBalance;
+    // Add the credits exactly once. The balance is read AFTERWARDS, in its own step: a failed read must never
+    // send us into the fallback below, because the atomic increment may already have succeeded (that would credit twice).
+    let credited = false;
     try {
       await sbAdmin(env, `/rpc/increment_coins`, { method: "POST", body: JSON.stringify({ p_user_id: userId, p_amount: credits }) });
-      const balRows = await sbAdmin(env, `/coins?user_id=eq.${userId}&select=balance`);
-      newTotalBalance = balRows?.[0]?.balance ?? credits;
-    } catch {
+      credited = true;
+    } catch { /* the atomic RPC failed before crediting anything: use the read-then-write fallback */ }
+
+    let newTotalBalance = null;
+    if (!credited) {
       try {
         const balRows = await sbAdmin(env, `/coins?user_id=eq.${userId}&select=balance`);
         const current = balRows?.[0]?.balance ?? 0;
@@ -232,14 +239,20 @@ export async function onRequest(context) {
         } else {
           await sbAdmin(env, `/coins?user_id=eq.${userId}`, { method: "PATCH", body: JSON.stringify({ balance: newTotalBalance, updated_at: new Date().toISOString() }) });
         }
+        credited = true;
       } catch (creditErr) {
         await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}`, { method: "PATCH", body: JSON.stringify({ status: "pending" }) }).catch(() => {});
         return errResp("Payment verified but your credit top-up failed. Please use 'Restore Previous Purchase'. If this persists, contact support.", 500, corsHdrs);
       }
+    } else {
+      try {
+        const balRows = await sbAdmin(env, `/coins?user_id=eq.${userId}&select=balance`);
+        newTotalBalance = balRows?.[0]?.balance ?? null;
+      } catch { /* the credits ARE added; only the balance display is unavailable */ }
     }
 
     await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}`, { method: "PATCH", body: JSON.stringify({ status: "completed" }) });
-    return jsonResp({ success: true, credits_added: credits, new_balance: newTotalBalance }, 200, corsHdrs);
+    return jsonResp({ success: true, credits_added: credits, ...(newTotalBalance !== null ? { new_balance: newTotalBalance } : {}) }, 200, corsHdrs);
   }
 
   return errResp("Unknown action.", 400, corsHdrs);

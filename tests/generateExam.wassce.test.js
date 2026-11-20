@@ -23,7 +23,7 @@ function answerFor(prompt, o = {}) {
   const questions = Array.from({ length: count }, (_, i) => objective
     ? { number: o.sameNumber ? 1 : start + i, text: `Q${start + i} which is **not** H₂O?`, marks: 1, options: o.threeOptions ? ["A. a", "B. b", "C. c"] : ["A. one", "B. two", "C. three", "D. four"], correctOption: o.lowerKey ? "b" : "B", markingGuide: "" }
     : { number: start + i, text: `Essay ${start + i} on {{Spirogyra}}`, marks, parts: [{ label: "a", text: "State **three** points.", marks: marks - 2 }, { label: "b", text: "Explain.", marks: 2 }], markingGuide: `${start + i}(a) :: point :: ${marks - 2}\nTOTAL :: :: [${marks} marks]` });
-  return { title: "T", instructions: [], section: { label, questions } };
+  return { title: "T", instructions: [], section: { ...(o.badId ? { id: "section ZZ" } : {}), label, questions } };
 }
 
 let calls, behaviour, refunds;
@@ -60,6 +60,17 @@ async function run(subject, over = {}) {
 }
 
 describe("generate-exam, WASSCE style (real handler, mocked provider)", () => {
+  it("REGRESSION: section ids come from the server, so a model that omits or mistypes them cannot get a paper rejected after charging", async () => {
+    for (const bad of [false, true]) {
+      behaviour = () => ({ badId: bad });
+      const r = await run("Biology");
+      expect(r.error).toBeUndefined();
+      const ids = r.done.examData.sections.map(s => s.id);
+      expect(ids.every(Boolean)).toBe(true);
+      expect(ids).not.toContain("section ZZ");
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
   it("Biology: builds all three sections with correct numbering, repaired options and answer key", async () => {
     const r = await run("Biology");
     expect(r.error).toBeUndefined();

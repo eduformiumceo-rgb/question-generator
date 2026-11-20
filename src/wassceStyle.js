@@ -48,7 +48,7 @@ const SAMPLE_DEFAULT = { q: "Which part of the gill of fish is involved in gaseo
 
 /** Paper 1: one objective section by default (English builds several). */
 const p1Section = (count, o = {}) => ({
-  id: o.id || OBJ_ID, label: o.label || "Paper 1: Objective Test", type: "objective",
+  id: o.id || OBJ_ID, label: o.label || "Objective Test", type: "objective",
   questionCount: count, marksPerQuestion: 1, enabled: true, paper: 1,
   heading: o.heading || "", sub: o.sub || "", part: o.part || "", partSub: o.partSub || "",
   rubric: o.rubric || "", numberFrom: o.numberFrom || 1,
@@ -170,14 +170,14 @@ export const WASSCE_PROFILES = {
       sample: { q: "The three-month notice of resignation which the manager gave ........ in two weeks' time.", options: ["lapses", "expires", "disrupts", "develops"], answer: 1 },
       intro: ["Answer **all** the questions.", "Each question is followed by **four** options lettered A to D. Find the **correct** option for each question. Shade in pencil on your answer sheet the answer space which bears the same letter as the option you have chosen. Give only **one** answer to **each** question. Be sure you understand the instructions that follow them.", "Do not spend too much time on a question. If you find a question difficult, leave it and go and try it again later. An example is given below."],
       sections: [
-        p1Section(10, { id: "OBJ1", label: "Paper 1: Part A, Section I", part: "PART A", partSub: "LEXIS AND STRUCTURE", heading: "SECTION I", numberFrom: 1, rubric: "In each of the following sentences, there is a word underlined and one gap. From the list of words lettered A to D, choose the word that is most nearly opposite in meaning to the underlined word and that will, at the same time, correctly fill the gap in the sentence.", hint: "TEN items. Each is one sentence with ONE word underlined (use plain underscores around it, e.g. _arrogant_) and ONE gap shown as ........ ; the options are single words and the correct one is the OPPOSITE of the underlined word and also fits the gap grammatically. Example shape: 'You are too _arrogant_, you must learn to be ........' (honest / weak / timid / humble)." }),
-        p1Section(10, { id: "OBJ2", label: "Paper 1: Part A, Section II", heading: "SECTION II", numberFrom: 11, rubric: "From the words lettered A to D, choose the one that best completes each of the following sentences.", hint: "TEN single-sentence gap-fill items with the gap shown as ........ ; options are single words (vocabulary in context, collocations, prepositions, tense and modal choice such as shall/should/would/will, and commonly confused words such as complement/compliment)." }),
-        p1Section(10, { id: "OBJ3", label: "Paper 1: Part A, Section III", heading: "SECTION III", numberFrom: 21, rubric: "Choose from the alternatives lettered A to D the one which is nearest in meaning to the underlined word or expression in each sentence.", hint: "TEN items. Each is one sentence with a word or expression underlined (plain underscores, e.g. _integrated_); the options are single words or short expressions and the correct one is the closest synonym in that context." }),
-        p1Section(10, { id: "OBJ4", label: "Paper 1: Part A, Section IV", heading: "SECTION IV", numberFrom: 31, rubric: "After each of the following sentences, a list of possible interpretations of all or part of the sentence is given. Choose the interpretation you consider most appropriate for each sentence.", hint: "TEN items on idioms and figurative expressions (odds and ends, kept his balance, covered much ground, tickled pink, wore his heart on his sleeve, get the hang of it, packed in her job ...). Each stem is one sentence followed by 'This means that ...' and four short interpretations." }),
-        p1Section(10, { id: "OBJ5", label: "Paper 1: Part A, Section V", heading: "SECTION V", numberFrom: 41, rubric: "In the following passage the numbered gaps indicate missing words. Against each number in the list below the passage, four choices are offered in columns lettered A to D. For each numbered gap, choose from the options provided for that number, the word that is most suitable to fill the gap.", hint: "TEN items (41 to 50) built on ONE passage of about 150 words with gaps marked —41—, —42-- ... up to —50—. Put the WHOLE passage in the text of question 41, ending with a line 'Questions 41 to 50: choose the word that best fills each numbered gap.'; the text of questions 42 to 50 is just the gap label, for example '42. gap 42'. Each of the ten questions has four single-word options." }),
-        p1Section(10, { id: "OBJ6", label: "Paper 1: Part B, Prose", part: "PART B", partSub: "LITERATURE", heading: "PROSE", numberFrom: 51, rubric: "Answer the ten questions numbered 51 to 60 on the extracts below.", hint: "TEN questions on prose. Write two ORIGINAL short prose extracts of about 80 words each (do not quote any published text): put the first extract at the start of the text of question 51 with 'Read the following extract and answer questions 51 to 55.' and the second at the start of question 56 with 'Read the following extract and answer questions 56 to 60.' Questions test meaning of an expression, character, theme, tone, point of view and literary devices; each has four options." }),
-        p1Section(10, { id: "OBJ7", label: "Paper 1: Part B, Drama", heading: "DRAMA", numberFrom: 61, rubric: "Answer the ten questions numbered 61 to 70 on the extracts below.", hint: "TEN questions on drama. Write two ORIGINAL short dramatic extracts of about 70 words each with speaker names, in the style of a prescribed African play, at the start of questions 61 and 66 ('Read the following extract and answer questions 61 to 65.'). Questions test characterisation, conflict, dramatic devices, theme and setting; each has four options." }),
-        p1Section(10, { id: "OBJ8", label: "Paper 1: Part B, Poetry", heading: "POETRY", numberFrom: 71, rubric: "Answer the ten questions numbered 71 to 80 on the poems below.", hint: "TEN questions on poetry. Write two ORIGINAL short poems of 8 lines each at the start of questions 71 and 76 ('Read the following poem and answer questions 71 to 75.'). Questions test theme, imagery, tone, figures of speech (simile, metaphor, personification, irony), rhyme and structure; each has four options." }),
+        p1Section(10, { id: "OBJ1", label: "Part A, Section I", part: "PART A", partSub: "LEXIS AND STRUCTURE", heading: "SECTION I", numberFrom: 1, rubric: "In each of the following sentences, there is a word underlined and one gap. From the list of words lettered A to D, choose the word that is most nearly opposite in meaning to the underlined word and that will, at the same time, correctly fill the gap in the sentence.", hint: "TEN items. Each is one sentence with ONE word underlined (use plain underscores around it, e.g. _arrogant_) and ONE gap shown as ........ ; the options are single words and the correct one is the OPPOSITE of the underlined word and also fits the gap grammatically. Example shape: 'You are too _arrogant_, you must learn to be ........' (honest / weak / timid / humble)." }),
+        p1Section(10, { id: "OBJ2", label: "Part A, Section II", heading: "SECTION II", numberFrom: 11, rubric: "From the words lettered A to D, choose the one that best completes each of the following sentences.", hint: "TEN single-sentence gap-fill items with the gap shown as ........ ; options are single words (vocabulary in context, collocations, prepositions, tense and modal choice such as shall/should/would/will, and commonly confused words such as complement/compliment)." }),
+        p1Section(10, { id: "OBJ3", label: "Part A, Section III", heading: "SECTION III", numberFrom: 21, rubric: "Choose from the alternatives lettered A to D the one which is nearest in meaning to the underlined word or expression in each sentence.", hint: "TEN items. Each is one sentence with a word or expression underlined (plain underscores, e.g. _integrated_); the options are single words or short expressions and the correct one is the closest synonym in that context." }),
+        p1Section(10, { id: "OBJ4", label: "Part A, Section IV", heading: "SECTION IV", numberFrom: 31, rubric: "After each of the following sentences, a list of possible interpretations of all or part of the sentence is given. Choose the interpretation you consider most appropriate for each sentence.", hint: "TEN items on idioms and figurative expressions (odds and ends, kept his balance, covered much ground, tickled pink, wore his heart on his sleeve, get the hang of it, packed in her job ...). Each stem is one sentence followed by 'This means that ...' and four short interpretations." }),
+        p1Section(10, { id: "OBJ5", label: "Part A, Section V", heading: "SECTION V", numberFrom: 41, rubric: "In the following passage the numbered gaps indicate missing words. Against each number in the list below the passage, four choices are offered in columns lettered A to D. For each numbered gap, choose from the options provided for that number, the word that is most suitable to fill the gap.", hint: "TEN items (41 to 50) built on ONE passage of about 150 words with gaps marked —41—, —42-- ... up to —50—. Put the WHOLE passage in the text of question 41, ending with a line 'Questions 41 to 50: choose the word that best fills each numbered gap.'; the text of questions 42 to 50 is just the gap label, for example '42. gap 42'. Each of the ten questions has four single-word options." }),
+        p1Section(10, { id: "OBJ6", label: "Part B, Prose", part: "PART B", partSub: "LITERATURE", heading: "PROSE", numberFrom: 51, rubric: "Answer the ten questions numbered 51 to 60 on the extracts below.", hint: "TEN questions on prose. Write two ORIGINAL short prose extracts of about 80 words each (do not quote any published text): put the first extract at the start of the text of question 51 with 'Read the following extract and answer questions 51 to 55.' and the second at the start of question 56 with 'Read the following extract and answer questions 56 to 60.' Questions test meaning of an expression, character, theme, tone, point of view and literary devices; each has four options." }),
+        p1Section(10, { id: "OBJ7", label: "Part B, Drama", heading: "DRAMA", numberFrom: 61, rubric: "Answer the ten questions numbered 61 to 70 on the extracts below.", hint: "TEN questions on drama. Write two ORIGINAL short dramatic extracts of about 70 words each with speaker names, in the style of a prescribed African play, at the start of questions 61 and 66 ('Read the following extract and answer questions 61 to 65.'). Questions test characterisation, conflict, dramatic devices, theme and setting; each has four options." }),
+        p1Section(10, { id: "OBJ8", label: "Part B, Poetry", heading: "POETRY", numberFrom: 71, rubric: "Answer the ten questions numbered 71 to 80 on the poems below.", hint: "TEN questions on poetry. Write two ORIGINAL short poems of 8 lines each at the start of questions 71 and 76 ('Read the following poem and answer questions 71 to 75.'). Questions test theme, imagery, tone, figures of speech (simile, metaphor, personification, irony), rhyme and structure; each has four options." }),
       ],
     }),
     paper2: { name: "ESSAY", marks: 100, minutes: 120,
@@ -201,7 +201,7 @@ export const WASSCE_PROFILES = {
       intro: ["Answer **four** questions only from this section.", CREDIT, "All questions carry equal marks."],
       cover: booklet2("This booklet consists of **six** questions. Answer **four** questions in all.\nAll questions carry equal marks."),
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 20, answerAny: 4, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 20, answerAny: 4, numberFrom: 1,
           hint: "SIX questions of 20 marks each (candidates answer any four). Every question has FOUR parts (a) to (d) of 5 marks each, and each part has two sub-parts (i) and (ii) from DIFFERENT areas, mixing physics (electricity, waves, energy), chemistry (atomic structure, mole calculation, acids, organic reactions), biology (human systems, ecology, genetics) and agriculture (poultry, goats, rabbits, pigs, farm records). Typical items: 'What are exotic breeds?' [2] and 'State **three** advantages of ...' [3]; 'Define relative atomic mass' [2] and 'Calculate the molar mass of each of the following compounds' [4]; 'Draw a diagram to show the electron configuration of ...' [4]; 'Two lamps of resistances 3 Ω and 5 Ω are connected in parallel to a 6 V source. Calculate the current' [3]. Marks per sub-part are printed. Marks of the parts add up to 20." }),
       ] },
   },
@@ -231,7 +231,7 @@ export const WASSCE_PROFILES = {
       intro: ["Answer **three** questions only. All questions carry equal marks."],
       cover: booklet2("This booklet contains **five** questions. You are required to answer **three** questions only. All questions carry equal marks. Paper 2 will last 1 hour after which the booklet will be collected.", ["Write boldly and legibly in **ink** and state your answers precisely.", "Write your answers within the spaces provided."]),
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 5, marksPerQuestion: 10, answerAny: 3, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 5, marksPerQuestion: 10, answerAny: 3, numberFrom: 1,
           hint: "FIVE questions of 10 marks each (candidates answer any three), each with parts (a) to (c) on different topics and marks such as 6+4 or 4+3+3: number-system conversions (hexadecimal to decimal, binary to octal), describing the effect of e-business on an application area, word processing or spreadsheet formulae, flowcharts and pseudocode, database design, networks and ICT security. Marks of the parts add up to 10." }),
       ] },
   },
@@ -243,7 +243,7 @@ export const WASSCE_PROFILES = {
     paper2: { name: "ESSAY", marks: 60, minutes: 120,
       intro: ["Answer **four** questions only.", CREDIT],
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
           hint: "SIX questions of 15 marks each (candidates answer any four): a 'Discuss five ...' question [15]; a business-plan style question with (a) explain [3], (b) describe five key contents [10], (c) list two [2]; a printing question (serigraphy, silk-screen lacquer method) with (a) [3], (b) [3], (c) step-by-step [9]; a lettering and typography question (serif, Roman letters, types of serifs with illustrations); a packaging question; and 'With the aid of illustration, describe each of the following: (a) ... (e) ...' [15]." }),
       ] },
   },
@@ -353,8 +353,8 @@ Object.assign(WASSCE_PROFILES, {
     label: "Literature-in-English", verified: false, unverified: ["The genre set in Paper 2 changes every year (prose, drama or poetry): prose is used here", "Number of Paper 2 questions per section (assumed 4)"],
     scheme: "points", schemeNotes: NOTES_POINTS, order: "21", booklet: "combined", examinerBox: true,
     paper1: paper1(50, 60, { sections: [
-      p1Section(30, { id: "OBJ1", label: "Paper 1: Section A", heading: "SECTION A", sub: "GENERAL KNOWLEDGE OF LITERATURE", numberFrom: 1, rubric: "Answer **all** the questions in this section.", hint: "THIRTY questions in three groups. Questions 1 to 20: general knowledge of literature (terms and devices such as aside, soliloquy, irony, satire, flashback, genres, features of prose, drama and poetry, figures of speech). Questions 21 to 25: an unseen prose passage: write ONE original passage of about 90 words in the first of these questions with the line 'Read the following passage and answer questions 21 to 25.' and ask about meaning, tone, characters and devices. Questions 26 to 30: an unseen poem: write ONE original poem of 8 to 12 lines in question 26 with 'Read the following poem and answer questions 26 to 30.' Each question has four options." }),
-      p1Section(20, { id: "OBJ2", label: "Paper 1: Section B", heading: "SECTION B", sub: "THE PRESCRIBED SHAKESPEAREAN TEXT", numberFrom: 31, rubric: "Answer **all** the questions in this section.", hint: "TWENTY context questions on the prescribed Shakespearean text named in the topics. Each question gives a short ORIGINAL paraphrase of a moment in the play (never quote the play's lines) and asks who is speaking or being addressed, what has just happened, the speaker's motive, a device or the theme. Four options each." }),
+      p1Section(30, { id: "OBJ1", label: "Section A", heading: "SECTION A", sub: "GENERAL KNOWLEDGE OF LITERATURE", numberFrom: 1, rubric: "Answer **all** the questions in this section.", hint: "THIRTY questions in three groups. Questions 1 to 20: general knowledge of literature (terms and devices such as aside, soliloquy, irony, satire, flashback, genres, features of prose, drama and poetry, figures of speech). Questions 21 to 25: an unseen prose passage: write ONE original passage of about 90 words in the first of these questions with the line 'Read the following passage and answer questions 21 to 25.' and ask about meaning, tone, characters and devices. Questions 26 to 30: an unseen poem: write ONE original poem of 8 to 12 lines in question 26 with 'Read the following poem and answer questions 26 to 30.' Each question has four options." }),
+      p1Section(20, { id: "OBJ2", label: "Section B", heading: "SECTION B", sub: "THE PRESCRIBED SHAKESPEAREAN TEXT", numberFrom: 31, rubric: "Answer **all** the questions in this section.", hint: "TWENTY context questions on the prescribed Shakespearean text named in the topics. Each question gives a short ORIGINAL paraphrase of a moment in the play (never quote the play's lines) and asks who is speaking or being addressed, what has just happened, the speaker's motive, a device or the theme. Four options each." }),
     ] }),
     paper2: { name: "PROSE", marks: 50, minutes: 90,
       intro: ["Answer **two** questions in all; **one** question from each section. Develop not fewer than **five** points in your answers."],
@@ -374,7 +374,7 @@ Object.assign(WASSCE_PROFILES, {
     paper2: { name: "ESSAY", marks: 100, minutes: 120,
       intro: ["Answer **four** questions only.", "All questions carry equal marks.", CREDIT],
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 25, answerAny: 4, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 25, answerAny: 4, numberFrom: 1,
           hint: "SIX questions of 25 marks each (candidates answer any four), each with four or five parts (a) to (d) or (e) and sub-parts (i), (ii), with marks printed such as 2+5+10+8, 4+3+4+6+8 or 1+2+10+12. Typical command words: 'Explain the concept ...' [2], 'State five characteristics of ...' [5], 'Explain five factors that affect ...' [10], 'Explain four types of goals' [8], 'Differentiate between ... and ...' [4], 'List the three forms of ...' [3]. The six questions cover different areas: management and goals, family life and marriage, health and sanitation, housing, money and investment (insurance, premium, policy), and consumer matters. Marks of the parts add up to 25." }),
       ] },
   },
@@ -387,7 +387,7 @@ Object.assign(WASSCE_PROFILES, {
     paper2: { name: "ESSAY", marks: 60, minutes: 120,
       intro: ["Answer **four** questions only.", "All questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
           hint: "SIX questions of 15 marks each (candidates answer any four), each with two or three parts and marks printed such as 3+12, 4+9+2, 3+12, 2+10+3, 10+2+3 or 9+3+3: 'Describe texture in textile design' [3] with 'Give six reasons for using textures' [12]; fibre identification and the burning test for linen, silk and nylon; a weaving calculation with the loom width, length, reed size and warp pattern given (total number of ends, width of a colour, heddles per shaft); 'Define textiles' with five reasons for studying it and three careers; block printing problems and methods of fixing; describing Ghanaian traditional fabrics such as adinkra and kente and their significance. One question may ask the candidate to identify care labels or draw a labelled diagram (give it as a [FIGURE: ...] line)." }),
       ] },
   },
@@ -400,7 +400,7 @@ Object.assign(WASSCE_PROFILES, {
     paper2: { name: "ESSAY", marks: 60, minutes: 120,
       intro: ["Answer **four** questions only.", "All questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
           hint: "SIX questions of 15 marks each (candidates answer any four), each with two or three parts and marks printed such as 8+4+3, 3+6+6 or 8+4+3: 'In four steps, describe open-air treatment of bamboo' [8], 'State three precautionary measures when using the knife' [3], 'Explain braiding in basketry' [3], 'Describe three ways of finishing the edge of a basket' [6], 'Illustrate the plaiting process using three weavers' [8], 'With the aid of illustration, describe the bodkin tool' [4], and factors that promote the sale of a basketry article. Diagrams are asked for in words ('with the aid of illustration')." }),
       ] },
   },
@@ -413,7 +413,7 @@ Object.assign(WASSCE_PROFILES, {
     paper2: { name: "ESSAY", marks: 60, minutes: 120,
       intro: ["Answer **four** questions only.", "All questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 15, answerAny: 4, numberFrom: 1,
           hint: "SIX questions of 15 marks each (candidates answer any four), each with two or three parts and marks printed such as 6+3+6, 'List six animals whose hides can be carved' [6], 'State six significance of tanning hides' [6], and one question that asks the candidate to describe, with the aid of illustration, each of several terms or finishes (such as scorching or nappa leather) [15 marks in all]." }),
       ] },
   },
@@ -426,7 +426,7 @@ Object.assign(WASSCE_PROFILES, {
     paper2: { name: "ESSAY", marks: 60, minutes: 90,
       intro: ["Answer **three** questions only.", "All questions carry equal marks.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 5, marksPerQuestion: 20, answerAny: 3, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 5, marksPerQuestion: 20, answerAny: 3, numberFrom: 1,
           hint: "FIVE questions of 20 marks each (candidates answer any three), each with two or three parts and marks such as 2+18, 6+12, 2+6+12 or 4+8+8: a question on a pictured work ([FIGURE: ...] line) asking the candidate to name the elements and, using the steps in appreciation, write an appreciation; 'List six tourist sites in Ghana' [6] with an explanation [12]; 'State two characteristics of a creative environment' [2]; and a question on a labelled figure asking for the function of each labelled line [8]. Marks of the parts add up to 20." }),
       ] },
   },
@@ -455,7 +455,7 @@ Object.assign(WASSCE_PROFILES, {
       intro: ["Answer **four** questions only.", "All questions carry equal marks."],
       cover: booklet2("This booklet contains **six** questions. You are required to answer **four** questions only. All questions carry equal marks."),
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 10, answerAny: 4, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 10, answerAny: 4, numberFrom: 1,
           hint: "SIX short essay questions of 10 marks each (candidates answer any four), each with parts (a), (b), (c) and marks such as 2+4+4 or 3+7: define a term, state or explain points (functions and sources of a nutrient, factors to consider when planning a meal, rules of kitchen safety and hygiene, methods of food preservation) and one short practical-planning item. Marks of the parts add up to 10." }),
       ] },
   },
@@ -481,7 +481,7 @@ Object.assign(WASSCE_PROFILES, {
       intro: ["Answer **five** questions only.", "All questions carry equal marks."],
       cover: booklet2("This booklet contains **six** questions. You are required to answer **five** questions only. All questions carry equal marks."),
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 18, answerAny: 5, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 6, marksPerQuestion: 18, answerAny: 5, numberFrom: 1,
           hint: "SIX questions of 18 marks each (candidates answer any five), each drawn from at least two themes of the syllabus, with parts (a) to (c) and marks such as 4+6+8 or 6+12: definitions, explain or describe points with marks per point, calculations such as seed rates, feed rations, stocking rates or farm profit, and one diagram item as a [FIGURE: ...] line. Marks of the parts add up to 18." }),
       ] },
   },
@@ -545,7 +545,7 @@ Object.assign(WASSCE_PROFILES, {
       intro: ["Answer **three** questions only.", "All questions carry equal marks."],
       cover: booklet2("This booklet contains **five** questions. You are required to answer **three** questions only. All questions carry equal marks."),
       sections: [
-        sec({ id: "A", label: "Paper 2", heading: "", rubric: "", questionCount: 5, marksPerQuestion: 20, answerAny: 3, numberFrom: 1,
+        sec({ id: "A", label: "Essay", heading: "", rubric: "", questionCount: 5, marksPerQuestion: 20, answerAny: 3, numberFrom: 1,
           hint: "FIVE questions of 20 marks each (candidates answer any three), each with parts (a) to (c): music theory (key signatures, scales and transposition described in words), history of music (composers and periods), African and Ghanaian music (instruments, forms, functions), and composition or harmony tasks described in words. Marks of the parts add up to 20." }),
       ] },
   },
@@ -719,6 +719,12 @@ export function decorateWassceExam(examData, requestedSections, profile, examTyp
 
 /* ── checking and repairing what the model returns ─────────────────────────────── */
 
+/**
+ * Markdown bold the model wrote out of habit (**word**) for a style that does not render it: keep the words, drop the asterisks.
+ * Only when ** opens at the start of a word and closes at the end of one, so exponents such as 2**3 are never touched.
+ */
+export const stripBoldMarkers = (t) => String(t ?? "").replace(/(^|[\s(\["'\u201c])\*\*(?=\S)([^*\n]*[^*\s])\*\*(?=$|[\s.,;:!?)\]"'\u201d])/g, "$1$2");
+
 /** "A. one", "B) two", "(C) three", "D: four": the model sometimes writes the letters itself. Only removed when ALL four options carry them in order. */
 const letterPrefix = (letter) => new RegExp("^\\s*(?:\\(" + letter + "\\)|" + letter + "[\\.\\):])\\s+", "i");
 const stripLetters = (opts) => {
@@ -732,7 +738,9 @@ const stripLetters = (opts) => {
  * the section's start, option text carries no "A." prefix (the layout adds the letters), and
  * unmatched ** / {{ }} markup cannot leak into the printed paper. Returns the same object.
  */
-export function repairWassceSection(section, parsed) {
+export function repairWassceSection(section, parsed, opts = {}) {
+  const markup = opts.markup !== false;   // BECE papers do not use the **bold** / {{italic}} markup: only stray markdown bold is removed there
+  const plain = markup ? (t) => t : stripBoldMarkers;
   const qs = parsed && parsed.section && Array.isArray(parsed.section.questions) ? parsed.section.questions : [];
   const balanced = (t) => {
     let out = String(t ?? "");
@@ -744,27 +752,28 @@ export function repairWassceSection(section, parsed) {
   const start = Number(section.numberFrom) || 1;
   qs.forEach((q, i) => {
     q.number = start + i;
-    if (typeof q.text === "string") q.text = balanced(q.text);
-    if (typeof q.markingGuide === "string") q.markingGuide = stripMarkup(q.markingGuide);   // the scheme is plain text
-    if (Array.isArray(q.options)) q.options = stripLetters(q.options).map(o => balanced(String(o ?? "").trim()));
+    if (typeof q.text === "string") q.text = markup ? balanced(q.text) : plain(q.text);
+    if (typeof q.markingGuide === "string") q.markingGuide = markup ? stripMarkup(q.markingGuide) : plain(q.markingGuide);   // the scheme is plain text
+    if (Array.isArray(q.options)) q.options = stripLetters(q.options).map(o => (markup ? balanced(String(o ?? "").trim()) : plain(String(o ?? "").trim())));
     if (typeof q.correctOption === "string") q.correctOption = q.correctOption.trim().toUpperCase().replace(/[^A-D]/g, "").slice(0, 1);
     (q.parts || []).forEach(p => {
-      if (typeof p.text === "string") p.text = balanced(p.text);
-      (p.subparts || []).forEach(sp => { if (typeof sp.text === "string") sp.text = balanced(sp.text); });
+      if (typeof p.text === "string") p.text = markup ? balanced(p.text) : plain(p.text);
+      (p.subparts || []).forEach(sp => { if (typeof sp.text === "string") sp.text = markup ? balanced(sp.text) : plain(sp.text); });
     });
   });
   return parsed;
 }
 
 /** Hard structural checks for one generated section. Returns an error message, or "" when the section is sound. */
-export function checkWassceSection(section, questions) {
+export function checkWassceSection(section, questions, opts = {}) {
   const id = section.id;
+  const objectiveOnly = opts.objectiveOnly === true;   // BECE: only the objective checks (four distinct options, a valid answer letter)
   for (const q of questions || []) {
     if (section.type === "objective") {
       if (!Array.isArray(q.options) || q.options.length !== 4 || q.options.some(o => !String(o || "").trim())) return `Section ${id}, Question ${q.number}: an objective question needs exactly four non-empty options.`;
       if (!/^[A-D]$/.test(String(q.correctOption || ""))) return `Section ${id}, Question ${q.number}: correctOption must be A, B, C or D.`;
       if (new Set(q.options.map(o => String(o).trim().toLowerCase())).size !== 4) return `Section ${id}, Question ${q.number}: the four options must all be different.`;
-    } else {
+    } else if (!objectiveOnly) {
       if (!String(q.text || "").trim() && !(Array.isArray(q.parts) && q.parts.length)) return `Section ${id}, Question ${q.number}: the question has no text.`;
       for (const p of q.parts || []) {
         if (Array.isArray(p.subparts) && p.subparts.length) {
@@ -790,3 +799,8 @@ export function renumberWassceSections(sections) {
     return out;
   });
 }
+
+/** Public-exam-neutral names for the shared helpers (BECE and WASSCE both use them). */
+export const repairExamSection = repairWassceSection;
+export const checkExamSection = checkWassceSection;
+export const renumberExamSections = renumberWassceSections;

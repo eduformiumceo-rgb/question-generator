@@ -42,9 +42,10 @@ const sec = (o) => ({ type: "structured", enabled: true, paper: 2, ...o });
 export const BECE_PROFILES = {
   "Science": {
     label: "Integrated Science", verified: false,
-    unverified: ["Paper 2 duration (cover page not in the supplied copy)", "Marking scheme layout (the supplied scheme file is a copy of the question paper)"],
+    unverified: ["Paper 2 duration follows WAEC's published 2024 structure (1 hour 25 minutes); a real cover page may differ slightly", "Marking scheme layout (the supplied scheme file is a copy of the question paper)"],
+    sources: ["WAEC 2024 BECE structure: Paper 2 is 1 hour 25 minutes; Section A one compulsory practical-skills question (40 marks), Section B four questions, answer any three (60 marks); Paper 1 40 questions, 45 minutes"],
     scheme: "points", schemeNotes: NOTES_GENERIC,
-    paper2: { name: "ESSAY", marks: 100, minutes: 90,
+    paper2: { name: "ESSAY", marks: 100, minutes: 85,
       intro: ["Answer all the questions in your answer booklet.", "This paper is in two sections: A and B. Answer Question 1 in Section A and any other three questions in Section B."],
       sections: [
         sec({ id: "A", label: "Section A", heading: "SECTION A", rubric: "Answer all the questions in this section", questionCount: 1, marksPerQuestion: 40, numberFrom: 1,
@@ -66,9 +67,10 @@ export const BECE_PROFILES = {
     paper1: paper1(60),
   },
   "English Language": {
-    label: "English Language", verified: false, unverified: ["Paper 1 duration (assumed 45 minutes)"],
+    label: "English Language", verified: true, unverified: ["Paper 2 duration: the real June 2025 cover says 1 hour 15 minutes (2 hours with Paper 1) while its page header says 1 hour; 75 minutes is used"],
+    sources: ["real June 2025 BECE English cover: Essay and Objective, 2 hours; Paper 2 1 hour 15 minutes, Paper 1 45 minutes", "WAEC 2024 BECE structure: Part A one of three, Part B all, Part C ten questions, 60 marks"],
     scheme: "points", schemeNotes: NOTES_GENERIC,
-    paper2: { name: "ESSAY", marks: 60, minutes: 60,
+    paper2: { name: "ESSAY", marks: 60, minutes: 75,
       intro: ["This paper consists of three parts: A, B and C.", "Answer three questions in all: one question from Part A and all the questions in Parts B and C.", "Answer all questions in your answer booklet.", "Credit will be given for clarity of expression and orderly presentation of material."],
       sections: [
         sec({ id: "A", label: "Part A: Writing", type: "essay", heading: "PART A", sub: "WRITING", rubric: "Answer one question only from this part. Your composition should be about 250 words long.", questionCount: 3, marksPerQuestion: 30, answerAny: 1, numberFrom: 1,
@@ -154,7 +156,7 @@ export const BECE_PROFILES = {
     paper1: paper1(50),
   },
   "French": {
-    label: "French", verified: false, unverified: ["Paper 1 duration taken from the answer-sheet page (1 hour)"],
+    label: "French", verified: false, unverified: ["Paper 1 duration taken from the answer-sheet page (1 hour)", "Paper 2 marks follow the real 2025 paper (Question 1: 20, Question 2 composition: 40); WAEC's published 2024 structure summary lists 20 + 20 = 40 marks, so check against the latest paper", "Paper 1 listening comprehension needs audio, which a printed paper cannot carry: those questions are set as written comprehension"],
     scheme: "points", schemeNotes: NOTES_GENERIC, language: "French",
     paper2: { name: "ESSAY", marks: 60, minutes: 45,
       intro: ["Il y a deux questions dans cette partie. Répondez à toutes les questions.", "There are two questions in this part. Answer both questions."],

@@ -85,15 +85,15 @@ export function turnOverField(text = "Turn over", size = 20) {
 }
 
 /** WASSCE markup: **bold**, {{italic}}, _underlined_ words. Returns [{ t, b, i, u }]. */
-function parseMarkup(ln) {
+function parseMarkup(ln, underlineOnly = false) {
   // No lookbehind (older Safari cannot even parse it): the character before an underlined word is captured and re-emitted.
-  const re = /\*\*(.+?)\*\*|\{\{(.+?)\}\}|(^|[\s(])_([^_\n]+)_(?=[\s.,;:!?)]|$)/g;
+  const re = underlineOnly ? /()()(^|[\s(])_([^_\n]+)_(?=[\s.,;:!?)]|$)/g : /\*\*(.+?)\*\*|\{\{(.+?)\}\}|(^|[\s(])_([^_\n]+)_(?=[\s.,;:!?)]|$)/g;
   const text = String(ln), segs = [];
   let last = 0, m;
   while ((m = re.exec(text))) {
     if (m.index > last) segs.push({ t: text.slice(last, m.index) });
-    if (m[1] !== undefined) segs.push({ t: m[1], b: true });
-    else if (m[2] !== undefined) segs.push({ t: m[2], i: true });
+    if (m[1]) segs.push({ t: m[1], b: true });          // (empty placeholder groups in underline-only mode are "" and skipped)
+    else if (m[2]) segs.push({ t: m[2], i: true });
     else { if (m[3]) segs.push({ t: m[3] }); segs.push({ t: m[4], u: true }); }
     last = m.index + m[0].length;
     if (m[0].length === 0) re.lastIndex++;
@@ -105,7 +105,7 @@ function parseMarkup(ln) {
 /** Text -> runs, turning "\n" into real line breaks (Word ignores raw \n). */
 function textRuns(text, opts = {}) {
   const lines = String(text ?? "").split(/\r?\n/);
-  return lines.flatMap((ln, i) => (BX.wassce ? parseMarkup(ln) : [{ t: ln }]).map((sg, j) => new TextRun({
+  return lines.flatMap((ln, i) => (BX.wassce ? parseMarkup(ln) : BX.bece ? parseMarkup(ln, true) : [{ t: ln }]).map((sg, j) => new TextRun({
     text: sg.t, break: i > 0 && j === 0 ? 1 : undefined, ...opts,
     ...(sg.b ? { bold: true } : {}), ...(sg.i ? { italics: true } : {}), ...(sg.u ? { underline: {} } : {}),
   })));

@@ -79,7 +79,8 @@ describe("whole generator screen, SHS flow", () => {
     await u.selectOptions(selectFor("Class"), "SHS 3");
     await u.selectOptions(selectFor("Programme"), "General Science");
     await u.selectOptions(selectFor("Subject"), "Chemistry (GS)");
-    const strandBtns = screen.getAllByRole("button").filter(b => b.closest("div")?.previousSibling?.textContent?.startsWith("Strands taught this semester"));
+    await u.click(screen.getByRole("button", { name: /Choose from the curriculum/i }));   // strands sit in a collapsed accordion
+    const strandBtns = screen.getAllByRole("button").filter(b => /^\d+\.\s/.test(b.textContent.trim()));
     expect(strandBtns.length).toBeGreaterThan(0);
     await u.click(strandBtns[0]);
     expect(screen.getByText("Topics (Sub-Strands)")).toBeTruthy();

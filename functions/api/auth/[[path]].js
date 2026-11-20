@@ -177,7 +177,11 @@ async function verifyPassword(password, stored) {
 }
 
 function makeOTP() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  // 6 digits from a cryptographically secure source (Math.random is predictable). Rejection sampling avoids modulo bias.
+  const buf = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / 900000) * 900000;
+  do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
+  return String(100000 + (buf[0] % 900000));
 }
 
 async function makeJWT(payload, secret) {
@@ -446,6 +450,10 @@ async function handleSendOTP(request, env) {
   // Whitelist purpose to prevent KV key injection via crafted purpose values
   // (e.g. purpose="verify:admin@x.com\nreset" could poison other KV keys)
   const purpose = rawPurpose === "reset" ? "reset" : "verify";
+
+  // Codes are stored in KV so they can be checked later. Without the binding a code could be e-mailed but never verified,
+  // so say so now instead of sending a useless e-mail and failing afterwards.
+  if (!env.OTP_KV) return jsonResp({ error: "Email verification is temporarily unavailable. Please try again later." }, 503);
 
   // Rate-limit: max 5 OTP sends per email per hour per purpose
   try {

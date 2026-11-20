@@ -51,7 +51,7 @@
 import { screenExamInput } from "../_shared/moderation.js";
 import { buildSectionPrompt } from "../_shared/examPrompt.js";
 import { getBeceProfile, beceSections } from "../_shared/beceStyle.js";
-import { getWassceProfile, wassceSections, repairWassceSection, checkWassceSection, renumberWassceSections } from "../_shared/wassceStyle.js";
+import { getWassceProfile, wassceSections, repairExamSection, checkExamSection, renumberExamSections } from "../_shared/wassceStyle.js";
 import { callFreeAI } from "../_shared/freeGeneration.js";
 import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "../_shared/freeTierLimits.js";
 
@@ -368,8 +368,12 @@ async function generateSection(env, cfg, section, isFirstSection, aiStrategy) {
       const prompt = buildSectionPrompt(cfg, section, isFirstSection);
       const raw = await aiStrategy(env, prompt, "Generate this section now, following every rule exactly. Return only the JSON object.", MAX_TOKENS_PER_SECTION, SECTION_TIMEOUT_MS);
       const parsed = stripEmDashes(extractJSON(raw));
-      if (cfg.examStyle === "wassce") repairWassceSection(section, parsed);   // renumber, strip option letters, balance markup
+      if (cfg.examStyle === "wassce") repairExamSection(section, parsed);                    // renumber, strip option letters, balance markup
+      else if (cfg.examStyle === "bece") repairExamSection(section, parsed, { markup: false });   // BECE: renumber and strip option letters only
       const questions = parsed.section?.questions;
+      // The section's id is OURS to set, not the model's: the client matches finished sections to the requested structure by id,
+      // and a missing or mistyped id would reject a paper the teacher has already been charged for.
+      if (parsed.section && typeof parsed.section === "object") parsed.section.id = section.id;
       if (!parsed.section || !Array.isArray(questions) || questions.length !== Number(section.questionCount)) {
         throw new Error(`Section ${section.id} returned ${questions?.length ?? 0} question(s), expected ${section.questionCount}.`);
       }
@@ -386,8 +390,8 @@ async function generateSection(env, cfg, section, isFirstSection, aiStrategy) {
       if (badParts) {
         throw new Error(`Section ${section.id}, Question ${badParts.number}: part marks don't sum to the question total.`);
       }
-      if (cfg.examStyle === "wassce") {
-        const wErr = checkWassceSection(section, questions);
+      if (cfg.examStyle === "wassce" || cfg.examStyle === "bece") {
+        const wErr = checkExamSection(section, questions, { objectiveOnly: cfg.examStyle === "bece" });
         if (wErr) throw new Error(wErr);
       }
       return parsed;
@@ -525,7 +529,7 @@ async function handleGenerateExamStreaming(body, env, user) {
       if (!c) return { id: String(sc.id).slice(0, 8), label: String(sc.label || "").slice(0, 60), type: sc.type === "objective" ? "objective" : sc.type === "essay" ? "essay" : "structured", questionCount, marksPerQuestion, paper: 2 };
       return { ...c, questionCount, marksPerQuestion, ...(c.answerAny ? { answerAny: Math.max(1, Math.min(Number(sc.answerAny) || c.answerAny, questionCount)) } : {}) };
     });
-    if (isWassce) runSections = renumberWassceSections(runSections);   // a changed question count shifts the numbering of later sections
+    runSections = renumberExamSections(runSections);   // a changed question count shifts the numbering of later sections
   }
 
   // ── Input screening (before any credit reservation or AI call) ──

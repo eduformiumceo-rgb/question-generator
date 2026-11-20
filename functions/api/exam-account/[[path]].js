@@ -117,8 +117,12 @@ async function listHistory(env, user) {
   return jsonResp({ exams: rows || [], max: MAX_EXAM_HISTORY_PER_USER });
 }
 
+// exam_history ids are UUIDs. Anything else is "not found" (and never reaches a database query string).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function getHistoryItem(env, user, id) {
   if (!id) return jsonResp({ error: "Missing id." }, 400);
+  if (!UUID_RE.test(id)) return jsonResp({ error: "Not found." }, 404);
   const rows = await sb(env, `/exam_history?id=eq.${id}&user_id=eq.${user.sub}&select=*&limit=1`);
   if (!rows?.length) return jsonResp({ error: "Not found." }, 404);
   return jsonResp(rows[0]);
@@ -154,7 +158,9 @@ function checkExamPayload(exam_json) {
 }
 
 async function saveHistory(request, env, user) {
-  const { title, subject, class: cls, exam_type, exam_json, meta_json } = await request.json();
+  let payload;
+  try { payload = await request.json(); } catch { return jsonResp({ error: "Invalid request." }, 400); }
+  const { title, subject, class: cls, exam_type, exam_json, meta_json } = payload || {};
   if (!exam_json || typeof exam_json !== "object") return jsonResp({ error: "Missing exam data." }, 400);
   const tooBig = checkExamPayload(exam_json);
   if (tooBig) return tooBig;
@@ -190,7 +196,10 @@ async function saveHistory(request, env, user) {
 
 async function updateHistory(request, env, user, id) {
   if (!id) return jsonResp({ error: "Missing id." }, 400);
-  const body = await request.json();
+  if (!UUID_RE.test(id)) return jsonResp({ error: "That exam is no longer in My Exams." }, 404);
+  let body;
+  try { body = await request.json(); } catch { return jsonResp({ error: "Invalid request." }, 400); }
+  if (!body || typeof body !== "object") return jsonResp({ error: "Invalid request." }, 400);
   const patch = {};
   if (typeof body.title === "string") patch.title = (body.title.trim() || "Untitled Exam").slice(0, 200);
   if (body.exam_json !== undefined) {
@@ -213,6 +222,7 @@ async function clearHistory(env, user) {
 
 async function deleteHistory(env, user, id) {
   if (!id) return jsonResp({ error: "Missing id." }, 400);
+  if (!UUID_RE.test(id)) return jsonResp({ ok: true });   // nothing to delete
   await sb(env, `/exam_history?id=eq.${id}&user_id=eq.${user.sub}`, { method: "DELETE" });
   return jsonResp({ ok: true });
 }

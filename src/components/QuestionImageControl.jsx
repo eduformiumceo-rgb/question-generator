@@ -75,7 +75,7 @@ export default function QuestionImageControl({ question, onImage, onDiagram, oth
     setError("");
     onImage({ src, size: imageSizeKey(image), caption: image?.caption || "", align: imageAlign(image), autoNumber: image ? !!image.autoNumber : !hideNumbering, ...keep });
     return true;
-  }, [image, onImage, otherImagesChars]);
+  }, [image, onImage, otherImagesChars, hideNumbering]);
 
   const addFile = useCallback(async (file) => {
     if (!file) return;

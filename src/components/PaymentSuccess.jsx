@@ -32,7 +32,7 @@ export default function PaymentSuccess({ onDone, S, F }) {
         if (!res.ok) throw new Error(data.error?.message || "Verification failed.");
         sessionStorage.removeItem("eduformium_pending_exam_ref");
         setStatus("success");
-        setMessage(`${toDisplayCredits(data.credits_added)} credits added. New balance: ${toDisplayCredits(data.new_balance)}.`);
+        setMessage(`${toDisplayCredits(data.credits_added)} credits added.${typeof data.new_balance === "number" ? ` New balance: ${toDisplayCredits(data.new_balance)}.` : ""}`);
       } catch (e) {
         setStatus("error");
         setMessage(e.message || "Could not verify your payment. If you were charged, please contact support.");
