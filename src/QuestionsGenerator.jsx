@@ -32,6 +32,9 @@ import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBe
 // time on low-end Android for a feature most teachers use occasionally, not on
 // every visit. Loaded on demand inside handleDownloadWord() instead.
 import ExamEditor from "./components/ExamEditor.jsx";
+import MathText from "./components/MathText.jsx";
+import PaperAudit from "./components/PaperAudit.jsx";
+import { requestQuestionReplacement } from "./regenerateQuestion.js";
 import { screenExamInput } from "./moderation.js";
 import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "./freeTierLimits.js";
 import NumberField from "./components/NumberField.jsx";
@@ -295,6 +298,7 @@ function QuestionsGeneratorInner() {
 
   // ── Generation state ─────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
+  const [examTier, setExamTier] = useState(null);   // tier the paper on screen was generated with ("free" | "premium")
   const [loadingTier, setLoadingTier] = useState(null); // "free" | "premium" | null - which button is spinning
   const [progress, setProgress] = useState(null); // { index, total, sectionLabel, sectionsDone: Set }
   const [elapsed, setElapsed] = useState(0);
@@ -587,6 +591,26 @@ function QuestionsGeneratorInner() {
     }
   }, []);
 
+  /** Replace one question on the finished paper (standard papers; BECE/WASSCE sections are regenerated whole). */
+  const handleReplaceQuestion = async ({ section, question, avoid, note }) => {
+    const hasGuide = (examData?.sections || []).some(s => (s.questions || []).some(q => String(q.markingGuide || "").trim()));
+    try {
+      const { question: nq, creditsRemaining } = await requestQuestionReplacement({
+        api: EXAM_API, token: getToken ? getToken() : null,
+        settings: {
+          tier: examTier || "premium", className, programme, subject, term, examType, durationMinutes,
+          topics: selectedTopics, pastedSyllabus, difficulty, languageStyle, cognitiveLevels, includeMarkingScheme: hasGuide, examStyle: "school",
+        },
+        section, question, avoid, note,
+      });
+      if (typeof creditsRemaining === "number") setCreditBalance(creditsRemaining);
+      return nq;
+    } catch (e) {
+      if (typeof e.creditsRemaining === "number") setCreditBalance(e.creditsRemaining);
+      throw e;
+    }
+  };
+
   const handleGenerate = async (tierArg) => {
     setError("");
     const validationError = validate(tierArg);
@@ -595,6 +619,7 @@ function QuestionsGeneratorInner() {
     stopFigureDrawing();
     setLoading(true);
     setLoadingTier(tierArg);
+    setExamTier(tierArg);
     setExamData(null);
     setOpenedMeta(null);
     setLivePreview(null);
@@ -1207,10 +1232,10 @@ function QuestionsGeneratorInner() {
                 {sec.instructions && <div style={{ fontFamily: F, fontSize: 12, color: "var(--text-muted)", margin: "2px 0 6px", fontStyle: "italic" }}>{sec.instructions}</div>}
                 {(sec.questions || []).map((q) => (
                   <div key={q.number} style={{ fontFamily: F, fontSize: 13, color: "var(--text)", lineHeight: 1.5, margin: "6px 0" }}>
-                    <b>{q.number}.</b> {q.text}
+                    <b>{q.number}.</b> <MathText text={q.text} />
                     {Array.isArray(q.options) && q.options.length > 0 && (
                       <div style={{ color: "var(--text-secondary)", fontSize: 12.5, marginLeft: 16 }}>
-                        {q.options.map((o, i) => <div key={i}>{String.fromCharCode(65 + i)}. {o}</div>)}
+                        {q.options.map((o, i) => <div key={i}>{String.fromCharCode(65 + i)}. <MathText text={o} /></div>)}
                       </div>
                     )}
                   </div>
@@ -1341,7 +1366,7 @@ function QuestionsGeneratorInner() {
           </div>
 
           {editMode ? (
-            <ExamEditor examData={examData} setExamData={setExamData} S={S} F={F} />
+            <ExamEditor examData={examData} setExamData={setExamData} S={S} F={F} onReplace={(wassceActive || beceActive) ? undefined : handleReplaceQuestion} />
           ) : (
             <iframe
               ref={printFrameRef}
@@ -1352,6 +1377,9 @@ function QuestionsGeneratorInner() {
           )}
         </div>
       )}
+
+      {/* ── Paper check: moderator-style audit + Table of Specification (offline, free, re-runs on every edit) ── */}
+      {examData && <PaperAudit examData={examData} setExamData={setExamData} targetLevels={cognitiveLevels} S={S} F={F} />}
 
       {/* ── Figures: AI-drawn after generation; one "Change image" button per figure, collapsed so the page stays short ── */}
       {examData && (

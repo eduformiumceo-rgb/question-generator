@@ -15,15 +15,17 @@
  */
 import React from "react";
 import NumberField from "./NumberField.jsx";
+import MathField from "./MathField.jsx";
+import ReplaceQuestion from "./ReplaceQuestion.jsx";
 import QuestionImageControl, { patchQuestionImage, patchQuestionDiagram } from "./QuestionImageControl.jsx";
 import { examImageChars } from "../imageUtils.js";
 
-export default function ExamEditor({ examData, setExamData, S, F }) {
-  const updateQuestion = (sectionIdx, qIdx, patch) => {
+export default function ExamEditor({ examData, setExamData, S, F, onReplace }) {
+  const updateQuestion = (sectionIdx, qIdx, patch, replace = false) => {
     setExamData(prev => {
       const next = { ...prev, sections: prev.sections.map((s, si) => {
         if (si !== sectionIdx) return s;
-        return { ...s, questions: s.questions.map((q, qi) => qi === qIdx ? { ...q, ...patch } : q) };
+        return { ...s, questions: s.questions.map((q, qi) => qi === qIdx ? (replace ? patch : { ...q, ...patch }) : q) };
       }) };
       // Keep the top-level answerKey in sync if an objective question's
       // correct option changed - the print/PDF/Word answer-key page reads
@@ -69,11 +71,11 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
             <div key={q.number} data-qcard style={{ border: "1.5px solid var(--border)", borderRadius: 12, padding: "14px 16px", marginBottom: 10 }}>
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text-muted)", fontFamily: F, paddingTop: 8 }}>{q.number}.</span>
-                <textarea
-                  value={q.text}
+                <MathField
+                  value={q.text} F={F} ariaLabel={`Question ${q.number} text`}
                   onChange={e => updateQuestion(sIdx, qIdx, { text: e.target.value })}
                   rows={2}
-                  style={{ ...S.inp, flex: 1, resize: "vertical", fontFamily: F, lineHeight: 1.5 }}
+                  style={{ ...S.inp, resize: "vertical", fontFamily: F, lineHeight: 1.5 }}
                 />
                 {!q.parts?.length && (
                   <div>
@@ -89,25 +91,25 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
               </div>
 
               {Array.isArray(q.options) && q.options.length > 0 && (
-                <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 8 }}>   {/* stacks on phones so a formula has room */}
                   {q.options.map((opt, oIdx) => {
                     const letter = ["A", "B", "C", "D", "E", "F"][oIdx];
                     const isCorrect = q.correctOption === letter;
                     return (
-                      <div key={oIdx} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div key={oIdx} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
                         <button
                           type="button" title="Mark as correct answer"
                           onClick={() => updateQuestion(sIdx, qIdx, { correctOption: letter })}
                           style={{
-                            width: 22, height: 22, borderRadius: "50%", flexShrink: 0, cursor: "pointer", fontSize: 11, fontWeight: 700,
+                            width: 22, height: 22, borderRadius: "50%", flexShrink: 0, cursor: "pointer", fontSize: 11, fontWeight: 700, marginTop: 7,
                             border: `1.5px solid ${isCorrect ? "#0D9488" : "var(--border-strong)"}`,
                             background: isCorrect ? "#0D9488" : "transparent", color: isCorrect ? "#fff" : "var(--text-muted)",
                           }}
                         >{letter}</button>
-                        <input
-                          value={opt}
+                        <MathField
+                          multiline={false} compact value={opt} F={F} ariaLabel={`Question ${q.number} option ${letter}`}
                           onChange={e => updateQuestion(sIdx, qIdx, { options: q.options.map((o, i) => i === oIdx ? e.target.value : o) })}
-                          style={{ ...S.inp, flex: 1, height: 36, fontSize: 13 }}
+                          style={{ ...S.inp, height: 36, fontSize: 13 }}
                         />
                       </div>
                     );
@@ -120,10 +122,10 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
                   {q.parts.map((p, pIdx) => (
                     <div key={pIdx} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 6 }}>
                       <span style={{ fontWeight: 700, fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, paddingTop: 8 }}>({p.label})</span>
-                      <textarea
-                        value={p.text} rows={1}
+                      <MathField
+                        value={p.text} rows={1} F={F} ariaLabel={`Question ${q.number} part ${p.label} text`}
                         onChange={e => updatePart(sIdx, qIdx, pIdx, { text: e.target.value })}
-                        style={{ ...S.inp, flex: 1, fontSize: 13, resize: "vertical", fontFamily: F }}
+                        style={{ ...S.inp, fontSize: 13, resize: "vertical", fontFamily: F }}
                       />
                       <NumberField
                         min={1} max={100} value={p.marks}
@@ -134,6 +136,14 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
                     </div>
                   ))}
                 </div>
+              )}
+
+              {onReplace && (
+                <ReplaceQuestion
+                  F={F} S={S} question={q}
+                  onReplace={(note) => onReplace({ section, question: q, avoid: examData.sections.flatMap(s => s.questions).filter(x => x !== q).map(x => [x.text, ...(x.parts || []).map(p => p.text)].filter(Boolean).join(" ")), note })}
+                  onApply={(nq) => updateQuestion(sIdx, qIdx, nq, true)}
+                />
               )}
 
               <QuestionImageControl
@@ -147,10 +157,10 @@ export default function ExamEditor({ examData, setExamData, S, F }) {
               {q.markingGuide != null && q.markingGuide !== "" && (
                 <div style={{ marginTop: 10 }}>
                   <label style={{ ...S.lbl, marginBottom: 3 }}>Marking Guide</label>
-                  <textarea
-                    value={q.markingGuide} rows={2}
+                  <MathField
+                    value={q.markingGuide} rows={2} F={F} ariaLabel={`Question ${q.number} marking guide`}
                     onChange={e => updateQuestion(sIdx, qIdx, { markingGuide: e.target.value })}
-                    style={{ ...S.inp, width: "100%", fontSize: 12.5, resize: "vertical", fontFamily: F, lineHeight: 1.5, boxSizing: "border-box" }}
+                    style={{ ...S.inp, fontSize: 12.5, resize: "vertical", fontFamily: F, lineHeight: 1.5 }}
                   />
                 </div>
               )}

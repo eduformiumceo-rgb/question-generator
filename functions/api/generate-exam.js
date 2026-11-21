@@ -53,6 +53,7 @@ import { buildSectionPrompt } from "../_shared/examPrompt.js";
 import { getBeceProfile, beceSections } from "../_shared/beceStyle.js";
 import { getWassceProfile, wassceSections, repairExamSection, checkExamSection, renumberExamSections } from "../_shared/wassceStyle.js";
 import { callFreeAI } from "../_shared/freeGeneration.js";
+import { repairLatexJson } from "../_shared/mathJson.js";
 import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "../_shared/freeTierLimits.js";
 
 const AI_MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
@@ -66,6 +67,7 @@ const AI_MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/ge
 // GHS 0.50-1.50 for a WHOLE CLASS's exam, versus GHS 25-55 PER STUDENT
 // from an external mock-exam vendor.
 const CREDIT_COST_PER_SECTION_WITH_MARKING = 0.5;
+const CREDIT_COST_REGENERATE = 0.1;   // replacing ONE question: a single small AI call
 const CREDIT_COST_PER_SECTION_QUESTIONS_ONLY = 0.35; // shorter output (no marking-guide prose) - genuinely cheaper to generate, priced accordingly
 
 // Free tier is deliberately a smaller "quiz" product, not a stripped-down
@@ -222,8 +224,8 @@ async function checkRateLimit(env, userId) {
   const dailySince = new Date(now - RATE_LIMIT_DAILY.windowSeconds * 1000).toISOString();
 
   const [shortRows, dailyRows] = await Promise.all([
-    sb(env, `/exam_generations?user_id=eq.${userId}&created_at=gte.${shortSince}&select=id`),
-    sb(env, `/exam_generations?user_id=eq.${userId}&created_at=gte.${dailySince}&select=id`),
+    sb(env, `/exam_generations?user_id=eq.${userId}&curriculum=eq.GES&created_at=gte.${shortSince}&select=id`),
+    sb(env, `/exam_generations?user_id=eq.${userId}&curriculum=eq.GES&created_at=gte.${dailySince}&select=id`),
   ]);
 
   if ((shortRows || []).length >= RATE_LIMIT_SHORT.max) {
@@ -235,10 +237,34 @@ async function checkRateLimit(env, userId) {
   return { ok: true };
 }
 
+/**
+ * Replacing a single question has its OWN limits, counted from rows logged with curriculum "REPLACE", so it neither
+ * blocks nor is blocked by full-exam generation. Every attempt is logged BEFORE the AI call, so failed attempts count too
+ * (otherwise a failing request could be repeated for free). Generous for a teacher fixing a paper, tight for a script.
+ */
+const REPLACE_LIMIT_SHORT = { windowSeconds: 600, max: 12 };          // 12 replacements / 10 min
+const REPLACE_LIMIT_DAILY = { premium: 200, free: 40 };                 // per day
+async function checkReplaceLimit(env, userId, tier) {
+  const now = Date.now();
+  const [shortRows, dailyRows] = await Promise.all([
+    sb(env, `/exam_generations?user_id=eq.${userId}&curriculum=eq.REPLACE&created_at=gte.${new Date(now - REPLACE_LIMIT_SHORT.windowSeconds * 1000).toISOString()}&select=id`),
+    sb(env, `/exam_generations?user_id=eq.${userId}&curriculum=eq.REPLACE&created_at=gte.${new Date(now - 86400000).toISOString()}&select=id`),
+  ]);
+  if ((shortRows || []).length >= REPLACE_LIMIT_SHORT.max) return { ok: false, message: "You're replacing questions very quickly. Please wait a few minutes and try again." };
+  if ((dailyRows || []).length >= REPLACE_LIMIT_DAILY[tier === "free" ? "free" : "premium"]) return { ok: false, message: "You've reached today's limit for replacing questions. Please try again tomorrow." };
+  return { ok: true };
+}
+async function logReplacement(env, userId, meta, creditCost, tier) {
+  await sb(env, "/exam_generations", {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId, subject: String(meta.subject || "").slice(0, 200), class: String(meta.className || "").slice(0, 100), exam_type: "replace-question", curriculum: "REPLACE", credits_used: creditCost, question_count: 1, tier }),
+  }).catch(() => {});
+}
+
 /** Free tier's own, stricter daily cap - separate from the general rate limit above. */
 async function checkFreeTierLimit(env, userId) {
   const todaySince = new Date(Date.now() - 86400 * 1000).toISOString();
-  const rows = await sb(env, `/exam_generations?user_id=eq.${userId}&tier=eq.free&created_at=gte.${todaySince}&select=id`);
+  const rows = await sb(env, `/exam_generations?user_id=eq.${userId}&curriculum=eq.GES&tier=eq.free&created_at=gte.${todaySince}&select=id`);
   if ((rows || []).length >= FREE_TIER_DAILY_LIMIT) {
     return { ok: false, message: `You've used your ${FREE_TIER_DAILY_LIMIT} free quizzes for today. Try again tomorrow, or use Premium for unlimited generations.` };
   }
@@ -296,7 +322,7 @@ function extractJSON(raw) {
   let cleaned = raw.replace(/```json[\s\S]*?```/g, m => m.slice(7, -3)).replace(/```[\s\S]*?```/g, m => m.slice(3, -3)).trim();
   const objMatch = cleaned.match(/\{[\s\S]*\}/);
   if (objMatch) cleaned = objMatch[0];
-  return JSON.parse(cleaned);
+  return JSON.parse(repairLatexJson(cleaned));   // LaTeX backslashes (\frac, \times...) are not valid JSON escapes - see mathJson.js
 }
 async function callGeminiOnce(url, env, systemPrompt, userPrompt, maxTokens, timeoutMs, expectJSON, withThinkingCap) {
   const res = await fetch(`${url}?key=${env.GEMINI_API_KEY}`, {
@@ -419,6 +445,7 @@ export async function onRequest(context) {
 
   if (mode === "suggest-topics") return withCORS(await handleSuggestTopics(body, env), env);
   if (mode === "draw-figure") return withCORS(await handleDrawFigure(body, env), env);
+  if (mode === "regenerate-question") return withCORS(await handleRegenerateQuestion(body, env, user), env);
   if (mode !== "generate-exam") return withCORS(jsonResp({ error: "Unknown mode." }, 400), env);
 
   return withCORS(await handleGenerateExamStreaming(body, env, user), env);
@@ -477,6 +504,65 @@ async function handleDrawFigure(body, env) {
   } catch (e) {
     console.error("[generate-exam] draw-figure failed:", e?.message);
     return jsonResp({ error: "Couldn't draw this figure. You can try again or add your own picture." }, 502);
+  }
+}
+
+/**
+ * mode "regenerate-question": replaces ONE question on a finished paper (a teacher dislikes it, or the
+ * audit flagged it). One small AI call using the normal section prompt for a one-question section, plus
+ * the paper's other questions so the new one does not repeat them. Costs CREDIT_COST_REGENERATE coins
+ * (refunded if it fails); the free tier can replace the question types it can generate, at no cost.
+ * Standard ("school") papers only: BECE and WASSCE sections carry exam-board rules that are rebuilt per section.
+ */
+async function handleRegenerateQuestion(body, env, user) {
+  const clean = (v, n) => String(v ?? "").replace(/[\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+  const subject = clean(body.subject, 60), className = clean(body.className, 30);
+  if (!subject || !className) return jsonResp({ error: "Subject and class are required." }, 400);
+  if (body.examStyle === "bece" || body.examStyle === "wassce") return jsonResp({ error: "Replacing a single question works for standard papers. For BECE and WASSCE style, regenerate the section instead." }, 400);
+  const sec = body.section && typeof body.section === "object" ? body.section : {};
+  const type = ["objective", "structured", "essay"].includes(sec.type) ? sec.type : "";
+  const number = Math.floor(Number(body.number));
+  const marks = Math.floor(Number(body.marks));
+  if (!type || !(number >= 1 && number <= 200) || !(marks >= 1 && marks <= 60)) return jsonResp({ error: "That question can't be replaced." }, 400);
+  const tier = body.tier === "free" ? "free" : "premium";
+  if (tier === "free" && !FREE_TIER_ALLOWED_TYPES.includes(type)) return jsonResp({ error: "Free mode doesn't support essay questions. Use Premium to replace this one." }, 400);
+  const includeMarkingScheme = tier === "free" ? false : (body.includeMarkingScheme !== false);
+
+  const topics = (Array.isArray(body.topics) ? body.topics : []).slice(0, 40).map(t => clean(t, 120)).filter(Boolean);
+  const avoidQuestions = (Array.isArray(body.avoidQuestions) ? body.avoidQuestions : []).slice(0, 30).map(t => clean(t, 180)).filter(Boolean);
+  const revisionNote = clean(body.revisionNote, 200);
+  const pastedSyllabus = String(body.pastedSyllabus ?? "").slice(0, 6000);
+  const screen = screenExamInput({ schoolName: "", pastedSyllabus: [revisionNote, pastedSyllabus].filter(Boolean).join("\n"), topics });
+  if (!screen.ok) return jsonResp({ error: screen.error }, 400);
+
+  const rl = await checkReplaceLimit(env, user.sub, tier);
+  if (!rl.ok) return jsonResp({ error: rl.message }, 429);
+
+  const creditCost = tier === "free" ? 0 : CREDIT_COST_REGENERATE;
+  let balance = null;
+  if (creditCost > 0) {
+    try { balance = await deductCoins(env, user.sub, creditCost); }
+    catch (e) { return jsonResp({ error: e.message || "Not enough credits. Please top up to continue." }, 402); }
+  }
+
+  await logReplacement(env, user.sub, { subject, className }, creditCost, tier);   // logged before the AI call so failed attempts count too
+  const section = { id: clean(sec.id, 8) || "A", label: clean(sec.label, 60) || "Section", type, questionCount: 1, marksPerQuestion: marks };
+  const cfg = {
+    schoolName: "", className, programme: clean(body.programme, 40), subject, term: clean(body.term, 30),
+    examType: clean(body.examType, 40) || "Class Test", durationMinutes: Number(body.durationMinutes) || 60,
+    topics, pastedSyllabus, difficulty: clean(body.difficulty, 20) || "Moderate", languageStyle: clean(body.languageStyle, 20) || "Balanced",
+    cognitiveLevels: (Array.isArray(body.cognitiveLevels) ? body.cognitiveLevels : ["Recall", "Application"]).slice(0, 3).map(l => clean(l, 30)),
+    allowDiagrams: false, includeMarkingScheme, examStyle: "school", avoidQuestions, revisionNote,
+  };
+  try {
+    const result = await generateSection(env, cfg, section, false, tier === "free" ? callFreeAI : callAI);
+    const question = { ...result.section.questions[0], number };
+    return jsonResp({ question, creditsRemaining: balance });
+  } catch (e) {
+    console.error("[generate-exam] regenerate-question failed:", e?.message);
+    let creditsRemaining = null;
+    if (creditCost > 0) { await refundCoins(env, user.sub, creditCost); creditsRemaining = await getBalance(env, user.sub); }
+    return jsonResp({ error: "Couldn't write a replacement question. Please try again. You have not been charged.", creditsRemaining }, 502);
   }
 }
 

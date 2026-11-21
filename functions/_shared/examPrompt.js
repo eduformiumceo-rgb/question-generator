@@ -16,6 +16,8 @@
 import { DIAGRAM_GUIDE } from "./diagramGuide.js";
 import { beceStyleBlock, beceSchemeBlock } from "./beceStyle.js";
 import { wassceStyleBlock, wassceSchemeBlock } from "./wassceStyle.js";
+import { mathRulesBlock } from "./mathPrompt.js";
+import { regenRulesBlock } from "./regenPrompt.js";
 
 export function buildSectionPrompt(cfg, section, isFirstSection) {
   const {
@@ -86,6 +88,7 @@ Return ONLY valid JSON - no markdown fences, no commentary - matching exactly th
           "params": object|null        // that template's params (numbers and labels only) when generatable=true, else null
         } | null,
         "cognitiveLevel": "Recall"|"Application"|"Critical Thinking",
+        "topic": string,                // the ONE supplied topic this question tests, copied exactly as written in Topics (or a short syllabus heading if topics were pasted)
         ${markingGuideFieldDoc}
       }
     ]
@@ -112,6 +115,6 @@ STRICT RULES
 7. Marks per question (and parts, if used) must sum to the requested total.
 8. Output nothing but the JSON object.
 9. Never use em dashes (the long dash character) anywhere in the paper. Use commas, full stops, colons or brackets instead.
-${beceStyleBlock(cfg, section)}${wassceStyleBlock(cfg, section)}
+${beceStyleBlock(cfg, section)}${wassceStyleBlock(cfg, section)}${mathRulesBlock(cfg)}${regenRulesBlock(cfg)}
 ${markingRulesBlock}`;
 }

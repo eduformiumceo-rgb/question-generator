@@ -21,6 +21,10 @@ import { classWithProgramme, termCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
 import { figureLines, hasPartFigureLines, ownerImageOk, ownerDrawing } from "./partFigures.js";
 import { checkWassceSection, wassceStyleBlock, wassceSchemeBlock, getWassceProfile, wassceCoverCode, wasscePaper2Code, wassceSchemeNotes } from "./wassceStyle.js";
+import { mathRulesBlock } from "./mathPrompt.js";
+import { regenRulesBlock } from "./regenPrompt.js";
+import { withMath } from "./mathText.js";
+import { buildSpec } from "./tableOfSpec.js";
 import { beceStyleBlock, beceSchemeBlock, answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS, beceNeedsExaminerBox, beceSchemeNotes, beceCoverCode } from "./beceStyle.js";
 
 /* ────────────────────────────────────────────────────────────────
@@ -221,6 +225,7 @@ Return ONLY valid JSON - no markdown fences, no commentary - matching exactly th
           "params": object|null        // that template's params (numbers and labels only) when generatable=true, else null
         } | null,
         "cognitiveLevel": "Recall"|"Application"|"Critical Thinking",
+        "topic": string,                // the ONE supplied topic this question tests, copied exactly as written in Topics (or a short syllabus heading if topics were pasted)
         ${markingGuideFieldDoc}
       }
     ]
@@ -247,7 +252,7 @@ STRICT RULES
 7. Marks per question (and parts, if used) must sum to the requested total.
 8. Output nothing but the JSON object.
 9. Never use em dashes (the long dash character) anywhere in the paper. Use commas, full stops, colons or brackets instead.
-${beceStyleBlock(cfg, section)}${wassceStyleBlock(cfg, section)}
+${beceStyleBlock(cfg, section)}${wassceStyleBlock(cfg, section)}${mathRulesBlock(cfg)}${regenRulesBlock(cfg)}
 ${markingRulesBlock}`;
 }
 
@@ -607,7 +612,8 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const esc = (s) => String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  const nl = (t) => esc(t).replace(/\n/g, "<br/>");
+  // Maths ($...$) is swapped for a placeholder, the usual escaping/markup runs, then it is put back as MathML.
+  const nl = withMath((t) => esc(t).replace(/\n/g, "<br/>"));
 
   // BECE papers: a line like [FIGURE 1(a): ...] becomes a figure placeholder box; marks print as [n marks].
   // When a real figure (picture or drawing) exists for it, it takes the place of the FIRST placeholder line.
@@ -618,7 +624,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
     .replace(/(^|[\s(>])_([^_\n<]+)_(?=[\s.,;:!?)<]|$)/g, "$1<u>$2</u>");
   // BECE prompts ask the model to mark underlined words with plain underscores (_word_), so BECE gets underline only.
   const underlineOnly = (h) => h.replace(/(^|[\s(>])_([^_\n<]+)_(?=[\s.,;:!?)<]|$)/g, "$1<u>$2</u>");
-  const inl = (t) => wassce ? fmtInline(esc(t)) : bece ? underlineOnly(esc(t)) : esc(t);
+  const inl = withMath((t) => wassce ? fmtInline(esc(t)) : bece ? underlineOnly(esc(t)) : esc(t));
   const isPipeRow = (l) => /^\s*\|.*\|\s*$/.test(l);
   const tableHtml = (lines) => {
     const rows = lines.filter(l => !/^[\s|:-]+$/.test(l)).map(l => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim()));
@@ -1006,6 +1012,14 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
         }
       });
     });
+    // Table of Specification: the blueprint of what the paper tests, printed after the marking scheme
+    const spec = buildSpec(examData);
+    if (spec.totalMarks > 0) {
+      const head = ["Topic", ...spec.levels, "Total", "%"].map((h, i) => `<th${i ? ' class="c"' : ""}>${esc(h)}</th>`).join("");
+      const body = spec.rows.map(r => `<tr><td>${esc(r.topic)}</td>${spec.levels.map(l => `<td class="c">${r.cells[l].n ? r.cells[l].marks : "&ndash;"}</td>`).join("")}<td class="c"><b>${r.marks}</b></td><td class="c">${r.pct}%</td></tr>`).join("");
+      const foot = `<tr class="tot"><td>Total</td>${spec.levels.map(l => `<td class="c">${spec.totals[l].marks}</td>`).join("")}<td class="c">${spec.totalMarks}</td><td class="c">100%</td></tr><tr class="pc"><td>Share of marks</td>${spec.levels.map(l => `<td class="c">${spec.levelPct[l]}%</td>`).join("")}<td></td><td></td></tr>`;
+      out.push(blk(`<div class="answer-page"><h2>TABLE OF SPECIFICATION</h2><table class="spec-table"><thead><tr>${head}</tr></thead><tbody>${body}${foot}</tbody></table><p class="spec-note">Marks awarded for each topic at each level of thinking.</p></div>`, "ak"));
+    }
     return out;
   };
 
@@ -1027,6 +1041,19 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   :root{ --pw:${PW}mm; --ph:${PH}mm; --mx:16mm; --mt:14mm; --mb:22mm; --bw:calc(var(--pw) - 2 * var(--mx)); --bh:calc(var(--ph) - var(--mt) - var(--mb)); color-scheme: light only; }
   * { box-sizing: border-box; }
   html,body{ margin:0; padding:0; background:#E9EBEF; font-family:"Times New Roman",Times,"Liberation Serif",Georgia,serif; color:#111; }
+  /* Equations ($...$ in the text) are drawn as MathML, so they print and save to PDF as real text, not pictures. */
+  math{ font-family:"Cambria Math","STIX Two Math","Latin Modern Math","Noto Sans Math","XITS Math","Times New Roman",serif; font-size:1.08em; line-height:1.2; math-style:normal; }
+  math mtext{ font-family:"Times New Roman",Times,"Liberation Serif",serif; }
+  math.m-display{ display:block; margin:.45em 0 .45em 1.2em; text-align:left; font-size:1.12em; }
+  mtd{ padding:.12em .3em; }
+  .spec-table{ width:100%; border-collapse:collapse; font-size:10.5pt; margin-top:6px; }
+  .spec-table th, .spec-table td{ border:1px solid #111; padding:5px 8px; text-align:left; }
+  .spec-table th{ background:#EDEEF1; font-size:9pt; letter-spacing:.04em; text-transform:uppercase; }
+  .spec-table .c{ text-align:center; }
+  .spec-table tr.tot td{ font-weight:700; background:#F6F7F9; }
+  .spec-table tr.pc td{ font-size:9pt; color:#444; }
+  .spec-note{ font-size:9pt; color:#444; margin:6px 0 0; }
+  .m-raw{ font-family:Consolas,"Courier New",monospace; font-size:.92em; background:#F2F3F5; padding:0 .25em; border-radius:2px; }
 
   /* ── Source blocks + A4 sheets ───────────────────────────── */
   #src{ width:var(--bw); max-width:100%; margin:24px auto; background:#fff; padding:14mm 16mm; font-size:11.5pt; line-height:1.5; }
@@ -1138,6 +1165,8 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
   .opt{ display:grid; grid-template-columns:1.8em 1fr; align-items:start; line-height:1.45; }
   .opt-letter{ font-weight:700; }
   .opts-vertical .opt{ margin:3px 0; }
+  .opts-vertical .opt:has(mfrac), .opts-vertical .opt:has(msqrt), .opts-vertical .opt:has(mtable){ margin:8px 0; }   /* tall maths needs room between option rows */
+  .opts-two .opt:has(mfrac), .opts-row .opt:has(mfrac){ padding:3px 0; }
   .opts-two, .opts-row{ display:grid; column-gap:20px; row-gap:5px; }
 
   .part-wrap{ font-size:11.5pt; line-height:1.5; }

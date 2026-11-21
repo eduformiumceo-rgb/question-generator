@@ -26,6 +26,8 @@ import {
   XmlComponent, HeightRule, SectionType, Header, PageBorderOffsetFrom, PageBorderDisplay,
 } from "docx";
 import { clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
+import { splitMath, latexToOmml, cleanXmlDeep } from "./mathText.js";
+import { buildSpec } from "./tableOfSpec.js";
 import { removeFirstFigureLine, ownerDrawing } from "./partFigures.js";
 import { getWassceProfile, wassceCoverCode, wasscePaper2Code, wassceSchemeNotes, stripMarkup } from "./wassceStyle.js";
 import { answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJECTIVE_INSTRUCTIONS, beceNeedsExaminerBox, beceSchemeNotes, beceCoverCode } from "./beceStyle.js";
@@ -102,13 +104,41 @@ function parseMarkup(ln, underlineOnly = false) {
   return segs.length ? segs : [{ t: "" }];
 }
 
-/** Text -> runs, turning "\n" into real line breaks (Word ignores raw \n). */
+/** One piece of $maths$ as a native, editable Word equation (falls back to the typed LaTeX if it cannot be built). */
+function mathRun(tex, display, size) {
+  const o = latexToOmml(tex, { display, size });
+  return o ? new RawXml(o) : new TextRun({ text: tex, font: "Consolas", size });
+}
+
+/** Text -> runs, turning "\n" into real line breaks (Word ignores raw \n). $maths$ becomes Word equations. */
 function textRuns(text, opts = {}) {
   const lines = String(text ?? "").split(/\r?\n/);
-  return lines.flatMap((ln, i) => (BX.wassce ? parseMarkup(ln) : BX.bece ? parseMarkup(ln, true) : [{ t: ln }]).map((sg, j) => new TextRun({
-    text: sg.t, break: i > 0 && j === 0 ? 1 : undefined, ...opts,
-    ...(sg.b ? { bold: true } : {}), ...(sg.i ? { italics: true } : {}), ...(sg.u ? { underline: {} } : {}),
-  })));
+  const size = opts.size || 23;
+  const styled = (str, markup) => (markup === "wassce" ? parseMarkup(str) : markup === "bece" ? parseMarkup(str, true) : [{ t: str }]);
+  const markup = BX.wassce ? "wassce" : BX.bece ? "bece" : "";
+  return lines.flatMap((raw, i) => {
+    const segs = splitMath(raw);
+    if (segs.length === 1 && segs[0].math === undefined) {
+      return styled(segs[0].text, markup).map((sg, j) => new TextRun({
+        text: sg.t, break: i > 0 && j === 0 ? 1 : undefined, ...opts,
+        ...(sg.b ? { bold: true } : {}), ...(sg.i ? { italics: true } : {}), ...(sg.u ? { underline: {} } : {}),
+      }));
+    }
+    const runs = segs.flatMap(sg => sg.math !== undefined
+      ? [mathRun(sg.math, sg.display, size)]
+      : styled(sg.text, markup).map(g => new TextRun({
+        text: g.t, ...opts, ...(g.b ? { bold: true } : {}), ...(g.i ? { italics: true } : {}), ...(g.u ? { underline: {} } : {}),
+      })));
+    return i > 0 ? [new TextRun({ break: 1 }), ...runs] : runs;
+  });
+}
+
+/** Like textRuns but without WASSCE/BECE markup (**bold**, _underline_): used where the text is printed exactly as written. */
+function plainRuns(text, opts = {}) {
+  const size = opts.size || 23;
+  return splitMath(String(text ?? "")).flatMap(sg => sg.math !== undefined
+    ? [mathRun(sg.math, sg.display, size)]
+    : (sg.text ? [new TextRun({ text: sg.text, ...opts })] : []));
 }
 
 const isPipeRow = (l) => /^\s*\|.*\|\s*$/.test(l);
@@ -697,7 +727,7 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
       const gl = String(q.markingGuide || "").split(/\r?\n/).filter(l => l.trim());
       if (BX.bece && gl.some(l => l.includes("::"))) {
         const widths = [Math.round(W * 0.16), Math.round(W * 0.58), 0]; widths[2] = W - widths[0] - widths[1];
-        const mk = (w, text, bold = false, fill) => cell(w, [new Paragraph({ children: [new TextRun({ text, bold })] })], { borders: BOX, margins: { top: 50, bottom: 50, left: 80, right: 80 }, ...(fill ? { shading: { type: ShadingType.CLEAR, fill, color: "auto" } } : {}) });
+        const mk = (w, text, bold = false, fill) => cell(w, [new Paragraph({ children: plainRuns(text, bold ? { bold: true } : {}) })], { borders: BOX, margins: { top: 50, bottom: 50, left: 80, right: 80 }, ...(fill ? { shading: { type: ShadingType.CLEAR, fill, color: "auto" } } : {}) });
         const rows = [new TableRow({ tableHeader: true, children: [mk(widths[0], "QUESTION NO.", true, BAND), mk(widths[1], BX.profile.scheme === "table" ? "SOLUTION" : "EXPECTED ANSWERS", true, BAND), mk(widths[2], "MARKS", true, BAND)] })];
         gl.forEach(l => {
           const p = l.split("::").map(x => x.trim());
@@ -708,11 +738,30 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
         out.push(table(widths, rows));
       } else {
         gl.forEach(l => {
-          out.push(new Paragraph({ spacing: { after: 40 }, children: [new TextRun(l)] }));
+          out.push(new Paragraph({ spacing: { after: 40 }, children: plainRuns(l) }));
         });
       }
     });
   });
+
+  // Table of Specification: what the paper tests, by topic and level of thinking
+  const spec = buildSpec(examData);
+  if (spec.totalMarks > 0) {
+    out.push(band("TABLE OF SPECIFICATION"));
+    const nLev = spec.levels.length;
+    const wTot = 900, wPct = 800;
+    const wLev = Math.floor(W * 0.16);
+    const wTopic = W - wLev * nLev - wTot - wPct;
+    const widths = [wTopic, ...Array(nLev).fill(wLev), wTot, wPct];
+    const c = (w, text, o = {}) => cell(w, [new Paragraph({ alignment: o.left ? AlignmentType.LEFT : AlignmentType.CENTER, children: [new TextRun({ text: String(text), bold: !!o.bold, size: o.size || 21 })] })], { borders: BOX, margins: { top: 50, bottom: 50, left: 80, right: 80 }, ...(o.fill ? { shading: { type: ShadingType.CLEAR, fill: o.fill, color: "auto" } } : {}) });
+    const rows = [
+      new TableRow({ tableHeader: true, cantSplit: true, children: ["TOPIC", ...spec.levels.map(l => l.toUpperCase()), "TOTAL", "%"].map((h, i) => c(widths[i], h, { bold: true, fill: BAND, left: i === 0, size: 16 })) }),
+      ...spec.rows.map(r => new TableRow({ cantSplit: true, children: [c(widths[0], r.topic, { left: true }), ...spec.levels.map((l, i) => c(widths[i + 1], r.cells[l].n ? r.cells[l].marks : "\u2013")), c(widths[nLev + 1], r.marks, { bold: true }), c(widths[nLev + 2], `${r.pct}%`)] })),
+      new TableRow({ cantSplit: true, children: [c(widths[0], "Total", { left: true, bold: true, fill: "F6F7F9" }), ...spec.levels.map((l, i) => c(widths[i + 1], spec.totals[l].marks, { bold: true, fill: "F6F7F9" })), c(widths[nLev + 1], spec.totalMarks, { bold: true, fill: "F6F7F9" }), c(widths[nLev + 2], "100%", { fill: "F6F7F9" })] }),
+    ];
+    out.push(table(widths, rows));
+    out.push(new Paragraph({ spacing: { before: 60 }, children: [new TextRun({ text: "Marks awarded for each topic at each level of thinking.", size: 18, color: GREY })] }));
+  }
   return out;
 }
 
@@ -727,6 +776,8 @@ function answerKeyParagraphs(examData, meta, totalMarks, W) {
  * @returns {Promise<Blob>} a real .docx file, ready to download
  */
 export async function generateExamDocx(examData, meta = {}, mode = "paper") {
+  // Word rejects the whole file if any text holds a character XML cannot carry (control characters, lone surrogates).
+  examData = cleanXmlDeep(examData); meta = cleanXmlDeep(meta);
   const layout = ["vertical", "two", "row"].includes(meta.optionsLayout) ? meta.optionsLayout : "vertical";
   const landscape = !!meta.landscape;
   const W = (landscape ? PAGE_H : PAGE_W) - 2 * MARGIN; // usable text width in twips
