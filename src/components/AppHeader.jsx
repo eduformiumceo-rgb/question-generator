@@ -12,6 +12,18 @@ import React, { useEffect, useState } from "react";
 import { F, S } from "../sharedStyles.jsx";
 import coinIcon from "../assets/dollar.png";
 import { getThemeMode, setThemeMode } from "../theme.js";
+import { HUB_HOME } from "../hubSignIn.js";
+
+// Legal and help pages live on the main site (one source of truth). They used to sit in a page footer; now they are in the menu.
+const SITE = "https://eduformium.com";
+const LEGAL_LINKS = [
+  { label: "Privacy", href: `${SITE}/privacy` },
+  { label: "Terms", href: `${SITE}/terms` },
+  { label: "Refunds", href: `${SITE}/refund` },
+  { label: "Compliance", href: `${SITE}/compliance` },
+  { label: "Pricing", href: `${SITE}/pricing` },
+  { label: "Help", href: "mailto:hello@eduformium.com" },
+];
 
 const Sun = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>);
 const Moon = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>);
@@ -67,6 +79,12 @@ const HEADER_CSS = `
   .qh-topup { height:32px; padding:0 16px; border-radius:99px; border:none; background:var(--btn); color:#fff; font-size:13px; font-weight:700; font-family:${F}; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
   .qh-list { padding:6px; }
   .qh-row { display:flex; align-items:center; gap:12px; width:100%; height:44px; padding:0 10px; border:none; border-radius:10px; background:transparent; color:var(--text); font-size:14px; font-weight:500; font-family:${F}; cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  a.qh-row { text-decoration:none; box-sizing:border-box; }
+  .qh-row-sep { height:1px; background:var(--border); margin:6px 4px; }
+  .qh-legal { display:flex; flex-wrap:wrap; gap:2px 4px; padding:10px 12px 12px; border-top:1px solid var(--border); }
+  .qh-legal a { padding:4px 8px; font-size:12.5px; font-weight:500; font-family:${F}; color:var(--text-secondary); text-decoration:none; border-radius:8px; }
+  .qh-legal a:hover { color:var(--accent); background:var(--surface-2); }
+  .qh-legal-copy { width:100%; padding:6px 8px 0; font-size:11.5px; color:var(--text-muted); font-family:${F}; }
   .qh-row svg { color:var(--text-muted); flex-shrink:0; }
   .qh-row:hover { background:var(--surface-2); }
   .qh-row-out, .qh-row-out svg { color:var(--signout-color); }
@@ -160,8 +178,7 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
               </>
             )}
 
-            {(user || canInstall) && (
-              <button className={`qh-hbg${menuOpen ? " is-open" : ""}`} onClick={() => setMenuOpen((o) => !o)} aria-label="Account menu" aria-expanded={menuOpen}>
+              <button className={`qh-hbg${menuOpen ? " is-open" : ""}`} onClick={() => setMenuOpen((o) => !o)} aria-label="Menu" aria-expanded={menuOpen}>
                 <span className="qh-avatar">
                   <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: F, userSelect: "none" }}>
                     {user ? getInitials(user) : "G"}
@@ -173,12 +190,11 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                   )}
                 </span>
               </button>
-            )}
           </div>
         </div>
       </header>
 
-      {/* Account dropdown: who you are, your credits, install, sign out. (Theme lives in the header; My Exams is the card on the page.) */}
+      {/* Account dropdown: back to the Hub, who you are, your credits, install, sign out. (Theme lives in the header; My Exams is the card on the page.) */}
       {menuOpen && (
         <>
           <div className="qh-overlay" onClick={closeMenu} />
@@ -199,6 +215,11 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
               </div>
             )}
             <div className="qh-list">
+              <a className="qh-row" role="menuitem" href={HUB_HOME} onClick={closeMenu}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+                Back to Eduformium Hub
+              </a>
+              {(canInstall || user) && <div className="qh-row-sep" role="separator" />}
               {canInstall && (
                 <button className="qh-row" role="menuitem" onClick={() => { closeMenu(); onInstall(); }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>
@@ -212,6 +233,12 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                 </button>
               )}
             </div>
+            <nav className="qh-legal" aria-label="Legal and help">
+              {LEGAL_LINKS.map((l) => (
+                <a key={l.label} href={l.href} target={l.href.startsWith("mailto:") ? undefined : "_blank"} rel="noopener noreferrer" onClick={closeMenu}>{l.label}</a>
+              ))}
+              <div className="qh-legal-copy">&copy; {new Date().getFullYear()} Eduformium AI</div>
+            </nav>
           </div>
         </>
       )}

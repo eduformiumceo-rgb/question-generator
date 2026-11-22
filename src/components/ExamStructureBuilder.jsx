@@ -2,8 +2,9 @@
  * ExamStructureBuilder
  * Lets the teacher define Section A (Objective/MCQ), Section B (Structured/
  * Theory) and Section C (Essay) - each with a question count and marks per
- * question. Auto-calculates section and paper totals. Sections can be
- * removed/re-added (e.g. a Class Test may only need Section A + B).
+ * question. Auto-calculates section and paper totals. The three standard
+ * sections are ticked on/off (e.g. a Class Test may only need Section A + B);
+ * extra sections (D, E, ...) can be added with "Add section" and removed again.
  *
  * Always shows full capability - Free-tier eligibility is checked at the
  * moment the Free button is clicked (see QuestionsGenerator.jsx's
@@ -19,7 +20,7 @@
  * import { S, F } from "../App.jsx"-equivalent shared style module in your
  * integration, or copy the small subset below if this file is used standalone.
  */
-import React from "react";
+import React, { useState } from "react";
 import NumberField from "./NumberField.jsx";
 import CardTitle from "./CardTitle.jsx";
 
@@ -30,6 +31,38 @@ export const DEFAULT_SECTIONS = [
 ];
 
 const MAX_QUESTIONS_PER_SECTION = 60; // edge-case guard against runaway generation
+const MAX_SECTIONS = 8;               // a paper with more sections than this is not a realistic exam, and generation time grows with each one
+
+// What each kind of section starts with when the teacher adds it.
+export const SECTION_TYPES = {
+  objective:  { name: "Objective (Multiple Choice)", short: "Objective", questionCount: 20, marksPerQuestion: 1 },
+  structured: { name: "Structured / Theory",         short: "Structured", questionCount: 5,  marksPerQuestion: 10 },
+  essay:      { name: "Essay",                       short: "Essay",      questionCount: 2,  marksPerQuestion: 20 },
+};
+
+/** The first free section letter (A-Z) that no existing section is using. null when all are taken. */
+export function nextSectionId(sections) {
+  const used = new Set((sections || []).map(sec => String(sec.id)));
+  for (let i = 0; i < 26; i++) { const id = String.fromCharCode(65 + i); if (!used.has(id)) return id; }
+  return null;
+}
+
+/**
+ * A section title is typed by the teacher and ends up inside the AI prompt and the printed paper, so keep it to plain
+ * letters, digits, spaces and basic punctuation (no quotes, brackets or line breaks) and a sensible length.
+ */
+export const cleanSectionTitle = (t) => String(t ?? "").replace(/[^\p{L}\p{N} \-/&,.:]/gu, "").replace(/\s+/g, " ").slice(0, 40);
+
+/** The label shown on the form and printed on the paper: "Section D: <title or the type's name>". */
+export const sectionLabel = (id, type, title) => `Section ${id}: ${cleanSectionTitle(title).trim() || (SECTION_TYPES[type] || SECTION_TYPES.structured).name}`;
+
+/** A new, enabled section of the given type with the next free letter. */
+export function makeSection(sections, type) {
+  const id = nextSectionId(sections);
+  const t = SECTION_TYPES[type];
+  if (!id || !t) return null;
+  return { id, label: sectionLabel(id, type, ""), type, questionCount: t.questionCount, marksPerQuestion: t.marksPerQuestion, enabled: true, custom: true, title: "" };
+}
 
 // What a candidate can actually earn / answer: an "answer any N" section counts N questions.
 const answered = (sec) => sec.answerAny ? Math.min(Number(sec.answerAny) || 0, Number(sec.questionCount) || 0) : (Number(sec.questionCount) || 0);
@@ -46,9 +79,20 @@ export function paperTotals(sections) {
 export default function ExamStructureBuilder({ sections, setSections, S, F, sty, note }) {
   const s = S || sty; // tolerate either prop name
 
+  const [newType, setNewType] = useState("structured");
+
   const update = (id, patch) => {
     setSections(prev => prev.map(sec => sec.id === id ? { ...sec, ...patch } : sec));
   };
+  const addSection = () => {
+    setSections(prev => {
+      if (prev.length >= MAX_SECTIONS) return prev;
+      const sec = makeSection(prev, newType);
+      return sec ? [...prev, sec] : prev;
+    });
+  };
+  const removeSection = (id) => setSections(prev => prev.filter(sec => sec.id !== id));
+  const canAdd = sections.length < MAX_SECTIONS && nextSectionId(sections) !== null;
 
   const { questions: totalQuestions, marks: totalMarks } = paperTotals(sections);
 
@@ -56,7 +100,7 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty,
     <div style={s.card}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         <div style={{ minWidth: 0 }}>
-          <CardTitle F={F} mb={0} desc="Tick the sections this paper needs, then set how many questions and marks each has.">Exam Structure Builder</CardTitle>
+          <CardTitle F={F} mb={0} desc="Tick the sections this paper needs, add more if you need them, then set how many questions and marks each has.">Exam Structure Builder</CardTitle>
         </div>
         <div className="qa-stat" style={{ fontFamily: F }}>{totalQuestions} questions · {totalMarks} marks total</div>
       </div>
@@ -68,9 +112,9 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty,
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: sec.enabled ? 14 : 0 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}>
               <input
-                type="checkbox" checked={sec.enabled}
+                type="checkbox" checked={!!sec.enabled}
                 onChange={e => update(sec.id, { enabled: e.target.checked })}
-                style={{ width: 17, height: 17, accentColor: "var(--btn)", cursor: "pointer" }}
+                aria-label={`Include ${sec.label}`}
               />
               <span style={{ fontSize: 14.5, fontWeight: 700, color: sec.enabled ? "var(--text)" : "var(--text-muted)", fontFamily: F }}>{sec.paper ? `Paper ${sec.paper}: ` : ""}{sec.label}</span>
               {sec.type === "essay" && (
@@ -82,7 +126,25 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty,
                 {sec.answerAny ? `answer any ${answered(sec)} of ${Number(sec.questionCount) || 0}, ` : ""}= {answered(sec) * (Number(sec.marksPerQuestion) || 0)} marks
               </span>
             )}
+            {sec.custom && (
+              <button type="button" onClick={() => removeSection(sec.id)} aria-label={`Remove ${sec.label}`}
+                style={{ background: "transparent", border: "1px solid var(--border-strong)", borderRadius: 99, padding: "0 12px", height: 30, fontSize: 12.5, fontWeight: 600, color: "var(--text-secondary)", cursor: "pointer", fontFamily: F }}>
+                Remove
+              </button>
+            )}
           </div>
+
+          {sec.custom && sec.enabled && (
+            <div style={{ marginBottom: 12 }}>
+              <label style={s.lbl}>Section title (optional)</label>
+              <input
+                type="text" value={sec.title || ""} maxLength={40} placeholder={SECTION_TYPES[sec.type]?.name}
+                onChange={e => { const title = cleanSectionTitle(e.target.value); update(sec.id, { title, label: sectionLabel(sec.id, sec.type, title) }); }}
+                aria-label={`${sec.label}: title`}
+                style={s.inp}
+              />
+            </div>
+          )}
 
           {sec.enabled && (
             <div className="qa-pair">
@@ -116,6 +178,22 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty,
           )}
         </div>
       ))}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
+        <select value={newType} onChange={e => setNewType(e.target.value)} aria-label="Type of section to add" disabled={!canAdd}
+          style={{ ...s.sel, width: "auto", minWidth: 200, flex: "1 1 200px" }}>
+          {Object.entries(SECTION_TYPES).map(([k, t]) => <option key={k} value={k}>{t.name}</option>)}
+        </select>
+        <button type="button" onClick={addSection} disabled={!canAdd}
+          style={{ ...s.sm, height: 48, padding: "0 20px", flex: "0 0 auto", opacity: canAdd ? 1 : 0.5, cursor: canAdd ? "pointer" : "not-allowed", fontFamily: F }}>
+          + Add Section {canAdd ? nextSectionId(sections) : ""}
+        </button>
+      </div>
+      {!canAdd && (
+        <div style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, marginTop: 8 }}>
+          A paper can have at most {MAX_SECTIONS} sections. Remove one to add another.
+        </div>
+      )}
 
       {totalQuestions === 0 && (
         <div style={s.err}>

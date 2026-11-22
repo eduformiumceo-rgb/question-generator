@@ -33,7 +33,7 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
   );
 
   return (
-    <div style={{ ...S.card, padding: "18px 22px" }} data-testid="paper-audit">
+    <div style={{ ...S.card, padding: "18px 22px", marginBottom: 0 }} data-testid="paper-audit">
       <button type="button" className="qa-acc-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}
         style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, width: "100%" }}>
         <span aria-label={`Paper quality score ${score} out of 100`} style={{

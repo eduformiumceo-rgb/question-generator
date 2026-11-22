@@ -151,7 +151,9 @@ input, textarea { border: none; outline: none; appearance: none; -webkit-appeara
 input:hover:not(:focus), select:hover:not(:focus), textarea:hover:not(:focus) { border-color: var(--border-hover) !important; }
 input:focus:not(.edu-inp-f), select:focus, textarea:focus:not(.edu-inp-f), button:focus { outline: none !important; box-shadow: none !important; }
 .edu-inp-f:focus { outline: none !important; border-color: #0D9488 !important; box-shadow: none !important; }
-input:focus, textarea:focus { border-color: var(--accent) !important; background: var(--input-bg) !important; }
+/* Checkboxes are excluded here: this rule's !important background used to repaint a just-clicked (focused) checkbox white,
+   which hid its white tick, so a ticked box looked empty until you clicked elsewhere. They have their own states below. */
+input:not([type="checkbox"]):focus, textarea:focus { border-color: var(--accent) !important; background: var(--input-bg) !important; }
 select:focus { border-color: var(--accent) !important; }
 input::placeholder, textarea::placeholder { color: var(--ph-color) !important; font-weight: 400 !important; opacity: 1 !important; transition: opacity .15s !important; }
 input:focus::placeholder, textarea:focus::placeholder { opacity: 0 !important; }
@@ -284,6 +286,23 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-chip:disabled { opacity: .45; cursor: not-allowed; }
 @media (hover: hover) { .qa-chip:not(:disabled):not([aria-pressed="true"]):not(.is-on):hover { border-color: var(--accent); color: var(--text); } }
 .qa-inset { background: var(--surface-2); border-radius: 12px; padding: 16px 18px; }
+/* Choice cards: a pick-one control where each option needs a short explanation (Exam Style). */
+.qa-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.qa-choice { font: inherit; text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; min-height: 76px; cursor: pointer;
+  background: var(--input-bg); border: 1.5px solid var(--border-strong); border-radius: 12px; color: var(--text); transition: border-color .15s, background .15s; }
+.qa-choice-t { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+.qa-choice-d { font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+.qa-choice[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.qa-choice[aria-pressed="true"] .qa-choice-t { color: var(--tag-text); }
+.qa-choice:disabled { opacity: .5; cursor: not-allowed; }
+@media (hover: hover) { .qa-choice:not(:disabled):not([aria-pressed="true"]):hover { border-color: var(--accent); } }
+@media (max-width: 520px) { .qa-choices { grid-template-columns: 1fr; } }
+/* Review area under a finished paper (paper check, figures): clearly separate from the paper preview above it. */
+.qa-review { margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--border); }
+.qa-review > .qa-review-h { font-size: 16px; font-weight: 700; color: var(--brand); margin: 0 0 4px; }
+.qa-review > .qa-review-d { font-size: 13px; line-height: 1.5; color: var(--text-muted); margin: 0 0 18px; }
+.qa-review > div + div { margin-top: 16px; }
+
 .qa-note { background: var(--brand-soft); color: var(--text-secondary); border-radius: 10px; padding: 11px 14px; font-size: 13px; line-height: 1.55; }
 .qa-stat { background: var(--brand-soft); color: var(--brand); font-size: 13px; font-weight: 700; border-radius: 99px; padding: 6px 14px; white-space: nowrap; }
 .qa-tag { font-size: 11.5px; font-weight: 700; letter-spacing: .02em; color: var(--brand); background: var(--brand-soft); border-radius: 99px; padding: 3px 10px; white-space: nowrap; }
@@ -325,9 +344,12 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-skel { background: var(--skel-base); border-radius: 10px; animation: qa-pulse 1.4s ease-in-out infinite; }
 
 /* Keyboard focus: the old rules removed every outline, so keyboard users could not see where they were. Shown for keyboard only. */
-button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visible, [role="button"]:focus-visible {
+button:focus-visible, a:focus-visible, summary:focus-visible, [role="button"]:focus-visible {
   outline: 2px solid var(--accent) !important; outline-offset: 2px;
 }
+/* Dropdowns already change border colour when focused (select:focus above). Browsers also match :focus-visible on a mouse click
+   for a select, which stacked a second 2px outline on top of that border: two heavy rings. One ring is enough. */
+select:focus-visible { outline: none !important; }
 
 button.qa-acc-btn:focus, button.qa-acc-btn:focus-visible { outline: none !important; box-shadow: none !important; }
 
@@ -345,4 +367,5 @@ input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 18px
   background: var(--input-bg) center / 12px 12px no-repeat; border: 1.5px solid var(--border-strong); transition: background-color .15s, border-color .15s; }
 input[type="checkbox"]:checked { background-color: var(--btn); border-color: var(--btn);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 6.5l2.2 2.2L9.5 3.6'/%3E%3C/svg%3E"); }
+input[type="checkbox"]:checked:hover, input[type="checkbox"]:checked:focus { border-color: var(--btn) !important; }
 input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 2px; }

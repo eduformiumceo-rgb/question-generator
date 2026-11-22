@@ -16,7 +16,7 @@
  */
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { F, S, Spinner } from "./sharedStyles.jsx";
-import ExamStructureBuilder, { DEFAULT_SECTIONS, paperTotals } from "./components/ExamStructureBuilder.jsx";
+import ExamStructureBuilder, { DEFAULT_SECTIONS, paperTotals, nextSectionId, sectionLabel } from "./components/ExamStructureBuilder.jsx";
 import TopicSelector from "./components/TopicSelector.jsx";
 import FigurePanel from "./components/FigurePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
@@ -55,7 +55,6 @@ import AuthModal from "./AuthModal_upgraded.jsx";
 import { goToHubSignIn } from "./hubSignIn.js";
 import AppHeader from "./components/AppHeader.jsx";
 import SavedExams from "./components/SavedExams.jsx";
-import Footer from "./components/Footer.jsx";
 import folderPapers from "./assets/folder-papers.webp";
 import folderEmpty from "./assets/folder-empty.webp";
 import { ExamHistory, MAX_SAVED_EXAMS, metaForSave } from "./examHistory.js";
@@ -365,7 +364,16 @@ function QuestionsGeneratorInner() {
     prevStyle.current = examStyle;
     if (publicActive && subject) {
       const p = wassceActive ? getWassceProfile(subject) : getBeceProfile(subject);
-      setSections((wassceActive ? wassceSections(p) : beceSections(p)).map(sc => ({ ...sc })));
+      // Sections the teacher added by hand (custom) survive a reload of the exam-board structure; they take the next free letter if theirs is now used.
+      setSections(prev => {
+        const loaded = (wassceActive ? wassceSections(p) : beceSections(p)).map(sc => ({ ...sc }));
+        const kept = [];
+        for (const sec of prev.filter(x => x.custom)) {
+          const id = [...loaded, ...kept].some(x => x.id === sec.id) ? nextSectionId([...loaded, ...kept]) : sec.id;
+          if (id) kept.push({ ...sec, id, label: sectionLabel(id, sec.type, sec.title) });
+        }
+        return [...loaded, ...kept];
+      });
       setDurationMinutes(wassceActive ? wassceTotalMinutes(p) : beceTotalMinutes(p));
       setIncludeMarkingScheme(true);
       setLanguageStyle("Simple");
@@ -374,7 +382,7 @@ function QuestionsGeneratorInner() {
       setAllowDiagrams(true);
       beceApplied.current = true;
     } else if (beceApplied.current) {
-      setSections(DEFAULT_SECTIONS.map(sc => ({ ...sc })));
+      setSections(prev => [...DEFAULT_SECTIONS.map(sc => ({ ...sc })), ...prev.filter(x => x.custom).map(sec => { const id = DEFAULT_SECTIONS.some(d => d.id === sec.id) ? nextSectionId([...DEFAULT_SECTIONS, ...prev.filter(x => x.custom)]) : sec.id; return id ? { ...sec, id, label: sectionLabel(id, sec.type, sec.title) } : null; }).filter(Boolean)]);
       setDurationMinutes(60);
       setLanguageStyle("Balanced");
       setCognitiveLevels(["Recall", "Application"]);
@@ -982,24 +990,36 @@ function QuestionsGeneratorInner() {
         {publicAvailable && (
           <div className="qa-group">
             <hr className="qa-divider" style={{ marginTop: 22 }} />
-            <CardTitle F={F} level={2} mb={14} desc={<>{examStyle === "public"
-                ? (publicActive
-                    ? (subject ? `Sections, number of questions, marks, time, instructions and the marking scheme are set automatically from real ${wassceActive ? "WASSCE" : "BECE"} papers.` : `Choose a subject above and its ${wassceActive ? "WASSCE" : "BECE"} paper structure loads automatically.`)
-                    : "Index-number boxes, a sealed-paper notice and a WASSCE-style layout are applied.")
-                : `Everyday class-test layout. Choose ${isSHS ? "WASSCE" : "BECE"} style for the real exam format.`}
-              {isMock ? " Mock exams always use this style." : ""}</>}>Exam Style</CardTitle>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {[{ id: "school", label: "School exam" }, { id: "public", label: isSHS ? "WASSCE style" : "BECE style" }].map(o => {
+            <CardTitle F={F} level={2} mb={14} desc="Choose how the paper is laid out and structured.">Exam Style</CardTitle>
+            <div className="qa-choices" role="group" aria-label="Exam style">
+              {[
+                { id: "school", label: "School exam", desc: "Everyday class-test layout. You choose the sections, questions and marks." },
+                { id: "public", label: isSHS ? "WASSCE style" : "BECE style", desc: `The real ${isSHS ? "WASSCE" : "BECE"} paper format. Sections, marks, time and marking scheme are set for you.` },
+              ].map(o => {
                 const locked = isMock && o.id === "school";
                 return (
-                  <button key={o.id} type="button" className="qa-chip" aria-pressed={examStyle === o.id} disabled={locked}
+                  <button key={o.id} type="button" className="qa-choice" aria-pressed={examStyle === o.id} disabled={locked}
                     title={locked ? "Mock exams always follow the BECE / WASSCE format" : ""}
-                    onClick={() => chooseStyle(o.id)}>{o.label}</button>
+                    onClick={() => chooseStyle(o.id)}>
+                    <span className="qa-choice-t" style={{ fontFamily: F }}>{o.label}</span>
+                    <span className="qa-choice-d" style={{ fontFamily: F }}>{o.desc}</span>
+                  </button>
                 );
               })}
             </div>
+            {(isMock || examStyle === "public") && !(publicActive && beceProfile && subject) && (
+              <div className="qa-note" style={{ fontFamily: F, marginTop: 12 }}>
+                {examStyle === "public" && (publicActive
+                  ? (subject
+                      ? `The ${wassceActive ? "WASSCE" : "BECE"} paper structure for ${subject} has been loaded below.`
+                      : `Choose a subject above and its ${wassceActive ? "WASSCE" : "BECE"} paper structure will load automatically.`)
+                  : "Index-number boxes, a sealed-paper notice and a WASSCE-style layout are applied.")}
+                {isMock ? `${examStyle === "public" ? " " : ""}Mock exams always use this style.` : ""}
+              </div>
+            )}
             {publicActive && beceProfile && subject && (
-              <div className="qa-note" style={{ marginTop: 14, fontFamily: F, lineHeight: 1.7 }}>
+              <div className="qa-note" style={{ marginTop: 12, fontFamily: F, lineHeight: 1.7 }}>
+                <div style={{ marginBottom: 6 }}>The {wassceActive ? "WASSCE" : "BECE"} paper structure for {subject} has been loaded below.{isMock ? " Mock exams always use this style." : ""}</div>
                 {(wassceActive && beceProfile.order !== "21" ? ["p1", "p2"] : ["p2", "p1"]).map(k => k === "p2"
                   ? <div key="p2"><b>Paper 2 (Essay):</b> {beceProfile.paper2.marks} marks, {minutesLabel(beceProfile.paper2.minutes)}</div>
                   : <div key="p1"><b>Paper 1 (Objective):</b> {beceProfile.paper1.marks} questions, {minutesLabel(beceProfile.paper1.minutes)}</div>)}
@@ -1126,20 +1146,20 @@ function QuestionsGeneratorInner() {
            instead of two, to cut down on card count. ── */}
       {className && subject && (
       <div style={S.card}>
-        <CardTitle F={F} mb={10}>Options</CardTitle>
+        <CardTitle F={F} mb={10} desc="Choose what the generated paper includes.">Marking Scheme &amp; Diagrams</CardTitle>
 
         <div className="qa-opt">
           <div>
-            <div className="qa-opt-t" style={{ fontFamily: F }}>Include Marking Scheme</div>
-            <div className="qa-opt-d" style={{ fontFamily: F }}>Full answer key and point-by-point marking guide. Off gives just the question paper, which is faster and cheaper. Not available on Free AI.</div>
+            <div className="qa-opt-t" style={{ fontFamily: F }}>Marking scheme</div>
+            <div className="qa-opt-d" style={{ fontFamily: F }}>Adds the answer key and a point-by-point marking guide. Turn it off for a faster, cheaper question paper only. Premium AI only.</div>
           </div>
           <Toggle checked={includeMarkingScheme} onChange={setIncludeMarkingScheme} label="Include marking scheme" />
         </div>
 
         <div className="qa-opt">
           <div>
-            <div className="qa-opt-t" style={{ fontFamily: F }}>Allow AI-Suggested Diagrams</div>
-            <div className="qa-opt-d" style={{ fontFamily: F }}>When a question needs a figure, graph or map, the AI flags it and can draw it, or you can upload your own.</div>
+            <div className="qa-opt-t" style={{ fontFamily: F }}>AI-drawn diagrams</div>
+            <div className="qa-opt-d" style={{ fontFamily: F }}>Where a question needs a figure, graph or map, the AI draws it for you. You can replace any figure afterwards.</div>
           </div>
           <Toggle checked={allowDiagrams} onChange={setAllowDiagrams} label="Allow AI-suggested diagrams" />
         </div>
@@ -1347,21 +1367,24 @@ function QuestionsGeneratorInner() {
         </div>
       )}
 
-      {/* ── Paper check: moderator-style audit + Table of Specification (offline, free, re-runs on every edit) ── */}
-      {examData && <PaperAudit examData={examData} setExamData={setExamData} targetLevels={cognitiveLevels} S={S} F={F} />}
-
-      {/* ── Figures: AI-drawn after generation; one "Change image" button per figure, collapsed so the page stays short ── */}
+      {/* ── Review area: paper check + figures, set apart from the paper preview above ── */}
       {examData && (
-        <FigurePanel
-          examData={examData}
-          setExamData={setExamData}
-          draw={{ state: figDrawState, redraw: redrawFigure }}
-          S={S} F={F}
-        />
+        <section className="qa-review" aria-label="Review your paper">
+          <h3 className="qa-review-h" style={{ fontFamily: F }}>Review &amp; refine</h3>
+          <p className="qa-review-d" style={{ fontFamily: F }}>Check the paper for problems and adjust its figures before you print or download it.</p>
+          <PaperAudit examData={examData} setExamData={setExamData} targetLevels={cognitiveLevels} S={S} F={F} />
+          <FigurePanel
+            examData={examData}
+            setExamData={setExamData}
+            draw={{ state: figDrawState, redraw: redrawFigure }}
+            S={S} F={F}
+          />
+        </section>
       )}
       </div>
     </div>
-    <Footer F={F} />
+    {/* Room at the bottom of the page so the sticky action bar never covers the last card */}
+    <div aria-hidden="true" style={{ height: examData ? 96 : 40 }} />
 
     {/* ── Sticky action bar: the things you do with a finished paper, always one tap away ── */}
     {view === "generate" && examData && !loading && !barHidden && (

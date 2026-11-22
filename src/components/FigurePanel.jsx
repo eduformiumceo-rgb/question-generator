@@ -56,17 +56,17 @@ export default function FigurePanel({ examData, setExamData, draw, S, F }) {
   };
 
   return (
-    <div style={{ ...S.card, padding: "12px 16px" }}>
+    <div style={{ ...S.card, padding: "18px 22px", marginBottom: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Figures</div>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Figures &amp; diagrams</div>
           <div role="status" style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>{summary}</div>
         </div>
         <button type="button" style={S.sm} aria-expanded={open} onClick={() => setOpen(o => !o)}>{open ? "Hide figures" : "Review figures"}</button>
       </div>
 
       {open && (
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           {slots.map(slot => {
             const st = stateOf(slot);
             const failed = draw?.state?.[slot.key] === "failed" && st === "empty";

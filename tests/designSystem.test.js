@@ -26,6 +26,15 @@ describe("design system", () => {
   it("draws its own checkbox, because the global appearance:none made ticked boxes look empty", () => {
     expect(css).toMatch(/input\[type="checkbox"\]:checked/);
   });
+  it("a focused checkbox keeps its teal fill (the global input:focus background must not repaint it white and hide the tick)", () => {
+    const focusRule = css.split("\n").find(l => /^input[^{]*:focus[^{]*\{[^}]*background:/.test(l));
+    expect(focusRule).toBeTruthy();
+    expect(focusRule).toMatch(/:not\(\[type="checkbox"\]\)/);
+  });
+  it("a focused dropdown shows one ring (its border), not the border plus a second 2px outline", () => {
+    expect(css).not.toMatch(/select:focus-visible\s*,/);
+    expect(css).toMatch(/select:focus-visible\s*\{\s*outline:\s*none/);
+  });
   it("shares one chip, note and inset style instead of repeating inline borders", () => {
     for (const c of [".qa-chip", ".qa-note", ".qa-inset", ".qa-opt", ".qa-gen"]) expect(css).toContain(c);
   });

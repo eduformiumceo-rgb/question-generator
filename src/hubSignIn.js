@@ -19,6 +19,8 @@ export const guardAllows = (last, now = Date.now()) => !(Number.isFinite(last) &
 
 const HUB = cleanHubUrl(import.meta.env?.VITE_HUB_URL);
 export const hubSignInEnabled = () => !!HUB;
+/* Where "Back to Hub" goes: the configured hub, or the live one when the build variable is not set. */
+export const HUB_HOME = HUB || "https://app.eduformium.com";
 
 /* Returns true when the person was sent to the hub (the caller then does nothing else). */
 export function goToHubSignIn(app, { hub = HUB, storage, now = Date.now(), assign } = {}) {
