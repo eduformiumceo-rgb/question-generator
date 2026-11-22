@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import {
   SHS_COURSES, displaySubject, shsSubjectsForCourse, findShsSubject, isSHSClass, termOptionsFor, mapTermForLevel,
   examTypesFor, mapExamTypeForLevel, classWithProgramme, termCell,
 } from "../src/shsCourses.js";
-import { ALL_SUBJECTS, getStrands, getSubStrands } from "../src/curriculumIndex.js";
+import { ALL_SUBJECTS, getStrands, getSubStrands, loadAllSubjects } from "../src/curriculumIndex.js";
 import { renderExamHTML, buildSectionPrompt } from "../src/examTemplate.js";
 import { generateExamDocx } from "../src/examDocx.js";
 import { buildSectionPrompt as serverPrompt } from "../functions/_shared/examPrompt.js";
@@ -11,6 +11,9 @@ import { SAMPLE_EXAM } from "./helpers/sampleExam.js";
 
 const YEARS = ["SHS 1", "SHS 2", "SHS 3"];
 const allEntries = Object.entries(SHS_COURSES).flatMap(([course, subs]) => subs.map(s => ({ course, ...s })));
+
+// The curriculum is lazy-loaded; these tests check its CONTENT, so load every subject first.
+beforeAll(async () => { await loadAllSubjects(); }, 120000);
 
 describe("SHS programme map", () => {
   it("has the nine programmes the Lesson Planner has", () => {

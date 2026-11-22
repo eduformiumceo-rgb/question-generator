@@ -1,227 +1,64 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * GHANA NaCCA CURRICULUM - MASTER INDEX
- * Subjects: Mathematics, English Language, Science
- * To add a new subject: import it and add one entry to ALL_SUBJECTS
+ * GHANA NaCCA CURRICULUM - MASTER INDEX (lazy-loaded)
+ *
+ * The curriculum is ~14 MB of data across 77 subjects. It used to be imported all at once, so every
+ * teacher downloaded all of it. Now:
+ *
+ *   curriculumManifest.js     which classes each subject has (tiny; answers "does subject X exist for class Y?")
+ *   curriculumLoaders.js      one dynamic-import loader per subject (each subject is its own download)
+ *   this file                 the same helper functions as before, reading from what has been loaded
+ *
+ * USING IT: await loadSubject("Mathematics") (or useSubjectData() in React) BEFORE calling getStrands()
+ * and friends. Until a subject is loaded they return [] exactly as they do for an unknown subject.
+ *
+ * ADDING A SUBJECT: add one entry to LOADERS in curriculumLoaders.js, then run `npm run sync:curriculum`.
  * ═══════════════════════════════════════════════════════════════════
  */
+import { LOADERS } from "./curriculumLoaders.js";
+import MANIFEST from "./curriculumManifest.js";
 
-import { MATH_CURRICULUM }                        from './primary/math_curriculum.js';
-import { ENGLISH_CURRICULUM }                    from './primary/english_curriculum.js';
-import { SCIENCE_CURRICULUM }                    from './primary/science_curriculum.js';
-import { HISTORY_CURRICULUM }                    from './primary/history_curriculum.js';
-import { RME_CURRICULUM }                        from './primary/rme_curriculum.js';
-import { OWOP_CURRICULUM }                       from './primary/owop_curriculum.js';
-import { CREATIVE_ARTS_CURRICULUM }              from './primary/creative_arts_curriculum.js';
-import { COMPUTING_CURRICULUM }                  from './primary/computing_curriculum.js';
-import { FRENCH_CURRICULUM }                     from './primary/french_curriculum.js';
-import { GHANAIAN_LANGUAGE_CURRICULUM }          from './primary/ghanaian_language_curriculum.js';
-import { PE_CURRICULUM }                          from './primary/pe_curriculum.js';
+const EMPTY = Object.freeze({});
+const CACHE = new Map();      // subject -> data object
+const PENDING = new Map();    // subject -> in-flight promise (so two callers share one download)
+const listeners = new Set();
 
-/* ─── JHS IMPORTS ─── */
-import { MATH_CURRICULUM        as JHS_MATH_CURRICULUM }              from './jhs/math_curriculum.js';
-import { ENGLISH_CURRICULUM     as JHS_ENGLISH_CURRICULUM }           from './jhs/english_curriculum.js';
-import { SCIENCE_CURRICULUM     as JHS_SCIENCE_CURRICULUM }           from './jhs/science_curriculum.js';
-import { RME_CURRICULUM         as JHS_RME_CURRICULUM }               from './jhs/rme_curriculum.js';
-import { CREATIVE_ARTS_CURRICULUM as JHS_CREATIVE_ARTS_CURRICULUM }   from './jhs/creative_arts_curriculum.js';
-import { COMPUTING_CURRICULUM   as JHS_COMPUTING_CURRICULUM }         from './jhs/computing_curriculum.js';
-import { FRENCH_CURRICULUM      as JHS_FRENCH_CURRICULUM }            from './jhs/french_curriculum.js';
-import { GHANAIAN_LANGUAGE_CURRICULUM as JHS_GHANAIAN_LANGUAGE_CURRICULUM } from './jhs/ghanaian_language_curriculum.js';
-import { PEH_CURRICULUM         as JHS_PE_CURRICULUM }                from './jhs/pe_curriculum.js';
-import { SOCIAL_STUDIES_CURRICULUM as JHS_SOCIAL_STUDIES_CURRICULUM } from './jhs/social_studies_curriculum.js';
-import { ARABIC_CURRICULUM      as JHS_ARABIC_CURRICULUM }            from './jhs/arabic_curriculum.js';
-import { CT_CURRICULUM          as JHS_CT_CURRICULUM }                from './jhs/ctech_curriculum.js';
+/** Subject name -> { data }. `data` is {} until the subject is loaded, then the full class-keyed object. */
+export const ALL_SUBJECTS = Object.fromEntries(Object.keys(LOADERS).map(name => [name, {
+  get data() { return CACHE.get(name) || EMPTY; },
+}]));
 
-/* ─── SHS IMPORTS ─── */
-import { SOCIAL_STUDIES_CURRICULUM             as SHS_SOCIAL_STUDIES_CURRICULUM }   from './shs/core_subjects/social_studies_curriculum.js';
-import { ENGLISH_LANGUAGE_CURRICULUM           as SHS_ENGLISH_LANGUAGE_CURRICULUM } from './shs/core_subjects/english_language_curriculum.js';
-import { MATHEMATICS_CURRICULUM                as SHS_MATHEMATICS_CURRICULUM }       from './shs/core_subjects/mathematics_curriculum.js';
-import { RELIGIOUS_AND_MORAL_EDUCATION_CURRICULUM as SHS_RME_CURRICULUM }            from './shs/core_subjects/religious_and_moral_education_curriculum.js';
-import { PHYSICAL_EDUCATION_HEALTH_CURRICULUM  as SHS_PE_CURRICULUM }               from './shs/core_subjects/physical_education_health_curriculum.js';
-import { SHS_GENERAL_SCIENCE_CURRICULUM }                                            from './shs/core_subjects/general_science_curriculum.js';
+export const isSubjectLoaded = (subject) => CACHE.has(subject);
+/** True if there is curriculum data to load for this subject name. */
+export const hasSubject = (subject) => Object.prototype.hasOwnProperty.call(LOADERS, subject);
 
-/* ─── SHS AGRICULTURAL SCIENCE IMPORTS ─── */
-import { AGRICULTURE_CURRICULUM }                                                     from './shs/agricultural_science/agriculture_curriculum.js';
-import { BIOLOGY_CURRICULUM        as SHS_AS_BIOLOGY_CURRICULUM }                   from './shs/agricultural_science/biology_curriculum.js';
-import { CHEMISTRY_CURRICULUM      as SHS_AS_CHEMISTRY_CURRICULUM }                 from './shs/agricultural_science/chemistry_curriculum.js';
-import { PHYSICS_CURRICULUM        as SHS_AS_PHYSICS_CURRICULUM }                   from './shs/agricultural_science/physics_curriculum.js';
-import { PHYSICAL_EDUCATION_HEALTH_ELECTIVE_CURRICULUM as SHS_AS_PE_ELECTIVE_CURRICULUM } from './shs/agricultural_science/pe_health_curriculum.js';
+/** Downloads one subject's data (once). Resolves to its data; rejects for an unknown subject or a failed download (and may then be retried). */
+export function loadSubject(subject) {
+  if (CACHE.has(subject)) return Promise.resolve(CACHE.get(subject));
+  if (PENDING.has(subject)) return PENDING.get(subject);
+  const loader = LOADERS[subject];
+  if (!loader) return Promise.reject(new Error(`Unknown subject: ${subject}`));
+  const p = loader().then(data => {
+    CACHE.set(subject, data); PENDING.delete(subject);
+    listeners.forEach(fn => fn(subject));
+    return data;
+  }, err => { PENDING.delete(subject); throw err; });   // a failed download is not cached, so the next call retries
+  PENDING.set(subject, p);
+  return p;
+}
 
-/* ─── SHS BUSINESS IMPORTS ─── */
-import { ACCOUNTING_CURRICULUM }                                                      from './shs/business/accounting_curriculum.js';
-import { BUSINESS_MANAGEMENT_CURRICULUM }                                             from './shs/business/business_management_curriculum.js';
-import { ECONOMICS_CURRICULUM }                                                       from './shs/business/economics_curriculum.js';
-import { ADDITIONAL_MATHEMATICS_CURRICULUM }                                          from './shs/business/additional_mathematics_curriculum.js';
-import { ICT_CURRICULUM }                                                             from './shs/business/ict_curriculum.js';
+export const loadSubjects = (subjects) => Promise.all(subjects.map(loadSubject));
+/** Tests and scripts: load everything. The app never needs this. */
+export const loadAllSubjects = () => loadSubjects(Object.keys(LOADERS));
+/** Called with the subject name each time one finishes loading (used by useSubjectData). */
+export function onSubjectLoaded(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
-/* ─── SHS GENERAL SCIENCE IMPORTS ─── */
-import { BIOLOGY_CURRICULUM                                as SHS_GS_BIOLOGY_CURRICULUM }          from './shs/general_science/biology_curriculum.js';
-import { CHEMISTRY_CURRICULUM                             as SHS_GS_CHEMISTRY_CURRICULUM }         from './shs/general_science/chemistry_curriculum.js';
-import { PHYSICS_CURRICULUM                               as SHS_GS_PHYSICS_CURRICULUM }           from './shs/general_science/physics_curriculum.js';
-import { ADDITIONAL_MATHEMATICS_CURRICULUM                as SHS_GS_ADDITIONAL_MATH_CURRICULUM }   from './shs/general_science/additional_mathematics_curriculum.js';
-import { ICT_CURRICULUM                                   as SHS_GS_ICT_CURRICULUM }               from './shs/general_science/ict_curriculum.js';
-import { PHYSICAL_EDUCATION_HEALTH_ELECTIVE_CURRICULUM    as SHS_GS_PE_ELECTIVE_CURRICULUM }       from './shs/general_science/physical_education_health_elective_curriculum.js';
-
-/* ─── SHS VISUAL ARTS IMPORTS ─── */
-import { SHS_VA_ART_AND_DESIGN_CURRICULUM }          from './shs/visual_arts/art_and_design_foundation_curriculum.js';
-import { SHS_VA_DESIGN_COMMS_TECH_CURRICULUM }       from './shs/visual_arts/design_communication_technology_curriculum.js';
-import { SHS_VA_MUSIC_CURRICULUM }                   from './shs/visual_arts/music_curriculum.js';
-import { SHS_VA_PERFORMING_ARTS_CURRICULUM }         from './shs/visual_arts/performing_arts_curriculum.js';
-import { SHS_VA_PE_ELECTIVE_CURRICULUM }             from './shs/visual_arts/pe_health_elective_curriculum.js';
-
-/* ─── SHS HOME ECONOMICS IMPORTS ─── */
-import { SHS_HE_FOOD_NUTRITION_CURRICULUM }           from './shs/home_economics/food_and_nutrition_curriculum.js';
-import { SHS_HE_MANAGEMENT_IN_LIVING_CURRICULUM }     from './shs/home_economics/management_in_living_curriculum.js';
-import { SHS_HE_CLOTHING_AND_TEXTILES_CURRICULUM }    from './shs/home_economics/clothing_and_textiles_curriculum.js';
-import { SHS_HE_ART_AND_DESIGN_CURRICULUM }           from './shs/home_economics/art_and_design_foundation_curriculum.js';
-import { SHS_HE_BIOLOGY_CURRICULUM }                  from './shs/home_economics/biology_curriculum.js';
-import { SHS_HE_PE_ELECTIVE_CURRICULUM }              from './shs/home_economics/pe_health_elective_curriculum.js';
-
-/* ─── SHS TECHNICAL IMPORTS ─── */
-import { SHS_TECH_ENGINEERING_CURRICULUM }        from './shs/technical/engineering_curriculum.js';
-import { SHS_TECH_DESIGN_COMMS_TECH_CURRICULUM }  from './shs/technical/design_communication_technology_curriculum.js';
-import { SHS_TECH_PE_ELECTIVE_CURRICULUM }        from './shs/technical/pe_health_elective_curriculum.js';
-
-/* ─── SHS STEM / TVET IMPORTS ─── */
-import { COMPUTING_CURRICULUM                          as SHS_STEM_COMPUTING_CURRICULUM }              from './shs/stem_tvet/computing_curriculum.js';
-import { ROBOTICS_CURRICULUM                           as SHS_STEM_ROBOTICS_CURRICULUM }               from './shs/stem_tvet/robotics_curriculum.js';
-import { BIOMEDICAL_SCIENCE_CURRICULUM                 as SHS_STEM_BIOMEDICAL_SCIENCE_CURRICULUM }     from './shs/stem_tvet/biomedical_science_curriculum.js';
-import { AVIATION_AND_AEROSPACE_ENGINEERING_CURRICULUM as SHS_STEM_AVIATION_AEROSPACE_CURRICULUM }     from './shs/stem_tvet/aviation_and_aerospace_engineering_curriculum.js';
-import { ICT_CURRICULUM                                as SHS_STEM_ICT_CURRICULUM }                    from './shs/stem_tvet/ict_curriculum.js';
-import { PHYSICS_CURRICULUM                            as SHS_STEM_PHYSICS_CURRICULUM }                from './shs/stem_tvet/physics_curriculum.js';
-import { ADDITIONAL_MATHEMATICS_CURRICULUM             as SHS_STEM_ADDITIONAL_MATH_CURRICULUM }        from './shs/stem_tvet/additional_mathematics_curriculum.js';
-import { AGRICULTURE_CURRICULUM                        as SHS_STEM_AGRICULTURE_CURRICULUM }            from './shs/stem_tvet/agriculture_curriculum.js';
-import { AGRICULTURAL_SCIENCE_CURRICULUM               as SHS_STEM_AGRICULTURAL_SCIENCE_CURRICULUM }   from './shs/stem_tvet/agricultural_science_curriculum.js';
-import { APPLIED_TECHNOLOGY_CURRICULUM                 as SHS_STEM_APPLIED_TECHNOLOGY_CURRICULUM }     from './shs/stem_tvet/applied_technology_curriculum.js';
-import { ARABIC_CURRICULUM                             as SHS_STEM_ARABIC_CURRICULUM }                 from './shs/stem_tvet/arabic_curriculum.js';
-import { ART_AND_DESIGN_STUDIO_CURRICULUM              as SHS_STEM_ART_DESIGN_STUDIO_CURRICULUM }      from './shs/stem_tvet/art_and_design_studio_curriculum.js';
-import { ART_AND_DESIGN_FOUNDATION_CURRICULUM          as SHS_STEM_ART_DESIGN_FOUNDATION_CURRICULUM }  from './shs/stem_tvet/art_and_design_foundation_curriculum.js';
-import { ENGINEERING_CURRICULUM                        as SHS_STEM_ENGINEERING_CURRICULUM }            from './shs/stem_tvet/engineering_curriculum.js';
-import { MANUFACTURING_ENGINEERING_CURRICULUM          as SHS_STEM_MANUFACTURING_ENGINEERING_CURRICULUM } from './shs/stem_tvet/manufacturing_engineering_curriculum.js';
-import { MUSIC_CURRICULUM                              as SHS_STEM_MUSIC_CURRICULUM }                  from './shs/stem_tvet/music_curriculum.js';
-import { SPANISH_CURRICULUM                            as SHS_STEM_SPANISH_CURRICULUM }                from './shs/stem_tvet/spanish_curriculum.js';
-import { PHYSICAL_EDUCATION_HEALTH_ELECTIVE_CURRICULUM as SHS_STEM_PE_ELECTIVE_CURRICULUM }           from './shs/stem_tvet/pe_health_elective_curriculum.js';
-
-/* ─── SHS GENERAL ARTS IMPORTS ─── */
-import { HISTORY_CURRICULUM                    as SHS_GA_HISTORY_CURRICULUM }            from './shs/general_arts/history_curriculum.js';
-import { GOVERNMENT_CURRICULUM                 as SHS_GA_GOVERNMENT_CURRICULUM }         from './shs/general_arts/government_curriculum.js';
-import { GEOGRAPHY_CURRICULUM                  as SHS_GA_GEOGRAPHY_CURRICULUM }          from './shs/general_arts/geography_curriculum.js';
-import { LITERATURE_IN_ENGLISH_CURRICULUM      as SHS_GA_LITERATURE_CURRICULUM }         from './shs/general_arts/literature_in_english_curriculum.js';
-import { FRENCH_CURRICULUM                     as SHS_GA_FRENCH_CURRICULUM }             from './shs/general_arts/french_curriculum.js';
-import { SPANISH_CURRICULUM                    as SHS_GA_SPANISH_CURRICULUM }            from './shs/general_arts/spanish_curriculum.js';
-import { ISLAMIC_RELIGIOUS_STUDIES_CURRICULUM  as SHS_GA_ISLAMIC_RS_CURRICULUM }         from './shs/general_arts/islamic_religious_studies_curriculum.js';
-import { ECONOMICS_CURRICULUM                  as SHS_GA_ECONOMICS_CURRICULUM }          from './shs/general_arts/economics_curriculum.js';
-import { CHRISTIAN_RELIGIOUS_STUDIES_CURRICULUM as SHS_GA_CHRISTIAN_RS_CURRICULUM }      from './shs/general_arts/christian_religious_studies_curriculum.js';
-import { ADDITIONAL_MATHEMATICS_CURRICULUM     as SHS_GA_ADDITIONAL_MATH_CURRICULUM }    from './shs/general_arts/additional_mathematics_curriculum.js';
-import { ICT_CURRICULUM                        as SHS_GA_ICT_CURRICULUM }                from './shs/general_arts/ict_curriculum.js';
-import { MUSIC_CURRICULUM                      as SHS_GA_MUSIC_CURRICULUM }              from './shs/general_arts/music_curriculum.js';
-import { PHYSICAL_EDUCATION_HEALTH_ELECTIVE_CURRICULUM as SHS_GA_PE_ELECTIVE_CURRICULUM } from './shs/general_arts/physical_education_health_elective_curriculum.js';
-
-
-/* ─── MASTER REGISTRY ─── */
-export const ALL_SUBJECTS = {
-  /* ── Primary + JHS ── */
-  "Mathematics":                  { data: { ...MATH_CURRICULUM,              ...JHS_MATH_CURRICULUM,             ...SHS_MATHEMATICS_CURRICULUM } },
-  "English Language":             { data: { ...ENGLISH_CURRICULUM,           ...JHS_ENGLISH_CURRICULUM,          ...SHS_ENGLISH_LANGUAGE_CURRICULUM } },
-  "Science":                      { data: { ...SCIENCE_CURRICULUM,           ...JHS_SCIENCE_CURRICULUM } },
-  "History":                      { data: HISTORY_CURRICULUM },
-  "Religious and Moral Education": { data: { ...RME_CURRICULUM,              ...JHS_RME_CURRICULUM,              ...SHS_RME_CURRICULUM } },
-  "Our World Our People":         { data: { ...OWOP_CURRICULUM } },
-  "Creative Arts":                { data: { ...CREATIVE_ARTS_CURRICULUM,     ...JHS_CREATIVE_ARTS_CURRICULUM } },
-  "Computing":                    { data: { ...COMPUTING_CURRICULUM,         ...JHS_COMPUTING_CURRICULUM } },
-  "French":                       { data: { ...FRENCH_CURRICULUM,            ...JHS_FRENCH_CURRICULUM } },
-  "Ghanaian Language":            { data: { ...GHANAIAN_LANGUAGE_CURRICULUM, ...JHS_GHANAIAN_LANGUAGE_CURRICULUM } },
-  "Physical Education":           { data: { ...PE_CURRICULUM,                ...JHS_PE_CURRICULUM } },
-  "Social Studies":               { data: { ...JHS_SOCIAL_STUDIES_CURRICULUM,...SHS_SOCIAL_STUDIES_CURRICULUM } },
-  "Arabic":                       { data: JHS_ARABIC_CURRICULUM },
-  "Career Technology":            { data: JHS_CT_CURRICULUM },
-  /* ── SHS Core (PE&H is SHS-only key - distinct from Primary/JHS "Physical Education") ── */
-  "Physical Education & Health":  { data: SHS_PE_CURRICULUM },
-  "General Science":              { data: SHS_GENERAL_SCIENCE_CURRICULUM },
-
-  /* ── SHS Agricultural Science ── */
-  "Agriculture":                  { data: AGRICULTURE_CURRICULUM },
-  "Biology (Agric)":              { data: SHS_AS_BIOLOGY_CURRICULUM },
-  "Chemistry (Agric)":            { data: SHS_AS_CHEMISTRY_CURRICULUM },
-  "Physics (Agric)":              { data: SHS_AS_PHYSICS_CURRICULUM },
-  "PE & Health Elective (Agric)": { data: SHS_AS_PE_ELECTIVE_CURRICULUM },
-
-  /* ── SHS Business ── */
-  "Accounting":                   { data: ACCOUNTING_CURRICULUM },
-  "Business Management":          { data: BUSINESS_MANAGEMENT_CURRICULUM },
-  "Economics (BUS)":              { data: ECONOMICS_CURRICULUM },
-  "Additional Mathematics (BUS)": { data: ADDITIONAL_MATHEMATICS_CURRICULUM },
-  "ICT (BUS)":                    { data: ICT_CURRICULUM },
-
-  /* ── SHS General Science ── */
-  "Biology (GS)":                     { data: SHS_GS_BIOLOGY_CURRICULUM },
-  "Chemistry (GS)":                   { data: SHS_GS_CHEMISTRY_CURRICULUM },
-  "Physics (GS)":                     { data: SHS_GS_PHYSICS_CURRICULUM },
-  "Additional Mathematics (GS)":      { data: SHS_GS_ADDITIONAL_MATH_CURRICULUM },
-  "ICT (GS)":                         { data: SHS_GS_ICT_CURRICULUM },
-  "PE & Health Elective (GS)":        { data: SHS_GS_PE_ELECTIVE_CURRICULUM },
-
-  /* ── SHS Visual Arts ── */
-  "Art and Design Foundation (VA)":            { data: SHS_VA_ART_AND_DESIGN_CURRICULUM },
-  "Design and Communication Technology (VA)":  { data: SHS_VA_DESIGN_COMMS_TECH_CURRICULUM },
-  "Music (VA)":                                { data: SHS_VA_MUSIC_CURRICULUM },
-  "Performing Arts":                           { data: SHS_VA_PERFORMING_ARTS_CURRICULUM },
-  "PE & Health Elective (VA)":                 { data: SHS_VA_PE_ELECTIVE_CURRICULUM },
-
-  /* ── SHS Home Economics ── */
-  "Food and Nutrition":                    { data: SHS_HE_FOOD_NUTRITION_CURRICULUM },
-  "Management in Living":                  { data: SHS_HE_MANAGEMENT_IN_LIVING_CURRICULUM },
-  "Clothing and Textiles":                 { data: SHS_HE_CLOTHING_AND_TEXTILES_CURRICULUM },
-  "Art and Design Foundation (HE)":        { data: SHS_HE_ART_AND_DESIGN_CURRICULUM },
-  "Biology (HE)":                          { data: SHS_HE_BIOLOGY_CURRICULUM },
-  "PE & Health Elective (HE)":             { data: SHS_HE_PE_ELECTIVE_CURRICULUM },
-
-  /* ── SHS Technical ── */
-  "Engineering":                          { data: SHS_TECH_ENGINEERING_CURRICULUM },
-  "Design and Communication Technology":  { data: SHS_TECH_DESIGN_COMMS_TECH_CURRICULUM },
-  "PE & Health Elective (Tech)":          { data: SHS_TECH_PE_ELECTIVE_CURRICULUM },
-
-  /* ── SHS STEM / TVET ── */
-  "Computing (STEM)":                     { data: SHS_STEM_COMPUTING_CURRICULUM },
-  "Robotics":                             { data: SHS_STEM_ROBOTICS_CURRICULUM },
-  "Biomedical Science":                   { data: SHS_STEM_BIOMEDICAL_SCIENCE_CURRICULUM },
-  "Aviation and Aerospace Engineering":   { data: SHS_STEM_AVIATION_AEROSPACE_CURRICULUM },
-  "ICT (STEM)":                           { data: SHS_STEM_ICT_CURRICULUM },
-  "Physics (STEM)":                       { data: SHS_STEM_PHYSICS_CURRICULUM },
-  "Additional Mathematics (STEM)":        { data: SHS_STEM_ADDITIONAL_MATH_CURRICULUM },
-  "Agriculture (STEM)":                   { data: SHS_STEM_AGRICULTURE_CURRICULUM },
-  "Agricultural Science (STEM)":          { data: SHS_STEM_AGRICULTURAL_SCIENCE_CURRICULUM },
-  "Applied Technology":                   { data: SHS_STEM_APPLIED_TECHNOLOGY_CURRICULUM },
-  "Arabic (STEM)":                        { data: SHS_STEM_ARABIC_CURRICULUM },
-  "Art and Design Studio":                { data: SHS_STEM_ART_DESIGN_STUDIO_CURRICULUM },
-  "Art and Design Foundation (STEM)":     { data: SHS_STEM_ART_DESIGN_FOUNDATION_CURRICULUM },
-  "Engineering (STEM)":                   { data: SHS_STEM_ENGINEERING_CURRICULUM },
-  "Manufacturing Engineering":            { data: SHS_STEM_MANUFACTURING_ENGINEERING_CURRICULUM },
-  "Music (STEM)":                         { data: SHS_STEM_MUSIC_CURRICULUM },
-  "Spanish (STEM)":                       { data: SHS_STEM_SPANISH_CURRICULUM },
-  "PE & Health Elective (STEM)":          { data: SHS_STEM_PE_ELECTIVE_CURRICULUM },
-
-  /* ── SHS General Arts ── */
-  "History (GA)":                         { data: SHS_GA_HISTORY_CURRICULUM },
-  "Government":                           { data: SHS_GA_GOVERNMENT_CURRICULUM },
-  "Geography":                            { data: SHS_GA_GEOGRAPHY_CURRICULUM },
-  "Literature in English":                { data: SHS_GA_LITERATURE_CURRICULUM },
-  "French (GA)":                          { data: SHS_GA_FRENCH_CURRICULUM },
-  "Spanish":                              { data: SHS_GA_SPANISH_CURRICULUM },
-  "Islamic Religious Studies":            { data: SHS_GA_ISLAMIC_RS_CURRICULUM },
-  "Economics (GA)":                       { data: SHS_GA_ECONOMICS_CURRICULUM },
-  "Christian Religious Studies":          { data: SHS_GA_CHRISTIAN_RS_CURRICULUM },
-  "Additional Mathematics (GA)":          { data: SHS_GA_ADDITIONAL_MATH_CURRICULUM },
-  "ICT (GA)":                             { data: SHS_GA_ICT_CURRICULUM },
-  "Music (GA)":                           { data: SHS_GA_MUSIC_CURRICULUM },
-  "PE & Health Elective (GA)":            { data: SHS_GA_PE_ELECTIVE_CURRICULUM },
-};
-
+/* ─── HELPERS (unchanged; they read whatever has been loaded) ─── */
 export const SUPPORTED_SUBJECTS = Object.keys(ALL_SUBJECTS);
 
 /** All classes available for a subject */
 export function getSupportedClasses(subject) {
-  return Object.keys(ALL_SUBJECTS[subject]?.data || {});
+  return MANIFEST[subject] || [];   // from the manifest: answers for ALL subjects instantly, no data downloaded
 }
 
 /** All strands for a subject + class */
@@ -425,8 +262,8 @@ export function buildExemplarBlock(subject, cls, strandName, subStrandName, indi
 /** Returns true when a subject has SHS data in ALL_SUBJECTS */
 export function shsSubjectInDB(subject) {
   if (!subject) return false;
-  const data = ALL_SUBJECTS[subject]?.data || {};
-  return ["SHS 1","SHS 2","SHS 3"].some(cls => !!data[cls]);
+  const classes = MANIFEST[subject] || [];
+  return ["SHS 1","SHS 2","SHS 3"].some(cls => classes.includes(cls));
 }
 
 /** All strands for an SHS subject + class */

@@ -16,6 +16,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Questions" />
     <link rel="apple-touch-icon" href="/questions-apple-touch-icon.png" />
+
+    <!-- Logo font only (Playfair Display 800). Loaded WITHOUT blocking the first paint: preload + swap in on load; text shows at once in a serif fallback. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@800&display=swap" /></noscript>
   </head>
   <body>
     <div id="root"></div>

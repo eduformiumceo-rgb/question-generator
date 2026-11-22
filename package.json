@@ -7,7 +7,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "sync:diagrams": "node scripts/sync-diagram-guide.mjs"
+    "sync:diagrams": "node scripts/sync-diagram-guide.mjs",
+    "sync:curriculum": "node scripts/gen-curriculum-manifest.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

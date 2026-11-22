@@ -96,7 +96,6 @@ export default function AuthCallback() {
     }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Playfair+Display:wght@800&display=swap');
         :root {
           --bg:             ${isDark ? "#1C1C1E" : "#F0F2F5"};
           --card-bg:        ${isDark ? "#2C2C2E" : "#FFFFFF"};

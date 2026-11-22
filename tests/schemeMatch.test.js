@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { condenseSchemeText, matchSchemeToCurriculum, stripNumbering, normalise } from "../src/schemeMatch.js";
-import { getStrands } from "../src/curriculumIndex.js";
+import { getStrands, loadAllSubjects } from "../src/curriculumIndex.js";
 
 describe("condenseSchemeText", () => {
   it("drops blanks, page numbers and consecutive duplicates; keeps content", () => {
@@ -36,8 +36,12 @@ describe("name normalising", () => {
   });
 });
 
+// The curriculum is lazy-loaded; these tests check its CONTENT, so load every subject first.
+beforeAll(async () => { await loadAllSubjects(); }, 120000);
+
 describe("matchSchemeToCurriculum (real NaCCA data)", () => {
-  const maths7 = getStrands("Mathematics", "Basic 7");
+  let maths7;
+  beforeAll(() => { maths7 = getStrands("Mathematics", "Basic 7"); });   // read after the lazy load, not while the file is being set up
 
   it("matches sub-strand names even though the scheme omits 'Sub-Strand 2:'", () => {
     const text = "Week 2 | Number | Number Operations | add and subtract\nWeek 3 | Algebra | Algebraic Expressions";

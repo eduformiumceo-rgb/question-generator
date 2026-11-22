@@ -5,11 +5,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: "dist",
-    // Your curriculum data (src/shs, src/jhs, src/primary, src/kg) is ~16.5MB
-    // total and eagerly imported by curriculumIndex.js. Raising this just
-    // silences Vite's chunk-size warning - it does NOT fix the underlying
-    // bundle-size issue the README already flagged. Splitting curriculum
-    // data to load per-level is a real follow-up, not solved here.
-    chunkSizeWarningLimit: 4000,
+    // The curriculum data (src/shs, src/jhs, src/primary, src/kg, ~14 MB over 77 subjects) is LAZY-LOADED one subject at
+    // a time (see src/curriculumLoaders.js), so the entry file is ~570 KB. This limit is deliberately tight: if the build
+    // warns, something has started importing curriculum data eagerly again (or a new dependency is very large).
+    chunkSizeWarningLimit: 900,
   },
 });

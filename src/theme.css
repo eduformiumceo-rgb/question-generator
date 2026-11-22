@@ -28,7 +28,8 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap');
+/* Fonts: NOT imported here. A CSS @import blocks the first paint until Google's server answers, and Inter (5 weights) was
+   never used anywhere. The only web font is Playfair Display 800 (the logo), loaded non-blocking from index.html. */
 
 /* -- LIGHT -- */
 :root, [data-theme="light"] {
@@ -175,3 +176,83 @@ button:not(:disabled):active { transform: scale(0.96) !important; opacity: 0.88 
 math { font-family: "Cambria Math","STIX Two Math","Latin Modern Math","Noto Sans Math","Times New Roman",serif; math-style: normal; font-size: 1.08em; }
 math mtext { font-family: "Times New Roman",Times,serif; }
 .m-raw { font-family: Consolas,"Courier New",monospace; font-size: .92em; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   APP POLISH (cards, stepper, entrance motion, skeletons, focus)
+
+   PERFORMANCE RULES for everything in this block (tests/uiPerformance.test.js enforces them):
+   - animate ONLY opacity (and, on small standalone elements only, transform). Never transform big cards (see .qa-flow below)
+   - NO box-shadow, filter, backdrop-filter, blur, will-change, or animated width/height/margin/top/left
+   - entrances run once and are short (<= 0.4s); the only looping animation is the skeleton pulse, and only while loading
+   - every animation is switched off for people who prefer reduced motion
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes qa-fade  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes qa-rise  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes qa-pop   { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes qa-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* Wizard cards FADE in (opacity only). Measured on a 4x-slowed CPU: a translateY "rise" on these big cards doubled layout
+   passes (40 vs 19), because the wizard also holds position:fixed elements (action bar, toast); a fade costs the same as no
+   animation. Small standalone elements (page header, welcome tiles) can still use .qa-rise below. */
+.qa-flow > * { animation: qa-fade .28s ease-out both; }
+.qa-rise { animation: qa-rise .36s cubic-bezier(.22,1,.36,1) both; }
+.qa-d1 { animation-delay: .06s; } .qa-d2 { animation-delay: .12s; } .qa-d3 { animation-delay: .18s; }
+.qa-pop { animation: qa-pop .26s cubic-bezier(.22,1,.36,1) both; }
+
+/* Cards: quiet border change on hover (inline borders need !important to be overridden) */
+.qa-flow > div { transition: border-color .2s; }
+@media (hover: hover) { .qa-flow > div:hover { border-color: var(--border-strong) !important; } }
+
+/* Icon tile + card title row */
+.qa-tile { width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent); }
+.qa-tile-lg { width: 44px; height: 44px; border-radius: 13px; }
+.qa-ct { display: flex; align-items: center; gap: 12px; }
+
+/* Progress stepper (transform-only fill) */
+.qa-steps { position: relative; display: flex; list-style: none; margin: 0 0 20px; padding: 0; }
+.qa-steps::before, .qa-steps::after { content: ""; position: absolute; top: 13px; left: 12.5%; right: 12.5%; height: 2px; border-radius: 2px; }
+.qa-steps::before { background: var(--border-strong); opacity: .55; }
+.qa-steps::after { background: var(--accent); transform-origin: left center; transform: scaleX(var(--qa-p, 0)); transition: transform .5s cubic-bezier(.22,1,.36,1); }
+.qa-step { position: relative; z-index: 1; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.qa-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+  background: var(--card-bg); border: 2px solid var(--border-strong); color: var(--text-muted); transition: background-color .25s, border-color .25s, color .25s; }
+.qa-step.is-active .qa-dot { border-color: var(--accent); color: var(--accent); animation: qa-pop .3s cubic-bezier(.22,1,.36,1) both; }
+.qa-step.is-done .qa-dot { background: var(--accent); border-color: var(--accent); color: var(--card-bg); animation: qa-pop .3s cubic-bezier(.22,1,.36,1) both; }
+.qa-step-label { font-size: 11.5px; font-weight: 600; color: var(--text-muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qa-step.is-active .qa-step-label, .qa-step.is-done .qa-step-label { color: var(--text); }
+
+/* "How it works" tiles and feature pills */
+.qa-how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 4px 0 18px; }
+.qa-how-item { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+.qa-how-item h4 { margin: 12px 0 4px; font-size: 14px; font-weight: 700; color: var(--text); }
+.qa-how-item p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+.qa-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 0 0 20px; }
+.qa-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  background: var(--accent-soft); color: var(--tag-text); border: 1px solid var(--tag-border); }
+@media (max-width: 640px) { .qa-how { grid-template-columns: 1fr; } .qa-how-item { display: grid; grid-template-columns: 36px 1fr; column-gap: 12px; } .qa-how-item h4 { margin: 0 0 2px; } .qa-how-item .qa-tile { grid-row: span 2; } }
+
+/* My Exams button: on a phone it shrinks to the folder icon (plus the count), so the page title keeps its room */
+.qa-show-sm { display: none; font-weight: 700; }
+@media (max-width: 520px) {
+  .qa-hide-sm { display: none; }
+  .qa-show-sm { display: inline; }
+  .qa-myexams { padding: 0 12px !important; min-width: 40px; justify-content: center; }
+}
+
+/* Skeleton: a quiet opacity pulse (no gradient sweep, which would repaint every frame) */
+.qa-skel { background: var(--skel-base); border-radius: 10px; animation: qa-pulse 1.4s ease-in-out infinite; }
+
+/* Keyboard focus: the old rules removed every outline, so keyboard users could not see where they were. Shown for keyboard only. */
+button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--accent) !important; outline-offset: 2px;
+}
+
+/* Hover feedback only on devices that can hover (opacity is composited; nothing repaints) */
+@media (hover: hover) { button:not(:disabled):hover { opacity: .92; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .qa-flow > *, .qa-rise, .qa-pop, .qa-skel, .qa-step.is-active .qa-dot, .qa-step.is-done .qa-dot { animation: none !important; }
+  .qa-steps::after, .qa-dot, .qa-flow > div { transition: none !important; }
+  html, body { scroll-behavior: auto; }
+}

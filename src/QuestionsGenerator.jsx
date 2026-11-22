@@ -34,6 +34,10 @@ import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBe
 import ExamEditor from "./components/ExamEditor.jsx";
 import MathText from "./components/MathText.jsx";
 import PaperAudit from "./components/PaperAudit.jsx";
+import Icon from "./components/Icon.jsx";
+import CardTitle from "./components/CardTitle.jsx";
+import Welcome from "./components/Welcome.jsx";
+import WizardProgress from "./components/WizardProgress.jsx";
 import { requestQuestionReplacement } from "./regenerateQuestion.js";
 import { screenExamInput } from "./moderation.js";
 import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "./freeTierLimits.js";
@@ -882,19 +886,27 @@ function QuestionsGeneratorInner() {
     />
     <div style={{ maxWidth: 760, margin: "0 auto", padding: `24px 16px ${examData && view === "generate" ? 110 : 60}px`, fontFamily: F }}>
       {view === "generate" && (
-        <div style={{ marginBottom: 22, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>
-              Questions Generator
-            </h1>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>
-              Build print-ready class tests, quizzes and exams from your curriculum in minutes.
-            </p>
+        <>
+        <div className="qa-rise" style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+            <span className="qa-tile qa-tile-lg" aria-hidden="true"><Icon name="cap" size={24} /></span>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F, lineHeight: 1.2 }}>
+                Questions Generator
+              </h1>
+              <p style={{ margin: "3px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.45 }}>
+                Build print-ready class tests, quizzes and exams from your curriculum in minutes.
+              </p>
+            </div>
           </div>
-          <button type="button" style={S.sm} onClick={requireLogin(() => setView("saved"))}>
-            My Exams{savedCount ? ` (${savedCount})` : ""}
+          <button type="button" className="qa-myexams" aria-label={savedCount ? `My Exams (${savedCount})` : "My Exams"} style={{ ...S.sm, flexShrink: 0 }} onClick={requireLogin(() => setView("saved"))}>
+            <Icon name="folder" size={16} />
+            <span className="qa-hide-sm">My Exams{savedCount ? ` (${savedCount})` : ""}</span>
+            {savedCount ? <span className="qa-show-sm">{savedCount}</span> : null}
           </button>
         </div>
+        <WizardProgress hasClass={!!(className && subject)} hasTopics={selectedTopics.length > 0 || !!pastedSyllabus.trim()} hasExam={!!examData} />
+        </>
       )}
 
       {view === "saved" && (
@@ -936,7 +948,7 @@ function QuestionsGeneratorInner() {
       )}
 
       {/* Wizard + result stay mounted (just hidden) while My Exams is open, so nothing the teacher typed is lost */}
-      <div style={{ display: view === "saved" ? "none" : undefined }}>
+      <div className="qa-flow" style={{ display: view === "saved" ? "none" : undefined }}>
       {/* ── Curriculum + Topics (GES / NaCCA) - CLASS FIRST, matching
            the real Lesson Planner's flow exactly. Everything else in the
            form follows from this, so it comes first on the page too. ── */}
@@ -953,12 +965,14 @@ function QuestionsGeneratorInner() {
         S={S} F={F}
       />
 
+      {!className && <Welcome F={F} />}
+
       {/* ── Basic Information - only once a class is chosen, so the
            form doesn't show a wall of fields before the one choice that
            actually drives everything else. ── */}
       {className && (
       <div style={S.card}>
-        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Exam Type</h3>
+        <CardTitle icon="file" F={F}>Exam Type</CardTitle>
         <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
           What kind of assessment is this?
         </p>
@@ -980,7 +994,7 @@ function QuestionsGeneratorInner() {
 
         {publicAvailable && (
           <div style={{ margin: "0 0 20px", paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-            <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Exam Style</h3>
+            <CardTitle icon="layout" F={F}>Exam Style</CardTitle>
             <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
               {examStyle === "public"
                 ? (publicActive
@@ -1019,7 +1033,7 @@ function QuestionsGeneratorInner() {
           </div>
         )}
 
-        <h3 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Basic Information</h3>
+        <CardTitle icon="clipboard" F={F} mb={18}>Basic Information</CardTitle>
         <div style={{ marginBottom: 14, display: "flex", gap: 12, alignItems: "flex-end" }}>
           <div style={{ flex: 1 }}>
             <label style={S.lbl}>School Name</label>
@@ -1086,7 +1100,7 @@ function QuestionsGeneratorInner() {
            option on screen before there's anything to configure it for. ── */}
       {className && subject && (
       <div style={S.card}>
-        <h3 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Difficulty &amp; Language Control</h3>
+        <CardTitle icon="sliders" F={F} mb={18}>Difficulty &amp; Language Control</CardTitle>
 
         <label style={S.lbl}>Difficulty</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -1141,7 +1155,7 @@ function QuestionsGeneratorInner() {
            instead of two, to cut down on card count. ── */}
       {className && subject && (
       <div style={S.card}>
-        <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Options</h3>
+        <CardTitle icon="checklist" F={F} mb={16}>Options</CardTitle>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
@@ -1245,8 +1259,9 @@ function QuestionsGeneratorInner() {
           </div>
         </div>
       )}
-      <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 0 }}>
-        Nothing is charged unless generation succeeds. Failed or timed-out requests are not billed.
+      <p style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textAlign: "center", fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 0 }}>
+        <Icon name="shield" size={14} />
+        <span>Nothing is charged unless generation succeeds. Failed or timed-out requests are not billed.</span>
       </p>
 
       {/* ── Output ──────────────────────────────────────────────── */}

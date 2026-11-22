@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import React, { useState } from "react";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeAll } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("../src/auth.js", () => ({ getToken: () => null }));
 import TopicSelector from "../src/components/TopicSelector.jsx";
-import { getStrands, getSubStrands } from "../src/curriculumIndex.js";
+import { getStrands, getSubStrands, loadAllSubjects } from "../src/curriculumIndex.js";
 import { SHS_COURSES } from "../src/shsCourses.js";
 
 afterEach(cleanup);
@@ -54,6 +54,9 @@ const openStrands = async (u) => {
   if (screen.queryAllByRole("button").some(b => /^1\.\s/.test(b.textContent.trim()))) return;
   await u.click(screen.getByRole("button", { name: /Choose from the curriculum/i }));
 };
+
+// The curriculum is lazy-loaded; these tests check its CONTENT, so load every subject first.
+beforeAll(async () => { await loadAllSubjects(); }, 120000);
 
 describe("SHS flow: Class -> Programme -> Subject -> Strands -> Topics", () => {
   it("shows the Programme list as soon as an SHS class is chosen, and no subject yet", async () => {

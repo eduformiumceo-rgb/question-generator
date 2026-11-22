@@ -39,3 +39,51 @@ Known limits (cannot be fully solved):
 - Equations on screen use MathML: Chrome/Edge 109+, current Safari/Firefox.
 - Replace question: standard papers only (BECE/WASSCE regenerate the section).
 - Not yet tested against the live AI provider or in Microsoft Word itself.
+
+# Performance (v9): lazy-loaded curriculum
+
+The 14 MB curriculum used to be imported all at once, so every teacher downloaded all of it before the app appeared.
+Now each subject downloads only when it is chosen.
+
+| | Before | After |
+|---|---|---|
+| First-load JavaScript (what everyone downloads) | 13.9 MB (2.56 MB gzip) | 570 KB (172 KB gzip) |
+| Curriculum files fetched on page load | ~90 | 0 |
+| Picking SHS Mathematics | (already downloaded) | 3 small files, ~100 KB gzip |
+| Duplicate data files in the source | 14 (2.45 MB) | 0 (re-exports of one copy) |
+
+How it fits together:
+- `src/curriculumManifest.js` (generated): subject -> classes. Lets the subject picker and SHS course list answer instantly with no data.
+- `src/curriculumLoaders.js`: one dynamic-import loader per subject.
+- `src/curriculumIndex.js`: same helper functions as before; call `await loadSubject(name)` (or `useSubjectData(name)` in React) first.
+- `src/useSubjectData.js`: React hook with loading / error / retry.
+- **Adding a subject:** add one entry to `LOADERS`, then run `npm run sync:curriculum`. `tests/curriculumLazy.test.jsx` fails if the manifest is stale or if two curriculum files are byte-identical.
+- The refactor was proven lossless: all 77 subjects deep-equal the old eager data and 2,932 sub-strand lookups match.
+
+# UI polish (v10): a real-app look that does not cost speed
+
+What changed: page header with icon tile, a Class > Topics > Setup > Review progress stepper, icon tiles on every card
+heading, a "how it works" welcome section before a class is chosen, skeleton loaders while a subject downloads, visible keyboard
+focus, hover feedback, and short entrance fades. Light and dark themes both work (everything uses theme variables).
+
+Files: `src/components/{Icon,WizardProgress,CardTitle,Welcome}.jsx`, the "APP POLISH" block at the end of `src/theme.css`.
+
+## The performance rules (enforced by `tests/uiPerformance.test.js`)
+- No box-shadow, filter, backdrop-filter, blur or will-change. No animation library. Icons are inline SVG.
+- Keyframe animations touch only opacity (and, on small standalone elements, transform). Only the loading skeleton loops.
+- **Wizard cards fade, they never move.** Measured: a translateY on the big cards doubled layout passes (40 vs 19) because the
+  wizard also contains position:fixed elements (action bar, toast).
+- All motion is off for `prefers-reduced-motion`.
+- Fonts never block the first paint: the CSS `@import` was removed (it held up rendering until Google answered, and Inter was never
+  used); the one web font (Playfair Display 800, the logo) loads from `index.html` with preload + swap.
+
+## Measured (production builds; CPU slowed 4x; font server delayed 1.5s; median of 7)
+| | before | after |
+|---|---|---|
+| First paint | 1,924 ms | 428 ms |
+| Layout passes while using the form | 18 | 18 |
+| Layout time | 63 ms | 44 ms |
+| Time until topics appear | 878 ms | 862 ms |
+| Worst frame | 133 ms | 117 ms |
+| JavaScript / CSS added (gzip) | | +2 KB / +1 KB |
+More DOM elements (68 -> 147) and more cheap style recalculations (18 -> 44); neither shows up as slower anything.

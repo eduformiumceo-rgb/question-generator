@@ -21,6 +21,7 @@
  */
 import React from "react";
 import NumberField from "./NumberField.jsx";
+import CardTitle from "./CardTitle.jsx";
 
 export const DEFAULT_SECTIONS = [
   { id: "A", label: "Section A: Objective (Multiple Choice)", type: "objective", questionCount: 20, marksPerQuestion: 1, enabled: true },
@@ -51,9 +52,7 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty,
   return (
     <div style={s.card}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>
-          Exam Structure Builder
-        </h3>
+        <CardTitle icon="list" F={F} mb={0}>Exam Structure Builder</CardTitle>
         <div style={{
           fontSize: 12.5, fontWeight: 700, color: "var(--accent)", fontFamily: F,
           background: "var(--accent-soft)", border: "1px solid var(--tag-border)",

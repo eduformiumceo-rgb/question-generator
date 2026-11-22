@@ -44,6 +44,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   SUPPORTED_SUBJECTS, getSupportedClasses, getStrands, getSubStrands,
 } from "../curriculumIndex.js";
+import { useSubjectData } from "../useSubjectData.js";
+import CardTitle from "./CardTitle.jsx";
 import {
   SHS_COURSES, OTHER_SUBJECT_KEY, isSHSClass, displaySubject, shsSubjectsForCourse,
 } from "../shsCourses.js";
@@ -144,14 +146,17 @@ export default function TopicSelector({
     setSelectedStrands([]); setSelectedTopics([]);
   };
 
-  const strands = useMemo(() => (lookupKey && className ? getStrands(lookupKey, className) : []), [lookupKey, className]);
+  // The subject's curriculum is downloaded on demand (about 100-900 KB for one subject instead of ~14 MB for all).
+  const subjectData = useSubjectData(lookupKey);
+  const dataReady = subjectData.ready;
+  const strands = useMemo(() => (lookupKey && className && dataReady ? getStrands(lookupKey, className) : []), [lookupKey, className, dataReady]);
   const subStrandsByStrand = useMemo(() => {
     const map = {};
     selectedStrands.forEach(strandName => {
       map[strandName] = getSubStrands(lookupKey, className, strandName).map(ss => ss.name);
     });
     return map;
-  }, [lookupKey, className, selectedStrands]);
+  }, [lookupKey, className, selectedStrands, dataReady]);
 
   // Match the uploaded scheme to the curriculum. Runs when a scheme arrives AND whenever the
   // class/subject changes (the reset effects above have just cleared the ticks, so this re-applies
@@ -164,7 +169,7 @@ export default function TopicSelector({
     setSelectedTopics(prev => Array.from(new Set([...prev, ...topics])));
     schemeMatchRef.current = { strands: m.strands, topics, total: m.topics.length };
     setSchemeMatch(schemeMatchRef.current);
-  }, [scheme, lookupKey, className, subject]); // eslint-disable-line
+  }, [scheme, lookupKey, className, subject, dataReady]); // eslint-disable-line
 
   const handleSchemeFile = useCallback(async (file) => {
     if (!file) return;
@@ -235,9 +240,9 @@ export default function TopicSelector({
   return (
     <div style={S.card}>
       <style>{TS_CSS}</style>
-      <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>
+      <CardTitle icon="book" F={F}>
         Curriculum <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>(GES / NaCCA)</span>
-      </h3>
+      </CardTitle>
       <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
         Choose the class first. The subject list is filtered to what's actually taught at that level.
       </p>
@@ -389,6 +394,21 @@ export default function TopicSelector({
               <div style={{ ...S.err, marginTop: 10, marginBottom: 0 }}><span>Only the first 80 pages of that PDF were read.</span></div>
             )}
           </div>
+
+          {/* While a subject's curriculum downloads (first pick only; it is cached afterwards) */}
+          {lookupKey && className && subjectData.loading && (
+            <div role="status" aria-label={`Loading topics for ${subject || lookupKey}`} style={{ padding: "12px 0 4px", display: "grid", gap: 10 }}>
+              <div className="qa-skel" style={{ height: 14, width: "38%" }} />
+              <div className="qa-skel" style={{ height: 46 }} />
+              <div className="qa-skel" style={{ height: 46, opacity: .8 }} />
+            </div>
+          )}
+          {lookupKey && className && subjectData.error && (
+            <div role="alert" style={{ ...S.err, marginTop: 10, marginBottom: 0 }}>
+              <span>Couldn't load the topics for {subject || lookupKey}. Check your connection. </span>
+              <button type="button" className="ts-link" onClick={subjectData.retry}>Try again</button>
+            </div>
+          )}
 
           {/* 2. Strands + topics from the NaCCA curriculum (collapsed) */}
           {strands.length > 0 && (
