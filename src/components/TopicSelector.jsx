@@ -524,11 +524,11 @@ function Accordion({ F, id, open, onToggle, title, sub, badge, children }) {
     <div style={{ border: "1px solid var(--border-strong)", borderRadius: 12, background: "var(--card-bg)", overflow: "hidden" }}>
       <button
         type="button" onClick={onToggle} aria-expanded={open} aria-controls={`${id}-panel`} id={`${id}-btn`}
-        className="ts-acc-head"
+        className={`ts-acc-head${open ? " is-open" : ""}`}
         style={{
           width: "100%", minHeight: 56, padding: "10px 16px", boxSizing: "border-box",
           display: "flex", alignItems: "center", gap: 12, textAlign: "left",
-          background: open ? "var(--brand-soft)" : "transparent", border: "none", cursor: "pointer", fontFamily: F,
+          background: "transparent", border: "none", cursor: "pointer", fontFamily: F,
           color: "var(--brand)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
         }}
       >
@@ -548,7 +548,7 @@ function Accordion({ F, id, open, onToggle, title, sub, badge, children }) {
       </button>
       <div
         id={`${id}-panel`} role="region" aria-labelledby={`${id}-btn`}
-        className="ts-acc-body"
+        className={`ts-acc-body${open ? " is-open" : ""}`}
         style={{ display: open ? "block" : "none" }}
       >
         <div style={{ padding: "12px 16px 16px" }}>{children}</div>
@@ -559,12 +559,18 @@ function Accordion({ F, id, open, onToggle, title, sub, badge, children }) {
 
 // Tiny stylesheet for what inline styles can't do: focus rings, hover, animation.
 const TS_CSS = `
-.ts-acc-head:hover{background:var(--brand-soft)!important}
-/* No ring around an accordion header (it drew a second border inside the card). Keyboard focus is shown as a soft tint instead. */
+/* Accordion: white header (no heavy tint), a hairline divider when open, a short arrow turn, and an opacity-only fade for the content.
+   Nothing animates height or layout, so it stays smooth on low-end phones. */
+button.ts-acc-head{transition:background-color .12s ease}
 button.ts-acc-head:focus,button.ts-acc-head:focus-visible{outline:none!important;box-shadow:none!important}
-button.ts-acc-head:focus-visible{background:var(--brand-soft)!important}
+button.ts-acc-head:focus-visible{background:var(--surface-2)!important}
+button.ts-acc-head:active{background:var(--surface-2)!important}
+@media (hover:hover){button.ts-acc-head:hover{background:var(--surface-2)!important}}
+button.ts-acc-head.is-open{border-bottom:1px solid var(--border)!important}
+.ts-chev{transition:transform .16s ease}
+.ts-acc-body.is-open{animation:ts-fade .18s ease-out both}
+@keyframes ts-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.ts-chev,button.ts-acc-head{transition:none!important}.ts-acc-body.is-open{animation:none!important}}
 .ts-link:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:10px}
-/* Accordions open and close instantly: no height animation (it re-laid-out the whole card every frame and felt laggy). */
-.ts-chev,.ts-acc-body,.ts-acc-head{transition:none!important;animation:none!important}
 .ts-link{background:none;border:none;padding:0;font:inherit;font-weight:700;color:var(--accent);text-decoration:underline;cursor:pointer}
 `;

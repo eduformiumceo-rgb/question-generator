@@ -55,6 +55,7 @@ import AuthModal from "./AuthModal_upgraded.jsx";
 import { goToHubSignIn } from "./hubSignIn.js";
 import AppHeader from "./components/AppHeader.jsx";
 import SavedExams from "./components/SavedExams.jsx";
+import Footer from "./components/Footer.jsx";
 import folderPapers from "./assets/folder-papers.webp";
 import folderEmpty from "./assets/folder-empty.webp";
 import { ExamHistory, MAX_SAVED_EXAMS, metaForSave } from "./examHistory.js";
@@ -1360,6 +1361,7 @@ function QuestionsGeneratorInner() {
       )}
       </div>
     </div>
+    <Footer F={F} />
 
     {/* ── Sticky action bar: the things you do with a finished paper, always one tap away ── */}
     {view === "generate" && examData && !loading && !barHidden && (

@@ -260,11 +260,11 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-how-item p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
 
 /* Feature strip: plain text split by hairlines, no pills, no icons */
-.qa-feats { display: flex; flex-wrap: wrap; justify-content: center; row-gap: 6px; margin: 22px 0 14px; padding: 0; list-style: none; }
+.qa-feats { display: flex; flex-wrap: wrap; justify-content: center; row-gap: 6px; margin: 14px 0 6px; padding: 0; list-style: none; }
 .qa-feat { padding: 0 11px; font-size: 12px; white-space: nowrap; font-weight: 600; color: var(--text-secondary); line-height: 1.2; }
 .qa-feat + .qa-feat { border-left: 1px solid var(--border-strong); }
 @media (max-width: 640px) {
-  .qa-feats { display: grid; grid-template-columns: 1fr 1fr; justify-items: center; }
+  .qa-feats { column-gap: 2px; }
   .qa-feat + .qa-feat { border-left: none; }
   .qa-how { grid-template-columns: 1fr; }
   .qa-how-item, .qa-how-item + .qa-how-item { padding: 14px 0; border-left: none; }

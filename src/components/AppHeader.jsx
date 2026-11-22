@@ -11,8 +11,6 @@
 import React, { useEffect, useState } from "react";
 import { F, S } from "../sharedStyles.jsx";
 import coinIcon from "../assets/dollar.png";
-import folderPapers from "../assets/folder-papers.webp";
-import folderEmpty from "../assets/folder-empty.webp";
 import { getThemeMode, setThemeMode } from "../theme.js";
 
 const Sun = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>);
@@ -23,7 +21,6 @@ const THEME_OPTS = [
   { id: "auto", label: "Auto", Icon: Auto },
   { id: "dark", label: "Dark", Icon: Moon },
 ];
-const Menu3 = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>);
 
 const getInitials = (u) => {
   const src = (u?.name || u?.email || "G").trim();
@@ -60,18 +57,19 @@ const HEADER_CSS = `
   .qh-chevron { display:flex; align-items:center; color:var(--text-muted);
     transition:transform .22s cubic-bezier(.22,1,.36,1); }
   .qh-hbg.is-open .qh-chevron { transform:rotate(180deg); }
-  .qh-item { display:flex; align-items:center; gap:10px; width:100%; padding:10px 10px; border-radius:10px;
-    border:none; background:transparent; color:var(--text); font-size:14px; font-weight:400; cursor:pointer;
-    font-family:${F}; -webkit-tap-highlight-color:transparent; touch-action:manipulation; text-align:left; }
-  .qh-item:hover { background:var(--accent-soft); }
-  .qh-theme { display:flex; gap:4px; padding:4px; border-radius:12px; background:var(--input-bg); border:1px solid var(--border); }
-  .qh-theme button { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; height:34px; border:none; border-radius:9px;
-    background:transparent; color:var(--text-secondary); font-size:12.5px; font-weight:600; font-family:${F}; cursor:pointer;
-    -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:background .15s,color .15s; }
-  .qh-theme button:hover { color:var(--text); }
-  .qh-theme button[aria-checked="true"] { background:var(--accent); color:#fff; }
-  .qh-theme button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  .qh-fold { width:22px; height:auto; flex-shrink:0; }
+  .qh-menu { width:264px; border-radius:14px; }
+  .qh-who { padding:14px 16px 12px; }
+  .qh-who-name { font-size:14px; font-weight:700; color:var(--text); font-family:${F}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .qh-who-mail { font-size:12px; color:var(--text-muted); font-family:${F}; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .qh-credit-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .qh-credit-lbl { font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--text-muted); font-family:${F}; }
+  .qh-credit-num { font-size:18px; font-weight:800; color:var(--text); font-family:${F}; line-height:1.2; margin-top:1px; }
+  .qh-topup { height:32px; padding:0 16px; border-radius:99px; border:none; background:var(--btn); color:#fff; font-size:13px; font-weight:700; font-family:${F}; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .qh-list { padding:6px; }
+  .qh-row { display:flex; align-items:center; gap:12px; width:100%; height:44px; padding:0 10px; border:none; border-radius:10px; background:transparent; color:var(--text); font-size:14px; font-weight:500; font-family:${F}; cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .qh-row svg { color:var(--text-muted); flex-shrink:0; }
+  .qh-row:hover { background:var(--surface-2); }
+  .qh-row-out, .qh-row-out svg { color:var(--signout-color); }
   .qh-tbtn { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;
     background:var(--input-bg); border:1.5px solid var(--border-strong); color:var(--text-secondary); cursor:pointer;
     -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:border-color .15s,color .15s; }
@@ -162,11 +160,11 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
               </>
             )}
 
-            {(
-              <button className={`qh-hbg${menuOpen ? " is-open" : ""}`} onClick={() => setMenuOpen((o) => !o)} aria-label="Menu: theme and account" aria-expanded={menuOpen}>
+            {(user || canInstall) && (
+              <button className={`qh-hbg${menuOpen ? " is-open" : ""}`} onClick={() => setMenuOpen((o) => !o)} aria-label="Account menu" aria-expanded={menuOpen}>
                 <span className="qh-avatar">
                   <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: F, userSelect: "none" }}>
-                    {user ? getInitials(user) : <Menu3 />}
+                    {user ? getInitials(user) : "G"}
                   </span>
                   {isUsableAvatarURL(user?.avatar_url) && (
                     <img src={user.avatar_url} alt="" referrerPolicy="no-referrer"
@@ -180,65 +178,38 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
         </div>
       </header>
 
-      {/* Account dropdown */}
+      {/* Account dropdown: who you are, your credits, install, sign out. (Theme lives in the header; My Exams is the card on the page.) */}
       {menuOpen && (
         <>
           <div className="qh-overlay" onClick={closeMenu} />
           <div className="qh-menu" role="menu">
             {user && (
-            <div style={{ padding: "12px 16px 14px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="qh-avatar" style={{ width: 38, height: 38 }}>
-                <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#fff", fontFamily: F }}>{getInitials(user)}</span>
-                {isUsableAvatarURL(user.avatar_url) && (
-                  <img src={user.avatar_url} alt="" referrerPolicy="no-referrer"
-                    style={{ position: "relative", width: "100%", height: "100%", objectFit: "cover" }}
-                    onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                )}
+              <div className="qh-who">
+                <div className="qh-who-name">{user.name || user.email}</div>
+                {user.name && user.email && <div className="qh-who-mail">{user.email}</div>}
               </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>{user.name || user.email}</div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: F, marginTop: 1 }}>Signed in</div>
-              </div>
-            </div>
             )}
-
-            <div style={{ padding: "10px 12px 6px" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text-muted)", fontFamily: F, margin: "0 2px 6px" }}>Appearance</div>
-              <div className="qh-theme" role="radiogroup" aria-label="Appearance">
-                {THEME_OPTS.map(({ id, label, Icon }) => (
-                  <button key={id} type="button" role="radio" aria-checked={themeMode === id} onClick={() => pickTheme(id)}>
-                    <Icon />{label}
-                  </button>
-                ))}
+            {user && hasBalance && (
+              <div className="qh-credit-row">
+                <div>
+                  <div className="qh-credit-lbl">Credits</div>
+                  <div className="qh-credit-num">{credits}</div>
+                </div>
+                <button type="button" className="qh-topup" onClick={() => { closeMenu(); onTopUp(); }}>Top up</button>
               </div>
-            </div>
-            <div style={{ padding: "6px 12px", borderTop: "1px solid var(--border)", marginTop: 6 }}>
-              {!user && (
-                <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onSignIn(); }}>
-                  Sign In / Create Account
-                </button>
-              )}
-              {user && hasBalance && (
-                <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onTopUp(); }}>
-                  <span style={{ flex: 1 }}>{credits} credits</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>Buy</span>
-                </button>
-              )}
-              {user && onOpenSaved && (
-                <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onOpenSaved(); }}>
-                  <img className="qh-fold" src={savedCount ? folderPapers : folderEmpty} alt="" aria-hidden="true" />
-                  My Exams{savedCount ? ` (${savedCount})` : ""}
-                </button>
-              )}
+            )}
+            <div className="qh-list">
               {canInstall && (
-                <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onInstall(); }}>
-                  Install App
+                <button className="qh-row" role="menuitem" onClick={() => { closeMenu(); onInstall(); }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>
+                  Install app
                 </button>
               )}
               {user && (
-              <button className="qh-item" role="menuitem" style={{ color: "var(--signout-color)" }} onClick={() => { closeMenu(); onSignOut(); }}>
-                Sign out
-              </button>
+                <button className="qh-row qh-row-out" role="menuitem" onClick={() => { closeMenu(); onSignOut(); }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                  Sign out
+                </button>
               )}
             </div>
           </div>
