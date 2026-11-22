@@ -894,13 +894,17 @@ function QuestionsGeneratorInner() {
               <h1 style={{ fontFamily: F }}>Questions Generator</h1>
               <p style={{ fontFamily: F }}>Build print-ready class tests, quizzes and exams from your curriculum in minutes.</p>
             </div>
-            <button type="button" className="qa-hero-btn qa-myexams" style={{ fontFamily: F }} onClick={requireLogin(() => setView("saved"))}>
-              <img src={savedCount ? folderPapers : folderEmpty} alt="" aria-hidden="true" style={{ width: 20, height: "auto", marginRight: 7, verticalAlign: "middle" }} />
-              My Exams{savedCount ? ` (${savedCount})` : ""}
-            </button>
           </div>
           <WizardProgress hasClass={!!(className && subject)} hasTopics={selectedTopics.length > 0 || !!pastedSyllabus.trim()} hasExam={!!examData} />
         </header>
+        <button type="button" className="qa-exams-tile qa-rise" onClick={requireLogin(() => setView("saved"))} style={{ fontFamily: F }}>
+          <img src={savedCount ? folderPapers : folderEmpty} alt="" aria-hidden="true" />
+          <span className="qa-exams-txt">
+            <strong>My Exams</strong>
+            <span>{savedCount ? `${savedCount} saved exam${savedCount === 1 ? "" : "s"}` : "Your saved papers appear here"}</span>
+          </span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
         </>
       )}
 

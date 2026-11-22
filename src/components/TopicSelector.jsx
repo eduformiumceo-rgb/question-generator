@@ -549,11 +549,9 @@ function Accordion({ F, id, open, onToggle, title, sub, badge, children }) {
       <div
         id={`${id}-panel`} role="region" aria-labelledby={`${id}-btn`}
         className="ts-acc-body"
-        style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", visibility: open ? "visible" : "hidden" }}
+        style={{ display: open ? "block" : "none" }}
       >
-        <div style={{ overflow: "hidden", minHeight: 0 }}>
-          <div style={{ padding: "12px 16px 16px" }}>{children}</div>
-        </div>
+        <div style={{ padding: "12px 16px 16px" }}>{children}</div>
       </div>
     </div>
   );
@@ -562,10 +560,11 @@ function Accordion({ F, id, open, onToggle, title, sub, badge, children }) {
 // Tiny stylesheet for what inline styles can't do: focus rings, hover, animation.
 const TS_CSS = `
 .ts-acc-head:hover{background:var(--brand-soft)!important}
-.ts-acc-head:focus-visible,.ts-link:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:10px}
-.ts-chev{transition:transform .22s ease}
-.ts-acc-body{transition:grid-template-rows .25s ease,visibility 0s linear .25s}
-.ts-acc-body[style*="visible"]{transition:grid-template-rows .25s ease,visibility 0s}
+/* No ring around an accordion header (it drew a second border inside the card). Keyboard focus is shown as a soft tint instead. */
+button.ts-acc-head:focus,button.ts-acc-head:focus-visible{outline:none!important;box-shadow:none!important}
+button.ts-acc-head:focus-visible{background:var(--brand-soft)!important}
+.ts-link:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:10px}
+/* Accordions open and close instantly: no height animation (it re-laid-out the whole card every frame and felt laggy). */
+.ts-chev,.ts-acc-body,.ts-acc-head{transition:none!important;animation:none!important}
 .ts-link{background:none;border:none;padding:0;font:inherit;font-weight:700;color:var(--accent);text-decoration:underline;cursor:pointer}
-@media (prefers-reduced-motion:reduce){.ts-chev,.ts-acc-body{transition:none!important}}
 `;

@@ -72,6 +72,11 @@ const HEADER_CSS = `
   .qh-theme button[aria-checked="true"] { background:var(--accent); color:#fff; }
   .qh-theme button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .qh-fold { width:22px; height:auto; flex-shrink:0; }
+  .qh-tbtn { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    background:var(--input-bg); border:1.5px solid var(--border-strong); color:var(--text-secondary); cursor:pointer;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:border-color .15s,color .15s; }
+  .qh-tbtn:hover { border-color:var(--accent); color:var(--accent); }
+  .qh-tbtn svg { width:16px; height:16px; }
   @media (max-width:640px) {
     .qh-inner { padding:0 12px; }
     .qh-brand-sub { font-size:8px !important; }
@@ -86,6 +91,13 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
   const closeMenu = () => setMenuOpen(false);
   const [themeMode, setMode] = useState(getThemeMode);
   const pickTheme = (m) => { setMode(m); setThemeMode(m); };
+  useEffect(() => { // keep in step if the theme is changed from somewhere else
+    const on = (e) => setMode(e.detail);
+    window.addEventListener("edu-theme-change", on);
+    return () => window.removeEventListener("edu-theme-change", on);
+  }, []);
+  const nextTheme = themeMode === "light" ? "auto" : themeMode === "auto" ? "dark" : "light";
+  const CurIcon = (THEME_OPTS.find((o) => o.id === themeMode) || THEME_OPTS[0]).Icon;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -115,6 +127,10 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
 
           {/* Right side */}
           <div className="qh-right">
+            <button type="button" className="qh-tbtn" onClick={() => pickTheme(nextTheme)}
+              aria-label={`Appearance: ${themeMode}. Tap to switch to ${nextTheme}`} title={`Appearance: ${themeMode} (tap for ${nextTheme})`}>
+              <CurIcon />
+            </button>
             {!user && (
               <button onClick={onSignIn} style={{ ...S.btn, height: 34, padding: "0 18px", fontSize: 13, borderRadius: 99 }}>Sign In</button>
             )}

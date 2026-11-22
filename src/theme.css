@@ -221,8 +221,16 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-ct h3 { color: var(--brand) !important; letter-spacing: -.01em; }
 
 /* Hero: the one deep-blue block on the page. Title, My Exams and the stepper live inside it. */
-.qa-hero { background: var(--brand-solid); border-radius: 18px; padding: 22px 26px 18px; margin-bottom: 18px; color: #fff; }
-.qa-hero-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.qa-hero { background: radial-gradient(120% 100% at 100% 100%, rgba(13,148,136,.50) 0%, rgba(13,148,136,0) 62%), linear-gradient(135deg, var(--brand-solid) 0%, #133C80 100%); border-radius: 18px; padding: 22px 26px 18px; margin-bottom: 12px; color: #fff; }
+.qa-exams-tile { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; margin: 0 0 18px; padding: 10px 16px 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: border-color .15s, background .15s; }
+.qa-exams-tile:hover { border-color: var(--accent); }
+.qa-exams-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.qa-exams-tile img { width: 46px; height: auto; flex-shrink: 0; }
+.qa-exams-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.qa-exams-txt strong { font-size: 15px; font-weight: 700; }
+.qa-exams-txt span { font-size: 12.5px; color: var(--text-muted); }
+.qa-exams-tile > svg { color: var(--text-muted); flex-shrink: 0; }
+.qa-hero-row { display: block; margin-bottom: 22px; }
 .qa-hero h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.2; color: #fff; letter-spacing: -.01em; }
 .qa-hero p { margin: 5px 0 0; font-size: 13.5px; line-height: 1.5; color: rgba(255,255,255,.76); max-width: 62ch; }
 .qa-hero-btn { flex-shrink: 0; height: 38px; padding: 0 16px; border-radius: 99px; background: transparent; color: #fff; font-size: 13px; font-weight: 600;
@@ -320,6 +328,8 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visible, [role="button"]:focus-visible {
   outline: 2px solid var(--accent) !important; outline-offset: 2px;
 }
+
+button.qa-acc-btn:focus, button.qa-acc-btn:focus-visible { outline: none !important; box-shadow: none !important; }
 
 /* Hover feedback only on devices that can hover (opacity is composited; nothing repaints) */
 @media (hover: hover) { button:not(:disabled):hover { opacity: .92; } }
