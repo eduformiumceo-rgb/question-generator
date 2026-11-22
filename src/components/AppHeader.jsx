@@ -54,10 +54,12 @@ const HEADER_CSS = `
   .qh-credits-desktop { display:flex; align-items:center; gap:10px; margin-right:4px; }
   .qh-credits-mobile  { display:none; }
   .qh-overlay { position:fixed; inset:0; background:transparent; z-index:150; }
-  .qh-menu { position:fixed; top:60px; right:12px; width:240px; max-width:calc(100vw - 24px);
-    background:var(--card-bg); z-index:160; border-radius:14px; border:1px solid var(--border);
+  .qh-menu { position:fixed; top:62px; right:12px; width:272px; max-width:calc(100vw - 24px);
+    background:var(--card-bg); z-index:160; border-radius:16px; border:1px solid var(--border);
+    box-shadow:0 10px 30px rgba(16,24,40,.08), 0 2px 8px rgba(16,24,40,.04);
     display:flex; flex-direction:column; overflow:hidden;
     animation:qh-menu-in .22s cubic-bezier(.22,1,.36,1) both; transform-origin:top right; }
+  [data-theme="dark"] .qh-menu { box-shadow:0 10px 30px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2); }
   @keyframes qh-menu-in { from{opacity:0; transform:scale(.93) translateY(-8px);} to{opacity:1; transform:scale(1) translateY(0);} }
   .qh-hbg { display:flex; align-items:center; gap:5px; height:34px; border-radius:99px; padding:0 8px 0 3px;
     background:var(--input-bg); border:1.5px solid var(--border-strong); cursor:pointer; flex-shrink:0;
@@ -69,25 +71,24 @@ const HEADER_CSS = `
   .qh-chevron { display:flex; align-items:center; color:var(--text-muted);
     transition:transform .22s cubic-bezier(.22,1,.36,1); }
   .qh-hbg.is-open .qh-chevron { transform:rotate(180deg); }
-  .qh-menu { width:264px; border-radius:14px; }
-  .qh-who { padding:14px 16px 12px; }
-  .qh-who-name { font-size:14px; font-weight:700; color:var(--text); font-family:${F}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .qh-who-mail { font-size:12px; color:var(--text-muted); font-family:${F}; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .qh-credit-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
-  .qh-credit-lbl { font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--text-muted); font-family:${F}; }
-  .qh-credit-num { font-size:18px; font-weight:800; color:var(--text); font-family:${F}; line-height:1.2; margin-top:1px; }
-  .qh-topup { height:32px; padding:0 16px; border-radius:99px; border:none; background:var(--btn); color:#fff; font-size:13px; font-weight:700; font-family:${F}; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
-  .qh-list { padding:6px; }
-  .qh-row { display:flex; align-items:center; gap:12px; width:100%; height:44px; padding:0 10px; border:none; border-radius:10px; background:transparent; color:var(--text); font-size:14px; font-weight:500; font-family:${F}; cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
-  a.qh-row { text-decoration:none; box-sizing:border-box; }
-  .qh-row-sep { height:1px; background:var(--border); margin:6px 4px; }
-  .qh-legal { display:flex; flex-wrap:wrap; gap:2px 4px; padding:10px 12px 12px; border-top:1px solid var(--border); }
-  .qh-legal a { padding:4px 8px; font-size:12.5px; font-weight:500; font-family:${F}; color:var(--text-secondary); text-decoration:none; border-radius:8px; }
-  .qh-legal a:hover { color:var(--accent); background:var(--surface-2); }
-  .qh-legal-copy { width:100%; padding:6px 8px 0; font-size:11.5px; color:var(--text-muted); font-family:${F}; }
+  .qh-who { padding:16px 18px 12px; }
+  .qh-who-name { font-size:14.5px; font-weight:700; line-height:1.3; color:var(--text); font-family:${F}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .qh-who-mail { font-size:12.5px; line-height:1.3; color:var(--text-muted); font-family:${F}; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .qh-credit-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 12px 6px; padding:10px 12px; background:var(--surface-2); border-radius:12px; }
+  .qh-credit-lbl { font-size:11px; font-weight:600; line-height:1; letter-spacing:.05em; text-transform:uppercase; color:var(--text-muted); font-family:${F}; }
+  .qh-credit-num { font-size:18px; font-weight:800; line-height:1; color:var(--text); font-family:${F}; margin-top:6px; }
+  .qh-topup { height:32px; padding:0 16px; border-radius:99px; border:none; background:var(--btn); color:#fff; font-size:13px; font-weight:700; font-family:${F}; cursor:pointer; flex-shrink:0; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .qh-list { padding:4px 8px 8px; }
+  .qh-row { display:flex; align-items:center; justify-content:flex-start; gap:12px; width:100%; height:44px; padding:0 10px; border:none; border-radius:10px; background:transparent; color:var(--text); font-size:14px; font-weight:500; line-height:1; font-family:${F}; cursor:pointer; text-align:left; box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  a.qh-row { text-decoration:none; }
   .qh-row svg { color:var(--text-muted); flex-shrink:0; }
-  .qh-row:hover { background:var(--surface-2); }
-  .qh-row-out, .qh-row-out svg { color:var(--signout-color); }
+  .qh-row:hover, .qh-row:active { background:var(--surface-2); }
+  .qh-row-sep { height:1px; background:var(--border); margin:6px 10px; }
+  .qh-row-out { color:var(--signout-color); font-weight:600; }
+  .qh-legal { display:grid; grid-template-columns:repeat(3,1fr); gap:2px 8px; padding:12px 18px 14px; border-top:1px solid var(--border); }
+  .qh-legal a { padding:6px 0; font-size:12.5px; font-weight:500; line-height:1.2; font-family:${F}; color:var(--text-secondary); text-decoration:none; }
+  .qh-legal a:hover { color:var(--accent); }
+  .qh-legal-copy { grid-column:1 / -1; margin-top:6px; font-size:11.5px; line-height:1.2; color:var(--text-muted); font-family:${F}; }
   .qh-tbtn { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;
     background:var(--input-bg); border:1.5px solid var(--border-strong); color:var(--text-secondary); cursor:pointer;
     -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:border-color .15s,color .15s; }
@@ -219,7 +220,6 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
                 Back to Eduformium Hub
               </a>
-              {(canInstall || user) && <div className="qh-row-sep" role="separator" />}
               {canInstall && (
                 <button className="qh-row" role="menuitem" onClick={() => { closeMenu(); onInstall(); }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>
@@ -227,10 +227,10 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                 </button>
               )}
               {user && (
-                <button className="qh-row qh-row-out" role="menuitem" onClick={() => { closeMenu(); onSignOut(); }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-                  Sign out
-                </button>
+                <>
+                  <div className="qh-row-sep" role="separator" />
+                  <button className="qh-row qh-row-out" role="menuitem" onClick={() => { closeMenu(); onSignOut(); }}>Sign out</button>
+                </>
               )}
             </div>
             <nav className="qh-legal" aria-label="Legal and help">
