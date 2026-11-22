@@ -6,6 +6,8 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ExamHistory, MAX_SAVED_EXAMS } from "../examHistory.js";
+import folderPapers from "../assets/folder-papers.webp";
+import folderEmpty from "../assets/folder-empty.webp";
 
 const Center = ({ F, icon, title, children, tone }) => (
   <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text-muted)", fontFamily: F }}>
@@ -166,9 +168,12 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
 
   const header = (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        {exams.length > 0 && <img src={folderPapers} alt="" aria-hidden="true" style={{ width: 52, height: "auto", flexShrink: 0 }} />}
       <div>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>My Exams</h1>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>Your saved papers, available on any device.</p>
+      </div>
       </div>
       <button type="button" style={{ ...S.sm }} onClick={onBack}>Back to generator</button>
     </div>
@@ -209,7 +214,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
 
   if (!exams.length) return (
     <div>{header}{undoBar}
-      <Center F={F} title="No saved exams yet" icon={<svg {...svgProps} stroke="var(--border-strong)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>}>
+      <Center F={F} title="No saved exams yet" icon={<img src={folderEmpty} alt="" style={{ width: 150, height: "auto" }} />}>
         Generate an exam and it will be saved here automatically. You can keep up to {MAX_SAVED_EXAMS}.
       </Center>
     </div>
@@ -226,14 +231,14 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
       {undoBar}
       <div style={{ marginBottom: 16, padding: "11px 14px", background: "var(--input-bg)", border: "1px solid var(--border)", borderRadius: 10, fontFamily: F }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Exam Storage</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: isFull ? "var(--red-text)" : isNearFull ? "var(--orange-text)" : "var(--text-secondary)" }}>{used} / {total}</span>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Exam Storage</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: isFull ? "var(--red-text)" : isNearFull ? "var(--orange-text)" : "var(--text-secondary)" }}>{used} / {total}</span>
         </div>
         <div style={{ height: 5, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${pct}%`, borderRadius: 99, background: barColor, transition: "width .4s ease" }} />
         </div>
         {isNearFull && (
-          <div style={{ marginTop: 7, fontSize: 11.5, color: barColor, lineHeight: 1.5 }}>
+          <div style={{ marginTop: 7, fontSize: 12.5, color: barColor, lineHeight: 1.5 }}>
             {isFull ? "Storage full: saving a new exam will remove your oldest one." : "1 slot remaining: next save will remove your oldest exam."}
           </div>
         )}
@@ -243,9 +248,9 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
         <input style={{ ...S.inp, flex: "1 1 200px", borderRadius: 99 }} placeholder="Search exams..." value={q} onChange={(e) => setQ(e.target.value)} />
         {confirmClear ? (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>Delete all exams?</span>
-            <button type="button" style={{ ...S.danger, padding: "6px 12px", fontSize: 12, height: "auto" }} onClick={clearAll}>Yes, delete</button>
-            <button type="button" style={{ padding: "6px 12px", fontSize: 12, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--input-bg)", color: "var(--text)", cursor: "pointer", fontFamily: F }} onClick={() => setConfirmClear(false)}>Cancel</button>
+            <span style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>Delete all exams?</span>
+            <button type="button" style={{ ...S.danger, padding: "6px 12px", fontSize: 13, height: "auto" }} onClick={clearAll}>Yes, delete</button>
+            <button type="button" style={{ padding: "6px 12px", fontSize: 13, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--input-bg)", color: "var(--text)", cursor: "pointer", fontFamily: F }} onClick={() => setConfirmClear(false)}>Cancel</button>
           </div>
         ) : (
           <button type="button" style={S.danger} onClick={() => setConfirmClear(true)}>Clear All</button>
@@ -253,7 +258,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
       </div>
 
       {actionError && <div style={S.err}>{actionError}</div>}
-      <div style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: F, marginBottom: 12, fontWeight: 500 }}>
+      <div style={{ fontSize: 13, color: "var(--text-secondary)", fontFamily: F, marginBottom: 12, fontWeight: 500 }}>
         {filtered.length} exam{filtered.length !== 1 ? "s" : ""}
       </div>
 

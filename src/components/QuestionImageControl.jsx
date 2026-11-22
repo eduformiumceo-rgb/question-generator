@@ -123,7 +123,7 @@ export default function QuestionImageControl({ question, onImage, onDiagram, oth
   const set = (patch) => onImage({ ...image, ...patch });
   const pill = (on) => ({ ...S.sm, height: 34, padding: "0 12px", ...(on ? { borderColor: "var(--accent)", color: "var(--accent)", background: "var(--accent-soft)", fontWeight: 700 } : {}) });
   const small = { ...S.sm, height: 34 };
-  const hint = { fontSize: 12, color: "var(--text-muted)", fontFamily: F };
+  const hint = { fontSize: 13, color: "var(--text-muted)", fontFamily: F };
   const placement = imagePlacement(question);
 
   return (
@@ -135,7 +135,7 @@ export default function QuestionImageControl({ question, onImage, onDiagram, oth
         <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
           <div aria-label="Drawn diagram preview" style={{ width: 150, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, padding: 4, overflow: "hidden", flexShrink: 0 }}
             dangerouslySetInnerHTML={{ __html: diagram.svg.replace("<svg ", '<svg style="width:100%;height:auto;display:block" ') }} />
-          <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>{templateById(diagram.template).label} (drawn to scale)</span>
+          <span style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>{templateById(diagram.template).label} (drawn to scale)</span>
         </div>
       )}
       {!hasImage && (
@@ -198,10 +198,10 @@ export default function QuestionImageControl({ question, onImage, onDiagram, oth
               <div key={item.id} style={{ position: "relative" }}>
                 <button type="button" onClick={() => { if (accept(item.src)) setPanel(null); }} title={item.name} style={{ width: "100%", padding: 4, border: "1px solid var(--border)", borderRadius: 8, background: "#fff", cursor: "pointer" }}>
                   <img src={item.src} alt={item.name} style={{ width: "100%", height: 72, objectFit: "contain", display: "block" }} />
-                  <div style={{ fontSize: 11, color: "#444", fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{item.name}</div>
+                  <div style={{ fontSize: 12, color: "#444", fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{item.name}</div>
                 </button>
                 <button type="button" aria-label={`Delete ${item.name} from library`} onClick={() => setLibrary(removeFromLibrary(item.id))}
-                  style={{ position: "absolute", top: 2, right: 2, width: 22, height: 22, borderRadius: 11, border: "1px solid #999", background: "#fff", cursor: "pointer", fontSize: 12, lineHeight: 1 }}>×</button>
+                  style={{ position: "absolute", top: 2, right: 2, width: 22, height: 22, borderRadius: 11, border: "1px solid #999", background: "#fff", cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button>
               </div>
             ))}
           </div>

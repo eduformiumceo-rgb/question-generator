@@ -1,11 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "@fontsource-variable/dm-sans/wght.css"; // self-hosted: no third-party request, cached with the app
 import "./theme.css";
 import { F, S } from "./sharedStyles.jsx";
 import QuestionsGenerator from "./QuestionsGenerator.jsx";
 import PaymentSuccess from "./components/PaymentSuccess.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { completeHubHandoff } from "./hubHandoff.js";
+import { initTheme } from "./theme.js";
+
+initTheme(); // light by default; applied before the first paint
 
 // Minimal path-based routing - no react-router dependency needed for a
 // two-route app. "/payment-success" matches exam-payment's Paystack

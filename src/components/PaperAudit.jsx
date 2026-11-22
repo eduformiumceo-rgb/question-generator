@@ -73,7 +73,7 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
                   const c = COLORS[f.level];
                   return (
                     <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 10px", borderRadius: 10, background: c.bg, fontFamily: F, fontSize: 12.5, color: "var(--text)", lineHeight: 1.45 }}>
-                      <b style={{ color: c.fg, minWidth: 40, textTransform: "uppercase", fontSize: 10.5, letterSpacing: ".05em", paddingTop: 2 }}>{c.label}</b>
+                      <b style={{ color: c.fg, minWidth: 40, textTransform: "uppercase", fontSize: 11.5, letterSpacing: ".05em", paddingTop: 2 }}>{c.label}</b>
                       <span>{f.message}</span>
                     </li>
                   );
@@ -89,7 +89,7 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
                   <thead>
                     <tr>
                       {["Topic", ...spec.levels, "Total", "%"].map(h => (
-                        <th key={h} style={{ textAlign: h === "Topic" ? "left" : "center", padding: "7px 8px", borderBottom: "2px solid var(--border-strong)", fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--text-muted)" }}>{h}</th>
+                        <th key={h} style={{ textAlign: h === "Topic" ? "left" : "center", padding: "7px 8px", borderBottom: "2px solid var(--border-strong)", fontSize: 12, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--text-muted)" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -116,7 +116,7 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
                   </tbody>
                 </table>
               </div>
-              <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "var(--text-muted)", fontFamily: F }}>Each cell shows marks, with the number of questions in brackets.</p>
+              <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F }}>Each cell shows marks, with the number of questions in brackets.</p>
               {spec.advice.length > 0 && (
                 <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F, lineHeight: 1.6 }}>
                   {spec.advice.map((a, i) => <li key={i}>{a}</li>)}

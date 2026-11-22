@@ -69,7 +69,7 @@ const bigBtn = (F, variant, disabled) => ({
   cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.65 : 1,
   WebkitTapHighlightColor: "transparent", touchAction: "manipulation", boxShadow: "none",
   ...(variant === "solid"
-    ? { background: "linear-gradient(135deg,#0D9488 0%,#0891B2 100%)", color: "#fff", border: "none" }
+    ? { background: "var(--brand-solid)", color: "#fff", border: "none" }
     : { background: "transparent", color: "var(--accent)", border: "2px solid var(--accent)" }),
 });
 
@@ -240,12 +240,9 @@ export default function TopicSelector({
   return (
     <div style={S.card}>
       <style>{TS_CSS}</style>
-      <CardTitle icon="book" F={F}>
-        Curriculum <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>(GES / NaCCA)</span>
+      <CardTitle F={F} mb={20} desc="Choose the class first. The subject list is filtered to what's actually taught at that level.">
+        Curriculum <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", letterSpacing: 0 }}>(GES / NaCCA)</span>
       </CardTitle>
-      <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
-        Choose the class first. The subject list is filtered to what's actually taught at that level.
-      </p>
 
       {/* -- STEP 1: Class - always shown first -- */}
       <div style={{ marginBottom: className ? 20 : 0 }}>
@@ -304,7 +301,7 @@ export default function TopicSelector({
       )}
 
       {isSHS && (shsOther || (shsPicked && !shsPicked.hasCurriculum)) && (
-        <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, background: "var(--accent-soft)", border: "1px solid var(--tag-border)", borderRadius: 10, padding: "10px 12px", marginBottom: 4 }}>
+        <div className="qa-note" style={{ fontFamily: F, marginBottom: 4 }}>
           {shsOther ? "" : `NaCCA strands for ${shsPicked.label} aren't loaded yet. `}
           Paste your syllabus or topic list below and the paper will be built from it.
         </div>
@@ -315,7 +312,7 @@ export default function TopicSelector({
       {subjectReady && (
         <div style={{ marginTop: 24, paddingTop: 22, borderTop: "1px solid var(--border)" }}>
           <StepLabel F={F} S={S} n={isSHS ? 4 : 3}>Choose your topics</StepLabel>
-          <div style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, margin: "-2px 0 12px 32px" }}>
+          <div style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, margin: "-2px 0 12px 0" }}>
             Pick whichever way is quickest for you.
           </div>
           <input
@@ -332,21 +329,19 @@ export default function TopicSelector({
               onDrop={e => { e.preventDefault(); setDragging(false); if (!schemeBusy) handleSchemeFile(e.dataTransfer.files?.[0]); }}
             >
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                <span style={{ fontFamily: F, fontSize: 10.5, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--accent)", background: "var(--accent-soft)", border: "1px solid var(--tag-border)", borderRadius: 99, padding: "3px 10px" }}>
-                  Recommended · fastest
-                </span>
+                <span className="qa-tag" style={{ fontFamily: F, textTransform: "uppercase", letterSpacing: ".08em" }}>Recommended · fastest</span>
               </div>
               <button
                 type="button" aria-busy={schemeBusy} disabled={schemeBusy}
                 onClick={() => fileInputRef.current?.click()}
                 style={{
                   ...bigBtn(F, "solid", schemeBusy),
-                  ...(dragging ? { background: "var(--accent-hover)" } : null),
+                  ...(dragging ? { background: "#0D9488" } : null),
                 }}
               >
                 {schemeBusy ? "Reading your scheme…" : "Upload My Scheme of Learning"}
               </button>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 8, lineHeight: 1.5, textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F, marginTop: 8, lineHeight: 1.5, textAlign: "center" }}>
                 Word (.docx) or PDF, up to 10 MB. We read it and select your topics for you.
               </div>
             </div>
@@ -356,7 +351,7 @@ export default function TopicSelector({
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", border: "1.5px solid var(--tag-border)", background: "var(--accent-soft)", borderRadius: 12, padding: "10px 14px", fontFamily: F }}>
               <div style={{ flex: "1 1 180px", minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--accent)", overflowWrap: "anywhere" }}>{scheme.name}</div>
-                <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
+                <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>
                   {scheme.originalLength.toLocaleString()} characters read{scheme.pages ? ` from ${scheme.pages} page${scheme.pages === 1 ? "" : "s"}` : ""}
                 </div>
               </div>
@@ -425,12 +420,7 @@ export default function TopicSelector({
                   {strands.map(st => {
                     const active = selectedStrands.includes(st.strand);
                     return (
-                      <button key={st.strand} type="button" onClick={() => toggleStrand(st.strand)} style={{
-                        padding: "8px 14px", borderRadius: 99, fontFamily: F, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                        border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
-                        background: active ? "var(--accent-soft)" : "var(--card-bg)",
-                        color: active ? "var(--accent)" : "var(--text-secondary)",
-                      }}>
+                      <button key={st.strand} type="button" className="qa-chip" aria-pressed={active} onClick={() => toggleStrand(st.strand)}>
                         {st.strand}
                       </button>
                     );
@@ -442,31 +432,25 @@ export default function TopicSelector({
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <label style={{ ...S.lbl, marginBottom: 0 }}>Topics (Sub-Strands)</label>
                       {onSuggestTopics && (
-                        <button type="button" onClick={handleSuggest} disabled={suggesting} style={{ ...S.sm, height: 30, fontSize: 11.5, opacity: suggesting ? 0.6 : 1 }}>
+                        <button type="button" onClick={handleSuggest} disabled={suggesting} style={{ ...S.sm, height: 34, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0, opacity: suggesting ? 0.6 : 1 }}>
                           {suggesting ? "Suggesting…" : "AI Suggest Topics"}
                         </button>
                       )}
                     </div>
                     {selectedStrands.map(strandName => (
                       <div key={strandName} style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-muted)", fontFamily: F, marginBottom: 4 }}>{strandName}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", fontFamily: F, marginBottom: 4 }}>{strandName}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                           {(subStrandsByStrand[strandName] || []).map(name => {
                             const active = selectedTopics.includes(name);
                             return (
-                              <button key={name} type="button" onClick={() => toggleTopic(name)} style={{
-                                padding: "7px 14px", borderRadius: 16, textAlign: "left", fontFamily: F, fontSize: 12.5, fontWeight: 500,
-                                cursor: "pointer", WebkitTapHighlightColor: "transparent",
-                                border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
-                                background: active ? "var(--accent-soft)" : "var(--card-bg)",
-                                color: active ? "var(--accent)" : "var(--text-secondary)",
-                              }}>
+                              <button key={name} type="button" className="qa-chip is-sq" aria-pressed={active} onClick={() => toggleTopic(name)} style={{ fontWeight: active ? 700 : 500, minHeight: 36, padding: "6px 14px" }}>
                                 {name}
                               </button>
                             );
                           })}
                           {!(subStrandsByStrand[strandName] || []).length && (
-                            <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>No sub-strands found.</span>
+                            <span style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>No sub-strands found.</span>
                           )}
                         </div>
                       </div>
@@ -488,7 +472,7 @@ export default function TopicSelector({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
               <label style={S.lbl}>{scheme ? "Scheme text (edit to focus the paper on certain weeks)" : "List the topics to be examined"}</label>
               {pastedSyllabus.length > MAX_SYLLABUS_CHARS * 0.8 && (
-                <span style={{ fontSize: 11.5, fontFamily: F, fontWeight: 600, flexShrink: 0, marginBottom: 7, color: pastedSyllabus.length > MAX_SYLLABUS_CHARS ? "var(--err-text)" : "var(--text-muted)" }}>
+                <span style={{ fontSize: 12.5, fontFamily: F, fontWeight: 600, flexShrink: 0, marginBottom: 7, color: pastedSyllabus.length > MAX_SYLLABUS_CHARS ? "var(--err-text)" : "var(--text-muted)" }}>
                   {pastedSyllabus.length.toLocaleString()} / {MAX_SYLLABUS_CHARS.toLocaleString()}
                 </span>
               )}
@@ -505,7 +489,7 @@ export default function TopicSelector({
       )}
 
       {subjectReady && !selectedTopics.length && !pastedSyllabus.trim() && (
-        <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 10, background: "var(--accent-soft)", border: "1px solid var(--tag-border)", fontFamily: F, fontSize: 12.5, lineHeight: 1.5, color: "var(--text-secondary)" }}>
+        <div className="qa-note" style={{ marginTop: 16, fontFamily: F }}>
           Add at least one topic (by any of the three ways above) before generating.
         </div>
       )}
@@ -513,16 +497,11 @@ export default function TopicSelector({
   );
 }
 
-// Numbered step heading: a small teal circle + the label.
-function StepLabel({ F, S, n, children }) {
+// Field label. No numbered badge: the stepper at the top already shows where you are.
+function StepLabel({ F, S, children }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-      <span aria-hidden="true" style={{
-        width: 22, height: 22, borderRadius: "50%", flexShrink: 0, background: "var(--accent-soft)", color: "var(--accent)",
-        border: "1px solid var(--tag-border)", fontFamily: F, fontSize: 11.5, fontWeight: 800,
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>{n}</span>
-      <span style={{ ...S.lbl, marginBottom: 0 }}>{children}</span>
+    <div style={{ marginBottom: 8 }}>
+      <span style={{ ...S.lbl, marginBottom: 0, color: "var(--text-secondary)", fontWeight: 700 }}>{children}</span>
     </div>
   );
 }
@@ -532,7 +511,7 @@ function OrDivider({ F }) {
   return (
     <div role="separator" aria-label="or" style={{ display: "flex", alignItems: "center", gap: 12, margin: "16px 0" }}>
       <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-      <span style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: ".14em", color: "var(--text-muted)" }}>OR</span>
+      <span style={{ fontFamily: F, fontSize: 12, fontWeight: 700, letterSpacing: ".14em", color: "var(--text-muted)" }}>OR</span>
       <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
     </div>
   );
@@ -542,23 +521,23 @@ function OrDivider({ F }) {
 // list is never lost) but is hidden from sight and from keyboard focus while collapsed.
 function Accordion({ F, id, open, onToggle, title, sub, badge, children }) {
   return (
-    <div style={{ border: `1.5px solid ${open ? "var(--accent)" : "var(--border-strong)"}`, borderRadius: 12, background: "var(--card-bg)", overflow: "hidden", transition: "border-color .2s" }}>
+    <div style={{ border: "1px solid var(--border-strong)", borderRadius: 12, background: "var(--card-bg)", overflow: "hidden" }}>
       <button
         type="button" onClick={onToggle} aria-expanded={open} aria-controls={`${id}-panel`} id={`${id}-btn`}
         className="ts-acc-head"
         style={{
           width: "100%", minHeight: 56, padding: "10px 16px", boxSizing: "border-box",
           display: "flex", alignItems: "center", gap: 12, textAlign: "left",
-          background: "transparent", border: "none", cursor: "pointer", fontFamily: F,
-          color: "var(--text)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
+          background: open ? "var(--brand-soft)" : "transparent", border: "none", cursor: "pointer", fontFamily: F,
+          color: "var(--brand)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
         }}
       >
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{title}</span>
-          {sub && <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: "var(--text-muted)", marginTop: 2, lineHeight: 1.4 }}>{sub}</span>}
+          <span style={{ display: "block", fontSize: 14.5, fontWeight: 700, lineHeight: 1.3 }}>{title}</span>
+          {sub && <span style={{ display: "block", fontSize: 13, fontWeight: 400, color: "var(--text-muted)", marginTop: 2, lineHeight: 1.4 }}>{sub}</span>}
         </span>
         {badge && (
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--accent)", background: "var(--accent-soft)", border: "1px solid var(--tag-border)", borderRadius: 99, padding: "2px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--tag-text)", background: "var(--accent-soft)", borderRadius: 99, padding: "3px 11px", flexShrink: 0, whiteSpace: "nowrap" }}>
             {badge}
           </span>
         )}
@@ -573,7 +552,7 @@ function Accordion({ F, id, open, onToggle, title, sub, badge, children }) {
         style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", visibility: open ? "visible" : "hidden" }}
       >
         <div style={{ overflow: "hidden", minHeight: 0 }}>
-          <div style={{ padding: "6px 16px 16px", borderTop: "1px solid var(--border)" }}>{children}</div>
+          <div style={{ padding: "12px 16px 16px" }}>{children}</div>
         </div>
       </div>
     </div>
@@ -582,7 +561,7 @@ function Accordion({ F, id, open, onToggle, title, sub, badge, children }) {
 
 // Tiny stylesheet for what inline styles can't do: focus rings, hover, animation.
 const TS_CSS = `
-.ts-acc-head:hover{background:var(--accent-soft)!important}
+.ts-acc-head:hover{background:var(--brand-soft)!important}
 .ts-acc-head:focus-visible,.ts-link:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:10px}
 .ts-chev{transition:transform .22s ease}
 .ts-acc-body{transition:grid-template-rows .25s ease,visibility 0s linear .25s}

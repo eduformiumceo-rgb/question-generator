@@ -16,7 +16,7 @@
  */
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { F, S, Spinner } from "./sharedStyles.jsx";
-import ExamStructureBuilder, { DEFAULT_SECTIONS } from "./components/ExamStructureBuilder.jsx";
+import ExamStructureBuilder, { DEFAULT_SECTIONS, paperTotals } from "./components/ExamStructureBuilder.jsx";
 import TopicSelector from "./components/TopicSelector.jsx";
 import FigurePanel from "./components/FigurePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
@@ -34,7 +34,6 @@ import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBe
 import ExamEditor from "./components/ExamEditor.jsx";
 import MathText from "./components/MathText.jsx";
 import PaperAudit from "./components/PaperAudit.jsx";
-import Icon from "./components/Icon.jsx";
 import CardTitle from "./components/CardTitle.jsx";
 import Welcome from "./components/Welcome.jsx";
 import WizardProgress from "./components/WizardProgress.jsx";
@@ -56,6 +55,8 @@ import AuthModal from "./AuthModal_upgraded.jsx";
 import { goToHubSignIn } from "./hubSignIn.js";
 import AppHeader from "./components/AppHeader.jsx";
 import SavedExams from "./components/SavedExams.jsx";
+import folderPapers from "./assets/folder-papers.webp";
+import folderEmpty from "./assets/folder-empty.webp";
 import { ExamHistory, MAX_SAVED_EXAMS, metaForSave } from "./examHistory.js";
 import InstallPrompt from "./components/InstallPrompt.jsx";
 import { usePwaInstall } from "./pwaInstall.js";
@@ -105,7 +106,7 @@ function Toggle({ checked, onChange, label }) {
       style={{
         position: "relative", width: 44, height: 26, flexShrink: 0, marginLeft: 12, padding: 0,
         border: "none", borderRadius: 99, cursor: "pointer", transition: "background .15s",
-        background: checked ? "#0D9488" : "var(--border-strong)",
+        background: checked ? "var(--btn)" : "var(--border-strong)",
       }}
     >
       <span style={{
@@ -121,16 +122,16 @@ function Toggle({ checked, onChange, label }) {
 function Segmented({ label, value, onChange, options, ariaLabel }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-muted)", fontFamily: F }}>{label}</span>
-      <div role="group" aria-label={ariaLabel || label} style={{ display: "inline-flex", border: "1.5px solid var(--border-strong)", borderRadius: 9, overflow: "hidden", background: "var(--card-bg)" }}>
+      <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--text-secondary)", fontFamily: F }}>{label}</span>
+      <div role="group" aria-label={ariaLabel || label} style={{ display: "inline-flex", border: "1px solid var(--border-strong)", borderRadius: 9, overflow: "hidden", background: "var(--card-bg)" }}>
         {options.map((o, i) => {
           const on = value === o.id;
           return (
             <button key={o.id} type="button" title={o.title} aria-pressed={on} onClick={() => onChange(o.id)} style={{
-              height: 30, padding: "0 12px", minWidth: o.compact ? 34 : undefined, border: "none", cursor: "pointer",
+              height: 34, padding: "0 13px", minWidth: o.compact ? 34 : undefined, border: "none", cursor: "pointer",
               borderLeft: i === 0 ? "none" : "1px solid var(--border-strong)",
-              background: on ? "var(--accent-soft)" : "transparent", color: on ? "var(--accent)" : "var(--text)",
-              fontFamily: F, fontSize: 12, fontWeight: on ? 700 : 500,
+              background: on ? "var(--accent-soft)" : "transparent", color: on ? "var(--tag-text)" : "var(--text)",
+              fontFamily: F, fontSize: 13, fontWeight: on ? 700 : 500,
             }}>{o.label}</button>
           );
         })}
@@ -161,7 +162,7 @@ function GenerationProgress({ progress, elapsed }) {
           );
         })}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--text-muted)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--text-muted)" }}>
         <span>{progress?.sectionLabel ? `Writing ${progress.sectionLabel} (${current} of ${total})` : "Starting…"}</span>
         <span>{mm}:{ss}</span>
       </div>
@@ -887,25 +888,19 @@ function QuestionsGeneratorInner() {
     <div style={{ maxWidth: 760, margin: "0 auto", padding: `24px 16px ${examData && view === "generate" ? 110 : 60}px`, fontFamily: F }}>
       {view === "generate" && (
         <>
-        <div className="qa-rise" style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-            <span className="qa-tile qa-tile-lg" aria-hidden="true"><Icon name="cap" size={24} /></span>
+        <header className="qa-hero qa-rise">
+          <div className="qa-hero-row">
             <div style={{ minWidth: 0 }}>
-              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F, lineHeight: 1.2 }}>
-                Questions Generator
-              </h1>
-              <p style={{ margin: "3px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.45 }}>
-                Build print-ready class tests, quizzes and exams from your curriculum in minutes.
-              </p>
+              <h1 style={{ fontFamily: F }}>Questions Generator</h1>
+              <p style={{ fontFamily: F }}>Build print-ready class tests, quizzes and exams from your curriculum in minutes.</p>
             </div>
+            <button type="button" className="qa-hero-btn qa-myexams" style={{ fontFamily: F }} onClick={requireLogin(() => setView("saved"))}>
+              <img src={savedCount ? folderPapers : folderEmpty} alt="" aria-hidden="true" style={{ width: 20, height: "auto", marginRight: 7, verticalAlign: "middle" }} />
+              My Exams{savedCount ? ` (${savedCount})` : ""}
+            </button>
           </div>
-          <button type="button" className="qa-myexams" aria-label={savedCount ? `My Exams (${savedCount})` : "My Exams"} style={{ ...S.sm, flexShrink: 0 }} onClick={requireLogin(() => setView("saved"))}>
-            <Icon name="folder" size={16} />
-            <span className="qa-hide-sm">My Exams{savedCount ? ` (${savedCount})` : ""}</span>
-            {savedCount ? <span className="qa-show-sm">{savedCount}</span> : null}
-          </button>
-        </div>
-        <WizardProgress hasClass={!!(className && subject)} hasTopics={selectedTopics.length > 0 || !!pastedSyllabus.trim()} hasExam={!!examData} />
+          <WizardProgress hasClass={!!(className && subject)} hasTopics={selectedTopics.length > 0 || !!pastedSyllabus.trim()} hasExam={!!examData} />
+        </header>
         </>
       )}
 
@@ -972,56 +967,34 @@ function QuestionsGeneratorInner() {
            actually drives everything else. ── */}
       {className && (
       <div style={S.card}>
-        <CardTitle icon="file" F={F}>Exam Type</CardTitle>
-        <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
-          What kind of assessment is this?
-        </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
-          {examTypesFor(className).map(t => {
-            const active = examType === t;
-            return (
-              <button key={t} type="button" aria-pressed={active} onClick={() => setExamType(t)} style={{
-                padding: "9px 16px", borderRadius: 99, fontFamily: F, fontSize: 13, fontWeight: 600, cursor: "pointer",
-                border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
-                background: active ? "var(--accent-soft)" : "var(--card-bg)",
-                color: active ? "var(--accent)" : "var(--text-secondary)",
-              }}>
-                {t}
-              </button>
-            );
-          })}
+        <CardTitle F={F} mb={14} desc="What kind of assessment is this?">Exam Type</CardTitle>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {examTypesFor(className).map(t => (
+            <button key={t} type="button" className="qa-chip" aria-pressed={examType === t} onClick={() => setExamType(t)}>{t}</button>
+          ))}
         </div>
 
         {publicAvailable && (
-          <div style={{ margin: "0 0 20px", paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-            <CardTitle icon="layout" F={F}>Exam Style</CardTitle>
-            <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
-              {examStyle === "public"
+          <div className="qa-group">
+            <hr className="qa-divider" style={{ marginTop: 22 }} />
+            <CardTitle F={F} level={2} mb={14} desc={<>{examStyle === "public"
                 ? (publicActive
                     ? (subject ? `Sections, number of questions, marks, time, instructions and the marking scheme are set automatically from real ${wassceActive ? "WASSCE" : "BECE"} papers.` : `Choose a subject above and its ${wassceActive ? "WASSCE" : "BECE"} paper structure loads automatically.`)
                     : "Index-number boxes, a sealed-paper notice and a WASSCE-style layout are applied.")
                 : `Everyday class-test layout. Choose ${isSHS ? "WASSCE" : "BECE"} style for the real exam format.`}
-              {isMock ? " Mock exams always use this style." : ""}
-            </p>
+              {isMock ? " Mock exams always use this style." : ""}</>}>Exam Style</CardTitle>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {[{ id: "school", label: "School exam" }, { id: "public", label: isSHS ? "WASSCE style" : "BECE style" }].map(o => {
-                const active = examStyle === o.id;
                 const locked = isMock && o.id === "school";
                 return (
-                  <button key={o.id} type="button" aria-pressed={active} disabled={locked}
+                  <button key={o.id} type="button" className="qa-chip" aria-pressed={examStyle === o.id} disabled={locked}
                     title={locked ? "Mock exams always follow the BECE / WASSCE format" : ""}
-                    onClick={() => chooseStyle(o.id)} style={{
-                      padding: "9px 18px", borderRadius: 99, fontFamily: F, fontSize: 13, fontWeight: 700,
-                      cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.45 : 1,
-                      border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
-                      background: active ? "var(--accent-soft)" : "var(--card-bg)",
-                      color: active ? "var(--accent)" : "var(--text-secondary)",
-                    }}>{o.label}</button>
+                    onClick={() => chooseStyle(o.id)}>{o.label}</button>
                 );
               })}
             </div>
             {publicActive && beceProfile && subject && (
-              <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: 12, padding: "10px 14px", fontFamily: F, fontSize: 12.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>
+              <div className="qa-note" style={{ marginTop: 14, fontFamily: F, lineHeight: 1.7 }}>
                 {(wassceActive && beceProfile.order !== "21" ? ["p1", "p2"] : ["p2", "p1"]).map(k => k === "p2"
                   ? <div key="p2"><b>Paper 2 (Essay):</b> {beceProfile.paper2.marks} marks, {minutesLabel(beceProfile.paper2.minutes)}</div>
                   : <div key="p1"><b>Paper 1 (Objective):</b> {beceProfile.paper1.marks} questions, {minutesLabel(beceProfile.paper1.minutes)}</div>)}
@@ -1033,7 +1006,12 @@ function QuestionsGeneratorInner() {
           </div>
         )}
 
-        <CardTitle icon="clipboard" F={F} mb={18}>Basic Information</CardTitle>
+      </div>
+      )}
+
+      {className && (
+      <div style={S.card}>
+        <CardTitle F={F} mb={20} desc="Printed in the header of the paper.">Paper Details</CardTitle>
         <div style={{ marginBottom: 14, display: "flex", gap: 12, alignItems: "flex-end" }}>
           <div style={{ flex: 1 }}>
             <label style={S.lbl}>School Name</label>
@@ -1100,45 +1078,33 @@ function QuestionsGeneratorInner() {
            option on screen before there's anything to configure it for. ── */}
       {className && subject && (
       <div style={S.card}>
-        <CardTitle icon="sliders" F={F} mb={18}>Difficulty &amp; Language Control</CardTitle>
+        <CardTitle F={F} mb={20} desc="Shapes how hard the questions are and how they are worded.">Difficulty &amp; Language Control</CardTitle>
 
-        <label style={S.lbl}>Difficulty</label>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          {DIFFICULTIES.map(d => (
-            <button key={d} type="button" onClick={() => setDifficulty(d)} style={{
-              flex: 1, padding: "10px 0", borderRadius: 12, fontFamily: F, fontSize: 13, fontWeight: 600, cursor: "pointer",
-              border: `1.5px solid ${difficulty === d ? "var(--accent)" : "var(--border-strong)"}`,
-              background: difficulty === d ? "var(--accent-soft)" : "var(--card-bg)",
-              color: difficulty === d ? "var(--accent)" : "var(--text)",
-            }}>{d}</button>
-          ))}
+        <div className="qa-group">
+          <label style={S.lbl}>Difficulty</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            {DIFFICULTIES.map(d => (
+              <button key={d} type="button" className="qa-chip is-sq is-fill" aria-pressed={difficulty === d} onClick={() => setDifficulty(d)}>{d}</button>
+            ))}
+          </div>
         </div>
 
-        <label style={S.lbl}>Language Style</label>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          {LANGUAGE_STYLES.map(opt => (
-            <button key={opt.value} type="button" onClick={() => setLanguageStyle(opt.value)} style={{
-              padding: "10px 16px", borderRadius: 12, fontFamily: F, fontSize: 13, fontWeight: 600, cursor: "pointer",
-              border: `1.5px solid ${languageStyle === opt.value ? "var(--accent)" : "var(--border-strong)"}`,
-              background: languageStyle === opt.value ? "var(--accent-soft)" : "var(--card-bg)",
-              color: languageStyle === opt.value ? "var(--accent)" : "var(--text)",
-            }}>{opt.label}</button>
-          ))}
+        <div className="qa-group">
+          <label style={S.lbl}>Language Style</label>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {LANGUAGE_STYLES.map(opt => (
+              <button key={opt.value} type="button" className="qa-chip is-sq" aria-pressed={languageStyle === opt.value} onClick={() => setLanguageStyle(opt.value)}>{opt.label}</button>
+            ))}
+          </div>
         </div>
 
-        <label style={S.lbl}>Cognitive Level (select any)</label>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {COGNITIVE_LEVELS.map(lvl => {
-            const active = cognitiveLevels.includes(lvl);
-            return (
-              <button key={lvl} type="button" onClick={() => toggleCognitive(lvl)} style={{
-                padding: "10px 16px", borderRadius: 12, fontFamily: F, fontSize: 13, fontWeight: 600, cursor: "pointer",
-                border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`,
-                background: active ? "var(--accent-soft)" : "var(--card-bg)",
-                color: active ? "var(--accent)" : "var(--text)",
-              }}>{lvl}</button>
-            );
-          })}
+        <div className="qa-group">
+          <label style={S.lbl}>Cognitive Level (select any)</label>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {COGNITIVE_LEVELS.map(lvl => (
+              <button key={lvl} type="button" className="qa-chip is-sq" aria-pressed={cognitiveLevels.includes(lvl)} onClick={() => toggleCognitive(lvl)}>{lvl}</button>
+            ))}
+          </div>
         </div>
       </div>
       )}
@@ -1155,28 +1121,23 @@ function QuestionsGeneratorInner() {
            instead of two, to cut down on card count. ── */}
       {className && subject && (
       <div style={S.card}>
-        <CardTitle icon="checklist" F={F} mb={16}>Options</CardTitle>
+        <CardTitle F={F} mb={10}>Options</CardTitle>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div className="qa-opt">
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Include Marking Scheme</div>
-            <div style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>
-              Full answer key + point-by-point marking guide. Off = just the question paper, faster and cheaper.
-              {" "}Not available on Free AI.
-            </div>
+            <div className="qa-opt-t" style={{ fontFamily: F }}>Include Marking Scheme</div>
+            <div className="qa-opt-d" style={{ fontFamily: F }}>Full answer key and point-by-point marking guide. Off gives just the question paper, which is faster and cheaper. Not available on Free AI.</div>
           </div>
           <Toggle checked={includeMarkingScheme} onChange={setIncludeMarkingScheme} label="Include marking scheme" />
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="qa-opt">
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Allow AI-Suggested Diagrams</div>
-            <div style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>
-              When a question needs a figure, graph or map, the AI will flag it so you can upload one.
-            </div>
+            <div className="qa-opt-t" style={{ fontFamily: F }}>Allow AI-Suggested Diagrams</div>
+            <div className="qa-opt-d" style={{ fontFamily: F }}>When a question needs a figure, graph or map, the AI flags it and can draw it, or you can upload your own.</div>
           </div>
           <Toggle checked={allowDiagrams} onChange={setAllowDiagrams} label="Allow AI-suggested diagrams" />
-      </div>
+        </div>
       </div>
       )}
 
@@ -1186,55 +1147,48 @@ function QuestionsGeneratorInner() {
            two independent, always-visible actions - matching the real
            App.jsx's GENERATE BAR exactly, not a pre-selected tier toggle
            feeding one shared button. ── */}
-      {className && subject && (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
-        <button
-          onClick={requireLogin(() => handleGenerate("free"))}
-          disabled={loading || freeUsage?.remaining === 0}
-          style={{
-            ...S.sm, height: 56, width: "100%", padding: "0 12px", boxSizing: "border-box",
-            flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
-            gap: 3, lineHeight: 1.2, fontWeight: 700, fontSize: 14,
-            opacity: (loading && loadingTier !== "free") || freeUsage?.remaining === 0 ? 0.5 : 1,
-          }}
-        >
-          {loading && loadingTier === "free" ? <Spinner /> : (
-            <>
-              <span>Free AI</span>
-              <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-muted)" }}>
-                {freeUsage ? `${freeUsage.remaining} / ${freeUsage.limit} left today` : `${FREE_TIER_DAILY_LIMIT}/day`}
-              </span>
-            </>
-          )}
-        </button>
-        <button
-          onClick={requireLogin(() => handleGenerate("premium"))}
-          disabled={loading}
-          style={{
-            height: 56, border: "none", borderRadius: 99, cursor: "pointer", fontFamily: F,
-            background: "linear-gradient(135deg,#0D9488 0%,#0891B2 100%)", color: "#fff",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 3, lineHeight: 1.2, padding: "0 12px",
-            opacity: loading && loadingTier !== "premium" ? 0.6 : 1,
-          }}
-        >
-          {loading && loadingTier === "premium" ? <Spinner /> : (
-            <>
-              <span style={{ fontWeight: 700, fontSize: 14 }}>Premium AI</span>
-              <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.9 }}>
-                ~{formatCredits(includeMarkingScheme ? estimatedCostWithMarking : estimatedCostQuestionsOnly)} credits
-              </span>
-            </>
-          )}
-        </button>
-      </div>
-      )}
+      {className && subject && (() => {
+        const t = paperTotals(sections);
+        const meta = [className, subject, selectedTopics.length ? `${selectedTopics.length} topic${selectedTopics.length === 1 ? "" : "s"}` : (pastedSyllabus.trim() ? "Topics added" : null), `${t.questions} questions`, `${t.marks} marks`].filter(Boolean).join(" · ");
+        return (
+      <section className="qa-gen" aria-label="Generate">
+        <div className="qa-gen-title" style={{ fontFamily: F }}>Ready to generate</div>
+        <div className="qa-gen-meta" style={{ fontFamily: F }}>{meta}</div>
+        <div className="qa-gen-actions">
+          <button type="button" className="qa-gen-btn is-free"
+            onClick={requireLogin(() => handleGenerate("free"))}
+            disabled={loading || freeUsage?.remaining === 0}
+            style={{ opacity: (loading && loadingTier !== "free") || freeUsage?.remaining === 0 ? 0.5 : 1 }}>
+            {loading && loadingTier === "free" ? <Spinner /> : (
+              <>
+                <b>Free AI</b>
+                <span>{freeUsage ? `${freeUsage.remaining} / ${freeUsage.limit} left today` : `${FREE_TIER_DAILY_LIMIT}/day`}</span>
+              </>
+            )}
+          </button>
+          <button type="button" className="qa-gen-btn is-pro"
+            onClick={requireLogin(() => handleGenerate("premium"))}
+            disabled={loading}
+            style={{ opacity: loading && loadingTier !== "premium" ? 0.6 : 1 }}>
+            {loading && loadingTier === "premium" ? <Spinner /> : (
+              <>
+                <b>Premium AI</b>
+                <span>~{formatCredits(includeMarkingScheme ? estimatedCostWithMarking : estimatedCostQuestionsOnly)} credits</span>
+              </>
+            )}
+          </button>
+        </div>
+        <p className="qa-gen-foot" style={{ fontFamily: F }}>Nothing is charged unless generation succeeds. Failed or timed-out requests are not billed.</p>
+      </section>
+        );
+      })()}
       {loading && <GenerationProgress progress={progress} elapsed={elapsed} />}
       {loading && livePreview?.sections?.length > 0 && (
         <div style={{ ...S.out, marginTop: 8, padding: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontFamily: F }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0D9488", animation: "qgPulse 1.2s ease-in-out infinite" }} />
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>Live preview</span>
-            <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+            <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
               {livePreview.sections.length} of {progress?.total || activeSections.length} sections written. More appear as they finish.
             </span>
           </div>
@@ -1242,8 +1196,8 @@ function QuestionsGeneratorInner() {
             {livePreview.title && <div style={{ fontFamily: F, fontSize: 14, fontWeight: 800, color: "var(--text)", padding: "8px 0 2px" }}>{livePreview.title}</div>}
             {livePreview.sections.map((sec) => (
               <div key={sec.id || sec.label} className="eduq-live-sec" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-                <div style={{ fontFamily: F, fontSize: 12, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--accent)" }}>{sec.label}</div>
-                {sec.instructions && <div style={{ fontFamily: F, fontSize: 12, color: "var(--text-muted)", margin: "2px 0 6px", fontStyle: "italic" }}>{sec.instructions}</div>}
+                <div style={{ fontFamily: F, fontSize: 13, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--accent)" }}>{sec.label}</div>
+                {sec.instructions && <div style={{ fontFamily: F, fontSize: 13, color: "var(--text-muted)", margin: "2px 0 6px", fontStyle: "italic" }}>{sec.instructions}</div>}
                 {(sec.questions || []).map((q) => (
                   <div key={q.number} style={{ fontFamily: F, fontSize: 13, color: "var(--text)", lineHeight: 1.5, margin: "6px 0" }}>
                     <b>{q.number}.</b> <MathText text={q.text} />
@@ -1259,19 +1213,14 @@ function QuestionsGeneratorInner() {
           </div>
         </div>
       )}
-      <p style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textAlign: "center", fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 0 }}>
-        <Icon name="shield" size={14} />
-        <span>Nothing is charged unless generation succeeds. Failed or timed-out requests are not billed.</span>
-      </p>
-
       {/* ── Output ──────────────────────────────────────────────── */}
       {examData && (
         <div style={S.out}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--brand)", fontFamily: F }}>
               {(examData.style === "bece" ? cleanBeceTitle(examData.title, examType) : examData.title) || examType}: Ready
               {!examHasMarkingScheme && (
-                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginLeft: 8 }}>(Questions Only)</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginLeft: 8 }}>(Questions Only)</span>
               )}
             </h3>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1285,7 +1234,7 @@ function QuestionsGeneratorInner() {
           </div>
 
           {/* ── Paper settings: version, orientation and answer-option arrangement ── */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 28px", alignItems: "flex-end", border: "1px solid var(--border)", borderRadius: 14, padding: "12px 16px", marginBottom: 14 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 28px", alignItems: "flex-end", background: "var(--surface-2)", borderRadius: 12, padding: "14px 18px", marginBottom: 12 }}>
             <Segmented
               label="Paper version"
               value={examVersion}
@@ -1314,12 +1263,12 @@ function QuestionsGeneratorInner() {
           </div>
 
           {/* ── Candidate index number: its own card so it's easy to find ── */}
-          <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", marginBottom: 14 }}>
+          <div className="qa-inset" style={{ marginBottom: 12 }}>
             {/* One clear switch for the index number; style/boxes/label only appear while it's on. */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", fontFamily: F }}>Include candidate index number</div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>
                   {idMode === "none" ? "Off: no index number on the paper." : "On: candidates write their index number at the top."}
                 </div>
               </div>
@@ -1360,13 +1309,13 @@ function QuestionsGeneratorInner() {
           </div>
 
           {/* ── Paper format: live preview below updates as these change ── */}
-          <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", marginBottom: 14 }}>
+          <div className="qa-inset" style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", fontFamily: F, marginRight: 4 }}>Paper format</span>
               <span style={{ fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F }}>
                 {examStyle === "public" ? (isSHS ? "WASSCE style" : "BECE style") : "School exam"} (change it under Exam Type, near the top)
               </span>
-              {paperPreset === "custom" && <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F }}>Custom</span>}
+              {paperPreset === "custom" && <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F }}>Custom</span>}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 22px", marginTop: 12 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F, cursor: "pointer" }}>
@@ -1423,7 +1372,7 @@ function QuestionsGeneratorInner() {
                 <button key={o.l} type="button" aria-pressed={showAnswerKey === o.k} onClick={() => setShowAnswerKey(o.k)} style={{
                   height: 38, padding: "0 14px", border: "none", cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600,
                   background: showAnswerKey === o.k ? "var(--accent-soft)" : "transparent",
-                  color: showAnswerKey === o.k ? "var(--accent)" : "var(--text-secondary)",
+                  color: showAnswerKey === o.k ? "var(--tag-text)" : "var(--text-secondary)",
                 }}>{o.l}</button>
               ))}
             </div>
@@ -1435,7 +1384,7 @@ function QuestionsGeneratorInner() {
                 {savingChanges ? "Saving…" : "Save changes"}
               </button>
             ) : (
-              <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, flexShrink: 0 }}>Saved</span>
+              <span style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F, flexShrink: 0 }}>Saved</span>
             )
           )}
           <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} disabled={downloadingWord} onClick={() => handleDownloadWord(showAnswerKey ? "answerKey" : "paper")}>

@@ -101,7 +101,7 @@ export default function ExamEditor({ examData, setExamData, S, F, onReplace }) {
                           type="button" title="Mark as correct answer"
                           onClick={() => updateQuestion(sIdx, qIdx, { correctOption: letter })}
                           style={{
-                            width: 22, height: 22, borderRadius: "50%", flexShrink: 0, cursor: "pointer", fontSize: 11, fontWeight: 700, marginTop: 7,
+                            width: 22, height: 22, borderRadius: "50%", flexShrink: 0, cursor: "pointer", fontSize: 12, fontWeight: 700, marginTop: 7,
                             border: `1.5px solid ${isCorrect ? "#0D9488" : "var(--border-strong)"}`,
                             background: isCorrect ? "#0D9488" : "transparent", color: isCorrect ? "#fff" : "var(--text-muted)",
                           }}

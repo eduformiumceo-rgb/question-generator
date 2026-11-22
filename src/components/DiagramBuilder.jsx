@@ -44,7 +44,7 @@ export default function DiagramBuilder({ initial, onUse, onCancel, S, F }) {
     setId(nextId); setParams(clone(p)); setTexts(o);
   };
   const set = (key, value) => setParams(p => ({ ...p, [key]: value }));
-  const lbl = { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", fontFamily: F, display: "block", marginBottom: 4 };
+  const lbl = { fontSize: 13, fontWeight: 600, color: "var(--text-muted)", fontFamily: F, display: "block", marginBottom: 4 };
   const inp = { ...S.inp, height: 38, minHeight: 38, fontSize: 13, padding: "0 12px" };
 
   const field = (f) => {
@@ -75,7 +75,7 @@ export default function DiagramBuilder({ initial, onUse, onCancel, S, F }) {
       <div key={f.key} style={{ marginBottom: 10 }}>
         <label style={lbl}>{f.label}</label>
         {control}
-        {f.help && <div style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F, marginTop: 3, lineHeight: 1.4 }}>{f.help}</div>}
+        {f.help && <div style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, marginTop: 3, lineHeight: 1.4 }}>{f.help}</div>}
       </div>
     );
   };
@@ -95,7 +95,7 @@ export default function DiagramBuilder({ initial, onUse, onCancel, S, F }) {
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <div style={{ flex: "1 1 260px", minWidth: 240 }}>{tpl.fields.map(field)}</div>
         <div style={{ flex: "1 1 260px", minWidth: 240 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", fontFamily: F, marginBottom: 6 }}>Preview (this is how it prints)</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)", fontFamily: F, marginBottom: 6 }}>Preview (this is how it prints)</div>
           <div style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 10, padding: 8, minHeight: 120, display: "flex", alignItems: "center", justifyContent: "center", color: "#444", fontSize: 13, fontFamily: F, overflow: "auto" }}
             {...(result ? { dangerouslySetInnerHTML: { __html: result.svg } } : { children: "Fill in the details on the left to see the diagram." })} />
         </div>

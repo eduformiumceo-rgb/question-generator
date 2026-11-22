@@ -5,6 +5,10 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/questions-favicon-32.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/questions-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      /* Apply the saved theme before first paint so there is no flash. Default is light. */
+      try { var m = localStorage.getItem("glpg_theme"); var d = m === "dark" || ((m === "auto" || m === "system") && matchMedia("(prefers-color-scheme: dark)").matches); document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); document.documentElement.style.colorScheme = d ? "dark" : "light"; } catch (e) {}
+    </script>
     <title>Eduformium: Questions Generator</title>
     <meta name="description" content="Build print-ready class tests, quizzes and exams from the Ghana NaCCA curriculum in minutes." />
 

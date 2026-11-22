@@ -34,6 +34,15 @@ const MAX_QUESTIONS_PER_SECTION = 60; // edge-case guard against runaway generat
 // What a candidate can actually earn / answer: an "answer any N" section counts N questions.
 const answered = (sec) => sec.answerAny ? Math.min(Number(sec.answerAny) || 0, Number(sec.questionCount) || 0) : (Number(sec.questionCount) || 0);
 
+/** { questions, marks } a candidate can answer / earn across the enabled sections (also used by the Generate panel). */
+export function paperTotals(sections) {
+  const on = (sections || []).filter(sec => sec.enabled);
+  return {
+    questions: on.reduce((n, sec) => n + answered(sec), 0),
+    marks: on.reduce((n, sec) => n + answered(sec) * (Number(sec.marksPerQuestion) || 0), 0),
+  };
+}
+
 export default function ExamStructureBuilder({ sections, setSections, S, F, sty, note }) {
   const s = S || sty; // tolerate either prop name
 
@@ -41,61 +50,42 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty,
     setSections(prev => prev.map(sec => sec.id === id ? { ...sec, ...patch } : sec));
   };
 
-  const totalMarks = sections
-    .filter(sec => sec.enabled)
-    .reduce((sum, sec) => sum + answered(sec) * (Number(sec.marksPerQuestion) || 0), 0);
-
-  const totalQuestions = sections
-    .filter(sec => sec.enabled)
-    .reduce((sum, sec) => sum + answered(sec), 0);
+  const { questions: totalQuestions, marks: totalMarks } = paperTotals(sections);
 
   return (
     <div style={s.card}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <CardTitle icon="list" F={F} mb={0}>Exam Structure Builder</CardTitle>
-        <div style={{
-          fontSize: 12.5, fontWeight: 700, color: "var(--accent)", fontFamily: F,
-          background: "var(--accent-soft)", border: "1px solid var(--tag-border)",
-          borderRadius: 99, padding: "5px 14px",
-        }}>
-          {totalQuestions} questions · {totalMarks} marks total
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+        <div style={{ minWidth: 0 }}>
+          <CardTitle F={F} mb={0} desc="Tick the sections this paper needs, then set how many questions and marks each has.">Exam Structure Builder</CardTitle>
         </div>
+        <div className="qa-stat" style={{ fontFamily: F }}>{totalQuestions} questions · {totalMarks} marks total</div>
       </div>
 
-      {note && (
-        <div style={{ fontSize: 12.5, lineHeight: 1.55, color: "var(--text-secondary)", fontFamily: F, background: "var(--accent-soft)", border: "1px solid var(--tag-border)", borderRadius: 12, padding: "10px 14px", marginBottom: 12 }}>
-          {note}
-        </div>
-      )}
+      {note && <div className="qa-note" style={{ fontFamily: F, marginBottom: 14 }}>{note}</div>}
 
       {sections.map(sec => (
-        <div key={sec.id} style={{
-          border: "1.5px solid var(--border)", borderRadius: 14, padding: "16px 18px",
-          marginBottom: 12, opacity: sec.enabled ? 1 : 0.55, transition: "opacity .15s",
-        }}>
+        <div key={sec.id} className="qa-inset" style={{ marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: sec.enabled ? 14 : 0 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}>
               <input
                 type="checkbox" checked={sec.enabled}
                 onChange={e => update(sec.id, { enabled: e.target.checked })}
-                style={{ width: 17, height: 17, accentColor: "#0D9488", cursor: "pointer" }}
+                style={{ width: 17, height: 17, accentColor: "var(--btn)", cursor: "pointer" }}
               />
-              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", fontFamily: F }}>{sec.paper ? `Paper ${sec.paper}: ` : ""}{sec.label}</span>
+              <span style={{ fontSize: 14.5, fontWeight: 700, color: sec.enabled ? "var(--text)" : "var(--text-muted)", fontFamily: F }}>{sec.paper ? `Paper ${sec.paper}: ` : ""}{sec.label}</span>
               {sec.type === "essay" && (
-                <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-muted)", background: "var(--border)", borderRadius: 99, padding: "2px 8px" }}>
-                  Premium AI only
-                </span>
+                <span className="qa-tag" style={{ fontFamily: F }}>Premium AI only</span>
               )}
             </label>
             {sec.enabled && (
-              <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, fontWeight: 600 }}>
+              <span style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F, fontWeight: 600 }}>
                 {sec.answerAny ? `answer any ${answered(sec)} of ${Number(sec.questionCount) || 0}, ` : ""}= {answered(sec) * (Number(sec.marksPerQuestion) || 0)} marks
               </span>
             )}
           </div>
 
           {sec.enabled && (
-            <div className="eduq-grid-2">
+            <div className="qa-pair">
               <div>
                 <label style={s.lbl}>Number of Questions</label>
                 <NumberField
@@ -120,7 +110,7 @@ export default function ExamStructureBuilder({ sections, setSections, S, F, sty,
           )}
 
           {sec.enabled && Number(sec.questionCount) >= MAX_QUESTIONS_PER_SECTION && (
-            <div style={{ fontSize: 11.5, color: "var(--amber-text,#B45309)", fontFamily: F, marginTop: 8 }}>
+            <div style={{ fontSize: 12.5, color: "var(--amber-text,#B45309)", fontFamily: F, marginTop: 8 }}>
               Capped at {MAX_QUESTIONS_PER_SECTION} questions per section for generation quality and load time.
             </div>
           )}

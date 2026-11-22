@@ -99,7 +99,7 @@ export default function TopUpModal({ onClose, onPurchased, S, F }) {
           </button>
         ))}
 
-        <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: F, marginTop: 10, textAlign: "center" }}>
+        <p style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 10, textAlign: "center" }}>
           Secure payment via Paystack. Mobile Money and card accepted.
         </p>
       </div>

@@ -51,8 +51,8 @@ const F = "'DM Sans',system-ui,-apple-system,sans-serif";
 const THEME_KEY = "glpg_theme";
 function getCallbackTheme() {
   try {
-    const saved = localStorage.getItem(THEME_KEY) || "system";
-    if (saved === "system") {
+    const saved = localStorage.getItem(THEME_KEY) || "light";
+    if (saved === "system" || saved === "auto") {
       return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     }
     return saved;

@@ -11,6 +11,19 @@
 import React, { useEffect, useState } from "react";
 import { F, S } from "../sharedStyles.jsx";
 import coinIcon from "../assets/dollar.png";
+import folderPapers from "../assets/folder-papers.webp";
+import folderEmpty from "../assets/folder-empty.webp";
+import { getThemeMode, setThemeMode } from "../theme.js";
+
+const Sun = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>);
+const Moon = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>);
+const Auto = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>);
+const THEME_OPTS = [
+  { id: "light", label: "Light", Icon: Sun },
+  { id: "auto", label: "Auto", Icon: Auto },
+  { id: "dark", label: "Dark", Icon: Moon },
+];
+const Menu3 = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>);
 
 const getInitials = (u) => {
   const src = (u?.name || u?.email || "G").trim();
@@ -51,6 +64,14 @@ const HEADER_CSS = `
     border:none; background:transparent; color:var(--text); font-size:14px; font-weight:400; cursor:pointer;
     font-family:${F}; -webkit-tap-highlight-color:transparent; touch-action:manipulation; text-align:left; }
   .qh-item:hover { background:var(--accent-soft); }
+  .qh-theme { display:flex; gap:4px; padding:4px; border-radius:12px; background:var(--input-bg); border:1px solid var(--border); }
+  .qh-theme button { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; height:34px; border:none; border-radius:9px;
+    background:transparent; color:var(--text-secondary); font-size:12.5px; font-weight:600; font-family:${F}; cursor:pointer;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:background .15s,color .15s; }
+  .qh-theme button:hover { color:var(--text); }
+  .qh-theme button[aria-checked="true"] { background:var(--accent); color:#fff; }
+  .qh-theme button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .qh-fold { width:22px; height:auto; flex-shrink:0; }
   @media (max-width:640px) {
     .qh-inner { padding:0 12px; }
     .qh-brand-sub { font-size:8px !important; }
@@ -63,6 +84,8 @@ const HEADER_CSS = `
 export default function AppHeader({ user, creditBalance, toDisplayCredits, onSignIn, onTopUp, onSignOut, canInstall, onInstall, savedCount, onOpenSaved }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
+  const [themeMode, setMode] = useState(getThemeMode);
+  const pickTheme = (m) => { setMode(m); setThemeMode(m); };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -123,11 +146,11 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
               </>
             )}
 
-            {(user || canInstall) && (
-              <button className={`qh-hbg${menuOpen ? " is-open" : ""}`} onClick={() => setMenuOpen((o) => !o)} aria-label="Account menu" aria-expanded={menuOpen}>
+            {(
+              <button className={`qh-hbg${menuOpen ? " is-open" : ""}`} onClick={() => setMenuOpen((o) => !o)} aria-label="Menu: theme and account" aria-expanded={menuOpen}>
                 <span className="qh-avatar">
                   <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: F, userSelect: "none" }}>
-                    {user ? getInitials(user) : "G"}
+                    {user ? getInitials(user) : <Menu3 />}
                   </span>
                   {isUsableAvatarURL(user?.avatar_url) && (
                     <img src={user.avatar_url} alt="" referrerPolicy="no-referrer"
@@ -163,7 +186,17 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
             </div>
             )}
 
-            <div style={{ padding: "6px 12px" }}>
+            <div style={{ padding: "10px 12px 6px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text-muted)", fontFamily: F, margin: "0 2px 6px" }}>Appearance</div>
+              <div className="qh-theme" role="radiogroup" aria-label="Appearance">
+                {THEME_OPTS.map(({ id, label, Icon }) => (
+                  <button key={id} type="button" role="radio" aria-checked={themeMode === id} onClick={() => pickTheme(id)}>
+                    <Icon />{label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ padding: "6px 12px", borderTop: "1px solid var(--border)", marginTop: 6 }}>
               {!user && (
                 <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onSignIn(); }}>
                   Sign In / Create Account
@@ -177,6 +210,7 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
               )}
               {user && onOpenSaved && (
                 <button className="qh-item" role="menuitem" onClick={() => { closeMenu(); onOpenSaved(); }}>
+                  <img className="qh-fold" src={savedCount ? folderPapers : folderEmpty} alt="" aria-hidden="true" />
                   My Exams{savedCount ? ` (${savedCount})` : ""}
                 </button>
               )}

@@ -47,6 +47,13 @@
   --accent:         #0D9488;
   --accent-soft:    #E6F7F6;
   --accent-hover:   #0B7A70;
+  --card-py: 28px; --card-px: 28px;
+  --brand:          #14307A;   /* deep blue: headings, structure */
+  --brand-solid:    #102A6B;   /* deep blue fills (hero, primary blue buttons) */
+  --brand-soft:     #EEF2FB;   /* faint blue wash: info panels, open accordion header */
+  --surface-2:      #F5F7FA;   /* quiet inset panels inside cards (no extra border) */
+  --btn:            #0B8176;   /* primary button teal: 4.7:1 with white text */
+  --btn-hover:      #096B62;
   --shadow:         none;
   --shadow-md:      none;
   --shadow-lg:      none;
@@ -57,7 +64,7 @@
   --tag-bg:         #E6F7F6;
   --tag-text:       #0B7A70;
   --tag-border:     #99D5D1;
-  --ph-color:       #94A3B8;
+  --ph-color:       #6B7587;
   --nav-bg:         #FFFFFF;
   --nav-border:     #E1E5EB;
   --nav-text:       #5A6478;
@@ -92,6 +99,12 @@
   --accent:         #3ECBB3;
   --accent-soft:    rgba(255,255,255,.07);
   --accent-hover:   #16AD93;
+  --brand:          #A9C0F5;
+  --brand-solid:    #16286A;
+  --brand-soft:     rgba(120,150,230,.12);
+  --surface-2:      rgba(255,255,255,.04);
+  --btn:            #0F9488;
+  --btn-hover:      #0B7A70;
   --shadow:         none;
   --shadow-md:      none;
   --shadow-lg:      none;
@@ -102,7 +115,7 @@
   --tag-bg:         rgba(62,203,179,.11);
   --tag-text:       #3ECBB3;
   --tag-border:     rgba(62,203,179,.26);
-  --ph-color:       #636366;
+  --ph-color:       #8E8E93;
   --nav-bg:         #2C2C2E;
   --nav-border:     rgba(255,255,255,.09);
   --nav-text:       #AEAEB2;
@@ -129,7 +142,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body { background: var(--bg); margin: 0; overflow-x: hidden; max-width: 100vw; -webkit-text-size-adjust:100%; scroll-behavior:smooth; font-family: 'DM Sans', system-ui, -apple-system, sans-serif; }
+html, body { background: var(--bg); margin: 0; overflow-x: hidden; max-width: 100vw; -webkit-text-size-adjust:100%; scroll-behavior:smooth; font-family: 'DM Sans Variable', 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; }
 html { padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
 
 /* Inputs / selects */
@@ -140,7 +153,7 @@ input:focus:not(.edu-inp-f), select:focus, textarea:focus:not(.edu-inp-f), butto
 .edu-inp-f:focus { outline: none !important; border-color: #0D9488 !important; box-shadow: none !important; }
 input:focus, textarea:focus { border-color: var(--accent) !important; background: var(--input-bg) !important; }
 select:focus { border-color: var(--accent) !important; }
-input::placeholder, textarea::placeholder { color: var(--ph-color) !important; font-size: 13px !important; font-weight: 400 !important; opacity: 0.5 !important; transition: opacity .15s !important; }
+input::placeholder, textarea::placeholder { color: var(--ph-color) !important; font-weight: 400 !important; opacity: 1 !important; transition: opacity .15s !important; }
 input:focus::placeholder, textarea:focus::placeholder { opacity: 0 !important; }
 select option[value=""] { color: var(--ph-color); }
 select:has(option[value=""]:checked) { color: var(--ph-color); }
@@ -203,34 +216,94 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-flow > div { transition: border-color .2s; }
 @media (hover: hover) { .qa-flow > div:hover { border-color: var(--border-strong) !important; } }
 
-/* Icon tile + card title row */
-.qa-tile { width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  background: var(--accent-soft); color: var(--accent); }
-.qa-tile-lg { width: 44px; height: 44px; border-radius: 13px; }
+/* Card title: plain deep-blue heading, no icon tile */
 .qa-ct { display: flex; align-items: center; gap: 12px; }
+.qa-ct h3 { color: var(--brand) !important; letter-spacing: -.01em; }
 
-/* Progress stepper (transform-only fill) */
-.qa-steps { position: relative; display: flex; list-style: none; margin: 0 0 20px; padding: 0; }
+/* Hero: the one deep-blue block on the page. Title, My Exams and the stepper live inside it. */
+.qa-hero { background: var(--brand-solid); border-radius: 18px; padding: 22px 26px 18px; margin-bottom: 18px; color: #fff; }
+.qa-hero-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.qa-hero h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.2; color: #fff; letter-spacing: -.01em; }
+.qa-hero p { margin: 5px 0 0; font-size: 13.5px; line-height: 1.5; color: rgba(255,255,255,.76); max-width: 62ch; }
+.qa-hero-btn { flex-shrink: 0; height: 38px; padding: 0 16px; border-radius: 99px; background: transparent; color: #fff; font-size: 13px; font-weight: 600;
+  border: 1px solid rgba(255,255,255,.38); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+@media (hover: hover) { .qa-hero-btn:hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.6); } }
+
+/* Progress stepper (sits on the hero; transform-only fill) */
+.qa-steps { position: relative; display: flex; list-style: none; margin: 0; padding: 0; }
 .qa-steps::before, .qa-steps::after { content: ""; position: absolute; top: 13px; left: 12.5%; right: 12.5%; height: 2px; border-radius: 2px; }
-.qa-steps::before { background: var(--border-strong); opacity: .55; }
-.qa-steps::after { background: var(--accent); transform-origin: left center; transform: scaleX(var(--qa-p, 0)); transition: transform .5s cubic-bezier(.22,1,.36,1); }
-.qa-step { position: relative; z-index: 1; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.qa-steps::before { background: rgba(255,255,255,.22); }
+.qa-steps::after { background: #2DD4BF; transform-origin: left center; transform: scaleX(var(--qa-p, 0)); transition: transform .5s cubic-bezier(.22,1,.36,1); }
+.qa-step { position: relative; z-index: 1; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; }
 .qa-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
-  background: var(--card-bg); border: 2px solid var(--border-strong); color: var(--text-muted); transition: background-color .25s, border-color .25s, color .25s; }
-.qa-step.is-active .qa-dot { border-color: var(--accent); color: var(--accent); animation: qa-pop .3s cubic-bezier(.22,1,.36,1) both; }
-.qa-step.is-done .qa-dot { background: var(--accent); border-color: var(--accent); color: var(--card-bg); animation: qa-pop .3s cubic-bezier(.22,1,.36,1) both; }
-.qa-step-label { font-size: 11.5px; font-weight: 600; color: var(--text-muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.qa-step.is-active .qa-step-label, .qa-step.is-done .qa-step-label { color: var(--text); }
+  background: var(--brand-solid); border: 2px solid rgba(255,255,255,.35); color: rgba(255,255,255,.7); transition: background-color .25s, border-color .25s, color .25s; }
+.qa-step.is-active .qa-dot { background: #fff; border-color: #fff; color: var(--brand-solid); animation: qa-pop .3s cubic-bezier(.22,1,.36,1) both; }
+.qa-step.is-done .qa-dot { background: #14B8A6; border-color: #14B8A6; color: #fff; animation: qa-pop .3s cubic-bezier(.22,1,.36,1) both; }
+.qa-step-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.62); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qa-step.is-active .qa-step-label, .qa-step.is-done .qa-step-label { color: #fff; }
 
-/* "How it works" tiles and feature pills */
-.qa-how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 4px 0 18px; }
-.qa-how-item { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
-.qa-how-item h4 { margin: 12px 0 4px; font-size: 14px; font-weight: 700; color: var(--text); }
-.qa-how-item p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
-.qa-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 0 0 20px; }
-.qa-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;
-  background: var(--accent-soft); color: var(--tag-text); border: 1px solid var(--tag-border); }
-@media (max-width: 640px) { .qa-how { grid-template-columns: 1fr; } .qa-how-item { display: grid; grid-template-columns: 36px 1fr; column-gap: 12px; } .qa-how-item h4 { margin: 0 0 2px; } .qa-how-item .qa-tile { grid-row: span 2; } }
+/* "How it works": deliberately NOT a card. Open columns on the page background, split by hairlines, so it reads as
+   an explainer and not as three more form cards. */
+.qa-how { display: grid; grid-template-columns: repeat(3, 1fr); margin: 10px 0 0; border-top: 2px solid var(--brand); }
+.qa-how-item { padding: 16px 20px 6px 0; }
+.qa-how-item + .qa-how-item { padding-left: 20px; border-left: 1px solid var(--border-strong); }
+.qa-how-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.qa-how-item h4 { margin: 6px 0 5px; font-size: 14.5px; font-weight: 700; color: var(--brand); }
+.qa-how-item p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
+
+/* Feature strip: plain text split by hairlines, no pills, no icons */
+.qa-feats { display: flex; flex-wrap: wrap; justify-content: center; row-gap: 6px; margin: 22px 0 14px; padding: 0; list-style: none; }
+.qa-feat { padding: 0 11px; font-size: 12px; white-space: nowrap; font-weight: 600; color: var(--text-secondary); line-height: 1.2; }
+.qa-feat + .qa-feat { border-left: 1px solid var(--border-strong); }
+@media (max-width: 640px) {
+  .qa-feats { display: grid; grid-template-columns: 1fr 1fr; justify-items: center; }
+  .qa-feat + .qa-feat { border-left: none; }
+  .qa-how { grid-template-columns: 1fr; }
+  .qa-how-item, .qa-how-item + .qa-how-item { padding: 14px 0; border-left: none; }
+  .qa-how-item + .qa-how-item { border-top: 1px solid var(--border); }
+  .qa-hero { padding: 18px 16px 14px; }
+  .qa-hero h1 { font-size: 20px; }
+}
+
+/* ---- Form building blocks (one definition each, so every card looks the same) ---- */
+.qa-ct h4 { color: var(--text) !important; }
+.qa-desc { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-muted); }
+.qa-chip { font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.2; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px;
+  border-radius: 99px; background: var(--card-bg); color: var(--text-secondary); border: 1.5px solid var(--border-strong); cursor: pointer; text-align: left; }
+.qa-chip.is-sq { border-radius: 10px; }
+.qa-chip.is-fill { flex: 1; text-align: center; }
+.qa-chip[aria-pressed="true"], .qa-chip.is-on { background: var(--accent-soft); border-color: var(--accent); color: var(--tag-text); font-weight: 700; }
+.qa-chip:disabled { opacity: .45; cursor: not-allowed; }
+@media (hover: hover) { .qa-chip:not(:disabled):not([aria-pressed="true"]):not(.is-on):hover { border-color: var(--accent); color: var(--text); } }
+.qa-inset { background: var(--surface-2); border-radius: 12px; padding: 16px 18px; }
+.qa-note { background: var(--brand-soft); color: var(--text-secondary); border-radius: 10px; padding: 11px 14px; font-size: 13px; line-height: 1.55; }
+.qa-stat { background: var(--brand-soft); color: var(--brand); font-size: 13px; font-weight: 700; border-radius: 99px; padding: 6px 14px; white-space: nowrap; }
+.qa-tag { font-size: 11.5px; font-weight: 700; letter-spacing: .02em; color: var(--brand); background: var(--brand-soft); border-radius: 99px; padding: 3px 10px; white-space: nowrap; }
+.qa-opt { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 0; }
+.qa-opt:first-of-type { padding-top: 6px; }
+.qa-opt + .qa-opt { border-top: 1px solid var(--border); }
+.qa-opt-t { font-size: 14.5px; font-weight: 700; color: var(--text); }
+.qa-opt-d { font-size: 13px; line-height: 1.5; color: var(--text-muted); margin-top: 3px; max-width: 52ch; }
+.qa-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { :root, [data-theme] { --card-py: 20px; --card-px: 16px; } .qa-inset { padding: 14px; } }
+.qa-group + .qa-group { margin-top: 20px; }
+.qa-divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+/* Generate panel: closes the page in the same deep blue the hero opens it with */
+.qa-gen { background: var(--brand-solid); border-radius: 16px; padding: 22px 24px 18px; margin: 4px 0 8px; color: #fff; }
+.qa-gen-title { font-size: 17px; font-weight: 700; letter-spacing: -.005em; }
+.qa-gen-meta { font-size: 13.5px; color: rgba(255,255,255,.75); margin-top: 4px; line-height: 1.5; }
+.qa-gen-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.qa-gen-btn { height: 58px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font: inherit; line-height: 1.2; padding: 0 12px; cursor: pointer; text-align: center; }
+.qa-gen-btn b { font-size: 15px; font-weight: 700; }
+.qa-gen-btn span { font-size: 12.5px; font-weight: 500; opacity: .85; }
+.qa-gen-btn.is-free { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); }
+.qa-gen-btn.is-pro { background: #14B8A6; color: #052E2B; border: none; }
+.qa-gen-btn.is-pro span { opacity: .8; }
+.qa-gen-btn:disabled { cursor: not-allowed; }
+@media (hover: hover) { .qa-gen-btn.is-free:not(:disabled):hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.65); } .qa-gen-btn.is-pro:not(:disabled):hover { background: #2DD4BF; } }
+.qa-gen-foot { margin: 14px 0 0; font-size: 12.5px; text-align: center; color: rgba(255,255,255,.65); }
+@media (max-width: 520px) { .qa-gen { padding: 18px 16px 14px; } .qa-opt { gap: 14px; } }
 
 /* My Exams button: on a phone it shrinks to the folder icon (plus the count), so the page title keeps its room */
 .qa-show-sm { display: none; font-weight: 700; }
@@ -256,3 +329,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
   .qa-steps::after, .qa-dot, .qa-flow > div { transition: none !important; }
   html, body { scroll-behavior: auto; }
 }
+
+/* Checkboxes: the global "appearance: none" on inputs removed the native tick box, so a ticked box looked empty. Drawn here instead. */
+input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 18px !important; height: 18px !important; flex-shrink: 0; margin: 0; border-radius: 5px; cursor: pointer;
+  background: var(--input-bg) center / 12px 12px no-repeat; border: 1.5px solid var(--border-strong); transition: background-color .15s, border-color .15s; }
+input[type="checkbox"]:checked { background-color: var(--btn); border-color: var(--btn);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 6.5l2.2 2.2L9.5 3.6'/%3E%3C/svg%3E"); }
+input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 2px; }

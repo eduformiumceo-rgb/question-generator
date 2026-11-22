@@ -33,7 +33,7 @@ export default function FigurePanel({ examData, setExamData, draw, S, F }) {
   const chip = (st) => {
     const warn = st === "empty";
     return (
-      <span style={{ fontSize: 11, fontWeight: 700, fontFamily: F, padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap",
+      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: F, padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap",
         background: warn ? "var(--warn-bg, #fff4d6)" : "var(--accent-soft)", color: warn ? "var(--warn-text, #8a5a00)" : "var(--accent)" }}>
         {st === "drawing" ? "Drawing…" : (STATUS_TEXT[st] || st)}
       </span>
@@ -80,9 +80,9 @@ export default function FigurePanel({ examData, setExamData, draw, S, F }) {
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", fontFamily: F }}>{slot.label}</span>
                       {failed ? chip("empty") : chip(st)}
-                      {failed && <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: F }}>AI couldn&apos;t draw this one</span>}
+                      {failed && <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F }}>AI couldn&apos;t draw this one</span>}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.4, marginTop: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                    <div style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.4, marginTop: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                       {slot.description || "Figure"}
                     </div>
                   </div>

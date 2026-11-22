@@ -11,6 +11,7 @@
     "sync:curriculum": "node scripts/gen-curriculum-manifest.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/dm-sans": "^5.3.0",
     "@supabase/supabase-js": "^2.116.0",
     "docx": "^9.7.1",
     "mammoth": "^1.8.0",
