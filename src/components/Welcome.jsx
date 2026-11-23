@@ -6,10 +6,10 @@
 import React from "react";
 
 const FEATURES = [
-  { t: "BECE and WASSCE styles", d: "Real exam layouts, set up for you" },
-  { t: "Marking scheme included", d: "Answers and mark allocation" },
-  { t: "Diagrams and equations", d: "Figures drawn, maths typeset" },
-  { t: "Word and PDF", d: "Print it or keep editing" },
+  { t: "BECE & WASSCE styles", d: "Real exam layouts" },
+  { t: "Marking schemes", d: "Answers and marks" },
+  { t: "Diagrams & equations", d: "Figures and maths" },
+  { t: "Word & PDF", d: "Print or keep editing" },
 ];
 
 export default function Welcome({ F }) {

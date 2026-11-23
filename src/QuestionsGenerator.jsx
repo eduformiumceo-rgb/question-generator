@@ -1139,7 +1139,7 @@ function QuestionsGeneratorInner() {
           <div className="qa-hero-row">
             <div style={{ minWidth: 0 }}>
               <h1 style={{ fontFamily: F }}>Assessment Studio</h1>
-              <p style={{ fontFamily: F }}>Tests, quizzes and exams from the Ghana curriculum, with marking schemes.</p>
+              <p style={{ fontFamily: F }}>Create tests, quizzes and exams in minutes.</p>
             </div>
           </div>
           <WizardProgress hasClass={!!(className && subject)} hasTopics={selectedTopics.length > 0 || !!pastedSyllabus.trim()} hasExam={!!examData} />
@@ -1148,7 +1148,7 @@ function QuestionsGeneratorInner() {
           <img src={savedCount ? folderPapers : folderEmpty} alt="" aria-hidden="true" />
           <span className="qa-exams-txt">
             <strong>My Assessments</strong>
-            <span>{savedCount ? `${savedCount} saved` : "Tests, quizzes and exams you save appear here"}</span>
+            <span>{savedCount ? `${savedCount} saved` : "Your saved tests, quizzes and exams"}</span>
           </span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </button>

@@ -64,7 +64,7 @@ describe("CardTitle and Welcome", () => {
     expect(container.querySelectorAll(".qa-feat")).toHaveLength(4);
     expect(container.querySelectorAll(".qa-feat strong")).toHaveLength(4);
     expect(container.querySelector("svg")).toBeNull();
-    expect(screen.getByText(/BECE and WASSCE styles/)).toBeTruthy();
-    expect(screen.getByText(/Diagrams and equations/)).toBeTruthy();
+    expect(screen.getByText(/BECE & WASSCE styles/)).toBeTruthy();
+    expect(screen.getByText(/Diagrams & equations/)).toBeTruthy();
   });
 });

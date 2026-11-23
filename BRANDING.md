@@ -4,7 +4,7 @@
 |---|---|
 | Product name | **Assessment Studio** (full: *Eduformium Assessment Studio*) |
 | Header lockup | `Eduformium` wordmark, `Assessment Studio` underneath (`AppHeader.jsx`, `.qh-brand-sub`) |
-| Hero | title `Assessment Studio`, one line: "Tests, quizzes and exams from the Ghana curriculum, with marking schemes." (`QuestionsGenerator.jsx`) |
+| Hero | title `Assessment Studio`, one line: "Create tests, quizzes and exams in minutes." (`QuestionsGenerator.jsx`) |
 | Browser tab / Google | `Eduformium Assessment Studio: Tests, Quizzes & Exams` (52 chars; Google cuts at about 60) |
 | Search description | `index.html` meta description (under 170 chars) |
 | WhatsApp / Facebook / X preview | `og:*` and `twitter:*` tags in `index.html` |

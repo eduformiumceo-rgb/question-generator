@@ -69,8 +69,7 @@ describe("what the teacher sees", () => {
   it("the hero says what it is, what it makes, and what it does", () => {
     render(<QuestionsGenerator />);
     expect(screen.getByRole("heading", { level: 1, name: "Assessment Studio" })).toBeTruthy();
-    expect(document.querySelector(".qa-hero p").textContent).toMatch(/Tests, quizzes and exams/);
-    expect(document.querySelector(".qa-hero p").textContent).toMatch(/Ghana curriculum.*marking schemes/);
+    expect(document.querySelector(".qa-hero p").textContent).toMatch(/tests, quizzes and exams in minutes/i);
     expect(document.body.textContent).not.toMatch(/Questions Generator/);
   });
 });

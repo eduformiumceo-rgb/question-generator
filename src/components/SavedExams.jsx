@@ -172,7 +172,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
         {exams.length > 0 && <img src={folderPapers} alt="" aria-hidden="true" style={{ width: 52, height: "auto", flexShrink: 0 }} />}
       <div>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>My Assessments</h1>
-        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>Your saved papers, available on any device.</p>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>Your saved tests, quizzes and exams, on any device.</p>
       </div>
       </div>
       <button type="button" style={{ ...S.sm }} onClick={onBack} aria-label="Back to generator"><span aria-hidden="true">←</span><span className="qa-hide-sm">Back to generator</span><span className="qa-show-sm">Back</span></button>
