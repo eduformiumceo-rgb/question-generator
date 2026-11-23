@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * EDUFORMIUM - AI QUESTIONS GENERATOR
+ * EDUFORMIUM - ASSESSMENT STUDIO
  * Main page component
  *
  * Drop-in page for the existing Eduformium shell. Wire it up the same way
@@ -60,8 +60,16 @@ import folderEmpty from "./assets/folder-empty.webp";
 import { ExamHistory, MAX_SAVED_EXAMS, metaForSave } from "./examHistory.js";
 import InstallPrompt from "./components/InstallPrompt.jsx";
 import { usePwaInstall } from "./pwaInstall.js";
+import RecoveryBanner from "./components/RecoveryBanner.jsx";
+import { useAutosave } from "./hooks/useAutosave.js";
+// Refresh / crash / sign-in-redirect recovery: see draftStore.js for what is kept, for how long, and who can see it.
+import {
+  userKey, fingerprint, loadWizardDraft, saveWizardDraft, saveJob, loadJob, clearJob,
+  savePaperSnapshot, loadPaperSnapshot, clearPaperSnapshot, clearAllDrafts, markRestoreAttempt, clearRestoreAttempt,
+} from "./draftStore.js";
 
 const EXAM_API = "/api/generate-exam";
+const DRAFT_NOTICE_MS = 12000; // how long the "welcome back, your setup was restored" note stays up
 const ACCOUNT_API = "/api/exam-account";
 // Priced consistently with the Lesson Planner's real COINS_PER_LESSON=0.5
 // precedent, scaled per section (= per AI call), not a flat guessed number -
@@ -255,6 +263,8 @@ async function streamExamAPI(payload, token, onProgress) {
 function QuestionsGeneratorInner() {
   // ── Auth gate - same account/session as the Lesson Planner ─────
   const [user, setUser] = useState(() => (getUser ? getUser() : null));
+  const uidRef = useRef(null);            // the signed-in account's id (or null): draft copies are filed under it
+  uidRef.current = userKey(user);
   const [showAuthModal, setShowAuthModalRaw] = useState(false);
   // Single sign-in: when VITE_HUB_URL is set, opening sign-in / create account sends the person to the Eduformium Hub (see hubSignIn.js).
   // Off by default, so this app's own sign-in window works exactly as before until the variable is set.
@@ -265,15 +275,20 @@ function QuestionsGeneratorInner() {
 
   // ── Basic Information ──────────────────────────────────────────
   const savedPrefs = useRef(readPrefs()).current;
+  // The unfinished paper setup from before a refresh / redirect, read once and synchronously so the page opens already
+  // filled in. {} when there is none, so every `D.x ?? default` below falls back to the normal default.
+  const draftRef = useRef(null);
+  if (draftRef.current === null) draftRef.current = loadWizardDraft(userKey(getUser ? getUser() : null)) || { fields: {} };
+  const D = draftRef.current.fields;
   const [schoolName, setSchoolName] = useState(savedPrefs.schoolName || "");
   const [schoolMotto, setSchoolMotto] = useState(savedPrefs.schoolMotto || "");
   const [emblem, setEmblem] = useState(savedPrefs.emblem === "none" ? "none" : "auto"); // "auto" = generated crest when there's no logo
   const [schoolLogo, setSchoolLogo] = useState(() => readLogo()); // data URL - printed in the paper header
   const logoInputRef = useRef(null);
-  const [className, setClassName] = useState("");
-  const [term, setTerm] = useState("Term 1");
-  const [examType, setExamType] = useState("Class Test");
-  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [className, setClassName] = useState(D.className ?? "");
+  const [term, setTerm] = useState(D.term ?? "Term 1");
+  const [examType, setExamType] = useState(D.examType ?? "Class Test");
+  const [durationMinutes, setDurationMinutes] = useState(D.durationMinutes ?? 60);
   const isSHS = isSHSClass(className);
   // SHS runs two semesters, Basic schools three terms: keep the choice sensible when the level changes.
   useEffect(() => {
@@ -282,24 +297,25 @@ function QuestionsGeneratorInner() {
   }, [isSHS]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Curriculum + Topics (GES / NaCCA only) ──────────────────────
-  const [subject, setSubject] = useState("");        // clean display name, e.g. "Biology" - what the AI, the paper and My Exams use
-  const [shsCourse, setShsCourse] = useState("");      // SHS only: programme / course, e.g. "General Science"
-  const [shsKey, setShsKey] = useState("");            // SHS only: internal curriculum key, e.g. "Biology (GS)"
+  const [subject, setSubject] = useState(D.subject ?? "");        // clean display name, e.g. "Biology" - what the AI, the paper and My Exams use
+  const [shsCourse, setShsCourse] = useState(D.shsCourse ?? "");      // SHS only: programme / course, e.g. "General Science"
+  const [shsKey, setShsKey] = useState(D.shsKey ?? "");            // SHS only: internal curriculum key, e.g. "Biology (GS)"
   const programme = isSHS ? shsCourse : "";          // sent to the AI, printed on the paper, saved with the exam
-  const [selectedTopics, setSelectedTopics] = useState([]);
-  const [pastedSyllabus, setPastedSyllabus] = useState("");
+  const [selectedTopics, setSelectedTopics] = useState(D.selectedTopics ?? []);
+  const [draftStrands, setDraftStrands] = useState(D.strands ?? []); // the strands ticked in the topic picker (it owns them; we only remember them)
+  const [pastedSyllabus, setPastedSyllabus] = useState(D.pastedSyllabus ?? "");
 
   // ── Difficulty + Language + Cognitive level ────────────────────
-  const [difficulty, setDifficulty] = useState("Moderate");
-  const [languageStyle, setLanguageStyle] = useState("Balanced");
-  const [cognitiveLevels, setCognitiveLevels] = useState(["Recall", "Application"]);
+  const [difficulty, setDifficulty] = useState(D.difficulty ?? "Moderate");
+  const [languageStyle, setLanguageStyle] = useState(D.languageStyle ?? "Balanced");
+  const [cognitiveLevels, setCognitiveLevels] = useState(D.cognitiveLevels ?? ["Recall", "Application"]);
 
   // ── Exam structure ──────────────────────────────────────────────
-  const [sections, setSections] = useState(DEFAULT_SECTIONS);
+  const [sections, setSections] = useState(D.sections ?? DEFAULT_SECTIONS);
 
   // ── Diagrams ─────────────────────────────────────────────────────
-  const [allowDiagrams, setAllowDiagrams] = useState(true);
-  const [includeMarkingScheme, setIncludeMarkingScheme] = useState(true);
+  const [allowDiagrams, setAllowDiagrams] = useState(D.allowDiagrams ?? true);
+  const [includeMarkingScheme, setIncludeMarkingScheme] = useState(D.includeMarkingScheme ?? true);
 
   // ── Generation state ─────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -343,8 +359,8 @@ function QuestionsGeneratorInner() {
   // so nothing else needs setting by hand. Every mock exam uses this style.
   const publicAvailable = isBeceClass(className) || isSHS;
   const isMock = examType === "Mock Exam";
-  const [examStyle, setExamStyle] = useState("school"); // "school" | "public"
-  const styleChosenByUser = useRef(false);
+  const [examStyle, setExamStyle] = useState(D.examStyle ?? "school"); // "school" | "public"
+  const styleChosenByUser = useRef(!!D.styleChosen);
   const beceActive = examStyle === "public" && isBeceClass(className);
   const wassceActive = examStyle === "public" && isSHS && !isBeceClass(className);
   const publicActive = beceActive || wassceActive;
@@ -358,7 +374,13 @@ function QuestionsGeneratorInner() {
   }, [isMock, publicAvailable]);
   const prevStyle = useRef("school");
   const beceApplied = useRef(false);
+  // A restored public-exam draft already holds the teacher's own sections / duration, so the first pass must not reload the
+  // exam-board defaults over them. The pass is skipped only while the style, class kind and subject are still exactly what
+  // was restored (matching the values, not a "first run" flag, keeps this right under StrictMode's double effects).
+  const restoredStyleKey = useRef(D.examStyle === "public" ? `${examStyle}|${beceActive}|${wassceActive}|${subject}` : null);
   useEffect(() => {
+    if (restoredStyleKey.current === `${examStyle}|${beceActive}|${wassceActive}|${subject}`) { prevStyle.current = examStyle; beceApplied.current = publicActive && !!subject; return; }
+    restoredStyleKey.current = null;
     if (examStyle === "public") applyPreset("public", false);
     else if (prevStyle.current === "public") applyPreset("school", false);
     prevStyle.current = examStyle;
@@ -471,7 +493,7 @@ function QuestionsGeneratorInner() {
         } else {
           showSaveToast("info", "Saved to My Exams.");
         }
-        return;
+        return true;
       } catch (e) {
         lastErr = e;
         if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
@@ -479,6 +501,7 @@ function QuestionsGeneratorInner() {
     }
     console.error("[save exam] failed after retries:", lastErr);
     showSaveToast("warn", "Couldn't save this exam to My Exams. It's still on screen, but won't be saved for later.");
+    return false;
   };
 
   const hasUnsavedEdits = !!savedId && !!examData && examData !== savedExamRef.current;
@@ -625,12 +648,26 @@ function QuestionsGeneratorInner() {
     }
   };
 
-  const handleGenerate = async (tierArg) => {
+  /** Everything the server needs to write the paper. Its fingerprint also answers "are these exactly the settings an interrupted run used?" */
+  const buildGenerationPayload = (tierArg) => ({
+    mode: "generate-exam", tier: tierArg,
+    schoolName, className, programme, subject, term, examType, durationMinutes,
+    topics: selectedTopics, pastedSyllabus,
+    difficulty, languageStyle, cognitiveLevels,
+    sections: activeSections, allowDiagrams, includeMarkingScheme,
+    examStyle: wassceActive ? "wassce" : beceActive ? "bece" : "school",
+  });
+
+  /** resumeFrom: { sections, title, instructions } kept from an interrupted run. Only the missing sections are then written (and charged). */
+  const handleGenerate = async (tierArg, resumeFrom = null) => {
     setError("");
     const validationError = validate(tierArg);
     if (validationError) { setError(validationError); return; }
 
     stopFigureDrawing();
+    setRecovery(null);                       // any "welcome back" / "interrupted" notice is now out of date
+    clearJob();
+    clearPaperSnapshot();                    // the paper on screen is about to be replaced (the old one is in My Exams)
     setLoading(true);
     setLoadingTier(tierArg);
     setExamTier(tierArg);
@@ -638,22 +675,32 @@ function QuestionsGeneratorInner() {
     setOpenedMeta(null);
     setLivePreview(null);
     setSavedId(null); savedExamRef.current = null;
-    setProgress({ index: 0, total: activeSections.length, sectionLabel: "", sectionsDone: new Set() });
+    // Sections already held from an interrupted run (empty on a normal run).
+    let held = resumeFrom ? [...resumeFrom.sections] : [];
+    let heldTitle = resumeFrom?.title || "";
+    let heldInstructions = resumeFrom?.instructions || [];
+    let settingsKey = "";
+    let keepJob = false;   // true when the run stopped part-way and the finished sections are worth keeping for "Continue"
+    setProgress({ index: held.length, total: activeSections.length, sectionLabel: "", sectionsDone: new Set(held.map(sc => sc.id)) });
+    if (held.length) setLivePreview({ title: heldTitle, instructions: heldInstructions, sections: held, answerKey: [] });
     try {
-      const payload = {
-        mode: "generate-exam", tier: tierArg,
-        schoolName, className, programme, subject, term, examType, durationMinutes,
-        topics: selectedTopics, pastedSyllabus,
-        difficulty, languageStyle, cognitiveLevels,
-        sections: activeSections, allowDiagrams, includeMarkingScheme,
-        examStyle: wassceActive ? "wassce" : beceActive ? "bece" : "school",
-      };
+      const payload = buildGenerationPayload(tierArg);
+      settingsKey = fingerprint(payload);          // taken BEFORE skipSectionIds is added: it describes the settings, not the continuation
+      if (held.length) payload.skipSectionIds = held.map(sc => sc.id);
 
       const token = getToken ? getToken() : null;
+      // The run in progress, with every section as it finishes. If the page is refreshed or the run stops part-way, the next
+      // visit can say what happened and continue from here instead of starting again.
+      const persistJob = () => saveJob({ tier: tierArg, total: activeSections.length, done: held.length, key: settingsKey, title: heldTitle, instructions: heldInstructions, sections: held }, uidRef.current);
+      persistJob();
       const result = await streamExamAPI(payload, token, (event) => {
         if (event.type === "progress") {
           setProgress(prev => ({ ...prev, index: event.index, total: event.total, sectionLabel: event.sectionLabel }));
         } else if (event.type === "section-done") {
+          if (event.section) held = [...held, event.section];
+          if (event.title !== undefined) heldTitle = event.title;
+          if (event.instructions !== undefined) heldInstructions = event.instructions;
+          persistJob();
           setProgress(prev => ({ ...prev, sectionsDone: new Set([...(prev?.sectionsDone || []), event.sectionId]) }));
           if (event.section) {
             setLivePreview(prev => ({
@@ -666,6 +713,19 @@ function QuestionsGeneratorInner() {
         }
       });
 
+      clearJob(); // the run finished: nothing left to explain
+      if (resumeFrom) { // the server wrote only the missing sections: put the paper back together in the requested order
+        const byId = new Map([...resumeFrom.sections, ...(result.examData.sections || [])].map(sc => [sc.id, sc]));
+        const answerKey = [];
+        activeSections.forEach(sc => { if (sc.type === "objective") (byId.get(sc.id)?.questions || []).forEach(q => { if (q.correctOption) answerKey.push({ number: q.number, answer: q.correctOption }); }); });
+        result.examData = {
+          ...result.examData,
+          title: resumeFrom.title || result.examData.title,
+          instructions: resumeFrom.instructions?.length ? resumeFrom.instructions : result.examData.instructions,
+          sections: activeSections.map(sc => byId.get(sc.id)).filter(Boolean),
+          answerKey,
+        };
+      }
       const { ok, errors } = validateExamData(result.examData, activeSections, { style: wassceActive ? "wassce" : "" });
       if (!ok) throw new Error(`The generated paper didn't match the requested structure: ${errors.join(" ")}`);
 
@@ -702,8 +762,14 @@ function QuestionsGeneratorInner() {
         setError(e.message || "Something went wrong generating the exam. Please try again.");
         if (typeof e.creditsRemaining === "number") setCreditBalance(e.creditsRemaining);
         else fetchBalance();
+        // Stopped part-way: the sections that did finish are kept, and the teacher is offered "Continue" rather than a full redo.
+        if (held.length > 0 && held.length < activeSections.length) {
+          keepJob = true;
+          setRecovery({ kind: "interrupted", failed: true, tier: tierArg, total: activeSections.length, done: held.length, key: settingsKey, sections: held, title: heldTitle, instructions: heldInstructions });
+        }
       }
     } finally {
+      if (!keepJob) clearJob(); // finished, failed or cancelled: the run is over (a refresh leaves the marker behind; a part-way stop keeps it on purpose)
       setLoading(false);
       setLoadingTier(null);
       setProgress(null);
@@ -721,6 +787,7 @@ function QuestionsGeneratorInner() {
   // ── Figures: the AI draws each one after generation (see aiFigures.js) ──────────
   // figDrawState holds only the figures being drawn right now ("drawing") or that
   // failed ("failed"), keyed by slot key. Everything else is read from the exam itself.
+  const [figuresPending, setFiguresPending] = useState(false); // true while the AI is still drawing this paper's figures
   const [figDrawState, setFigDrawState] = useState({});
   const figAbortRef = useRef(null);
   const examDataRef = useRef(null);
@@ -735,6 +802,7 @@ function QuestionsGeneratorInner() {
   const stopFigureDrawing = useCallback(() => {
     if (figAbortRef.current) figAbortRef.current.abort();
     figAbortRef.current = null;
+    setFiguresPending(false);
     setFigDrawState({});
   }, []);
   useEffect(() => () => { if (figAbortRef.current) figAbortRef.current.abort(); }, []);
@@ -753,16 +821,21 @@ function QuestionsGeneratorInner() {
     stopFigureDrawing();
     const ctrl = new AbortController();
     figAbortRef.current = ctrl;
-    const drawn = await autoDrawFigures({
-      examData: generated, setExamData, api: EXAM_API, token: getToken ? getToken() : null,
-      subject, className, onSlot: markFigure, signal: ctrl.signal,
-    });
-    if (ctrl.signal.aborted || !drawn) return;
-    await new Promise(r => setTimeout(r, 80)); // let the last drawing reach state
-    for (let i = 0; i < 20 && !savedIdRef.current; i++) await new Promise(r => setTimeout(r, 500)); // the background save may still be running
-    const id = savedIdRef.current, latest = examDataRef.current;
-    if (ctrl.signal.aborted || !id || !latest) return;
-    try { await ExamHistory.update(id, { exam_json: latest }); savedExamRef.current = latest; } catch { /* the drawings are still on screen; "Save changes" remains available */ }
+    setFiguresPending(true);
+    try {
+      const drawn = await autoDrawFigures({
+        examData: generated, setExamData, api: EXAM_API, token: getToken ? getToken() : null,
+        subject, className, onSlot: markFigure, signal: ctrl.signal,
+      });
+      if (ctrl.signal.aborted || !drawn) return;
+      await new Promise(r => setTimeout(r, 80)); // let the last drawing reach state
+      for (let i = 0; i < 20 && !savedIdRef.current; i++) await new Promise(r => setTimeout(r, 500)); // the background save may still be running
+      const id = savedIdRef.current, latest = examDataRef.current;
+      if (ctrl.signal.aborted || !id || !latest) return;
+      try { await ExamHistory.update(id, { exam_json: latest }); savedExamRef.current = latest; } catch { /* the drawings are still on screen; "Save changes" remains available */ }
+    } finally {
+      if (figAbortRef.current === ctrl) { figAbortRef.current = null; setFiguresPending(false); } // not if a newer run has taken over
+    }
   };
 
   const [examVersion, setExamVersion] = useState("A"); // A = original order, B/C = shuffled variants (anti-cheating)
@@ -779,6 +852,168 @@ function QuestionsGeneratorInner() {
     notice, noticeText: DEFAULT_NOTICE, turnOver,
     ...openedOverride,
   };
+
+  // ── Recovery after a refresh / crash / sign-in redirect (storage layer: draftStore.js) ─────────────────────────────
+  // Three things are remembered in this browser: the paper setup (instantly, before first paint), the generated paper with any
+  // edits not yet saved to My Exams, and a marker that a generation was running. Nothing leaves the device; signing out wipes it.
+  const [recovery, setRecovery] = useState(() => (Object.keys(D).length ? {
+    kind: "draft",
+    summary: [D.className, D.subject, D.selectedTopics?.length ? `${D.selectedTopics.length} topic${D.selectedTopics.length === 1 ? "" : "s"}` : null].filter(Boolean).join(" · "),
+  } : null)); // the notice on screen: { kind: "draft" | "paper" | "interrupted", ... }
+  const [paperRestoreDone, setPaperRestoreDone] = useState(false); // saving the paper copy waits for this, so an empty start can never erase a copy that is still being read
+  const [paperBackedUp, setPaperBackedUp] = useState(false);       // true once a recovery copy of the paper has really been written
+  const [recoverySaving, setRecoverySaving] = useState(false);
+  const hadPaperRef = useRef(false);
+  const loadingRef = useRef(false);
+  loadingRef.current = loading;
+
+  /** Back to a blank wizard (also the "Start fresh" button and sign-out). paper:true clears the paper on screen too. */
+  const resetWizard = ({ paper = false } = {}) => {
+    stopFigureDrawing();
+    setClassName(""); setTerm("Term 1"); setExamType("Class Test"); setDurationMinutes(60);
+    setSubject(""); setShsCourse(""); setShsKey("");
+    setSelectedTopics([]); setDraftStrands([]); setPastedSyllabus("");
+    setDifficulty("Moderate"); setLanguageStyle("Balanced"); setCognitiveLevels(["Recall", "Application"]);
+    setSections(DEFAULT_SECTIONS.map(sc => ({ ...sc })));
+    setAllowDiagrams(true); setIncludeMarkingScheme(true);
+    styleChosenByUser.current = false; setExamStyle("school");
+    setError("");
+    if (paper) {
+      setExamData(null); setSavedId(null); savedExamRef.current = null; setOpenedMeta(null);
+      setExamVersion("A"); setShowAnswerKey(false); setEditMode(false); setLivePreview(null);
+      setView("generate");
+    }
+  };
+
+  // 1. The paper setup: written shortly after every change, and the moment the page is hidden or closed.
+  const wizardFields = useMemo(() => ({
+    className, term, examType, durationMinutes, subject, shsCourse, shsKey, selectedTopics, strands: draftStrands, pastedSyllabus,
+    difficulty, languageStyle, cognitiveLevels, sections, allowDiagrams, includeMarkingScheme, examStyle, styleChosen: styleChosenByUser.current,
+  }), [className, term, examType, durationMinutes, subject, shsCourse, shsKey, selectedTopics, draftStrands, pastedSyllabus,
+    difficulty, languageStyle, cognitiveLevels, sections, allowDiagrams, includeMarkingScheme, examStyle]);
+  useAutosave(wizardFields, (f) => saveWizardDraft(f, uidRef.current), { delay: 700 });
+
+  // 2. The paper on screen. "Unsaved" is worked out at the moment of writing (from the refs), not when the snapshot object was built.
+  const paperSnap = useMemo(() => (examData ? {
+    examData, examTier, examHasMarkingScheme, savedId, examVersion, openedMeta, landscape, figuresPending,
+  } : null), [examData, examTier, examHasMarkingScheme, savedId, examVersion, openedMeta, landscape, figuresPending, savedRefresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  useAutosave(paperSnap, async (snap) => {
+    if (!snap) { // only a paper that was on screen this session is ever erased; an empty start never touches a stored copy
+      if (hadPaperRef.current) { hadPaperRef.current = false; await clearPaperSnapshot(); setPaperBackedUp(false); }
+      return;
+    }
+    hadPaperRef.current = true;
+    if (!uidRef.current) return;
+    const dirty = !savedIdRef.current || examDataRef.current !== savedExamRef.current;
+    setPaperBackedUp(await savePaperSnapshot({ ...snap, dirty }, uidRef.current));
+  }, { delay: 1000, enabled: paperRestoreDone });
+
+  // 3. On arrival (and again once sign-in completes, e.g. back from the Google / Hub redirect): bring the paper back, or explain an interrupted run.
+  const accountId = userKey(user);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      let rec = null;
+      if (accountId) { try { rec = await loadPaperSnapshot(accountId); } catch { rec = null; } }
+      if (!alive) return;
+      const free = !examDataRef.current && !loadingRef.current; // never replace a paper the teacher already has, or a run in progress
+      if (rec && free) {
+        const sn = rec.snap;
+        markRestoreAttempt();
+        setExamData(sn.examData);
+        setExamTier(sn.examTier === "free" || sn.examTier === "premium" ? sn.examTier : null);
+        setExamHasMarkingScheme(sn.examHasMarkingScheme !== false);
+        setSavedId(sn.savedId || null);
+        // "Save changes" appears when the paper differs from the copy in My Exams; a stand-in object marks "it does".
+        savedExamRef.current = sn.savedId ? (sn.dirty ? {} : sn.examData) : null;
+        setExamVersion(["A", "B", "C"].includes(sn.examVersion) ? sn.examVersion : "A");
+        setOpenedMeta(sn.openedMeta && typeof sn.openedMeta === "object" ? sn.openedMeta : null);
+        setLandscape(!!sn.landscape);
+        setShowAnswerKey(false); setEditMode(false);
+        hadPaperRef.current = true;
+        clearJob();
+        setRecovery({ kind: "paper", hasId: !!sn.savedId, dirty: !!sn.dirty });
+        setTimeout(clearRestoreAttempt, 1500); // survived the first paint: the crash-loop guard can stand down
+        if (sn.figuresPending) drawFiguresFor(sn.examData); // the AI was still drawing the figures: finish the job
+      } else if (accountId && free) {
+        const job = loadJob(accountId);
+        if (job) setRecovery({ kind: "interrupted", tier: job.tier, total: job.total, done: job.done, key: job.key, sections: job.sections, title: job.title, instructions: job.instructions });
+      }
+      setPaperRestoreDone(true);
+    })();
+    return () => { alive = false; };
+  }, [accountId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Leaving mid-generation can't be recovered, and an unsaved paper can't be recovered if this browser won't store a copy: ask first.
+  useEffect(() => {
+    const unsavedPaper = !!examData && (!savedId || hasUnsavedEdits);
+    if (!(loading || (unsavedPaper && !paperBackedUp))) return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ""; return ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [loading, examData, savedId, hasUnsavedEdits, paperBackedUp]);
+
+  // The "welcome back" note is a courtesy, not a task: it fades by itself. (Notices that need a decision stay until dealt with.)
+  useEffect(() => {
+    if (recovery?.kind !== "draft") return undefined;
+    const t = setTimeout(() => setRecovery((r) => (r?.kind === "draft" ? null : r)), DRAFT_NOTICE_MS);
+    return () => clearTimeout(t);
+  }, [recovery]);
+  const dismissRecovery = () => { if (recovery?.kind === "interrupted") clearJob(); setRecovery(null); };
+  const startFresh = () => { resetWizard(); clearAllDrafts(); setRecovery(null); };
+  const showRecoveredPaper = () => document.getElementById("qa-paper-output")?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  const saveRecoveredPaper = async () => {
+    if (!examData) return;
+    setRecoverySaving(true);
+    try {
+      let ok;
+      if (savedId) { await handleSaveChanges(); ok = savedExamRef.current === examDataRef.current; }
+      else ok = await saveExamToHistory(examData, metaForSave(meta, { hasMarkingScheme: examHasMarkingScheme }));
+      if (ok) setRecovery(null);
+    } finally { setRecoverySaving(false); }
+  };
+
+  let recoveryBanner = null;
+  if (recovery?.kind === "draft") {
+    recoveryBanner = (
+      <RecoveryBanner testId="recovery-draft" title="Welcome back. Your paper setup was restored." onDismiss={dismissRecovery}
+        actions={[{ label: "Start fresh", onClick: startFresh }]}>
+        {recovery.summary ? `${recovery.summary}. ` : ""}Carry on from where you stopped.
+      </RecoveryBanner>
+    );
+  } else if (recovery?.kind === "paper") {
+    const actions = [{ label: "Show paper", onClick: showRecoveredPaper, primary: recovery.hasId && !recovery.dirty }];
+    if (!recovery.hasId) actions.unshift({ label: "Save to My Exams", onClick: saveRecoveredPaper, primary: true, busy: recoverySaving });
+    else if (recovery.dirty) actions.unshift({ label: "Save changes", onClick: saveRecoveredPaper, primary: true, busy: recoverySaving });
+    recoveryBanner = (
+      <RecoveryBanner testId="recovery-paper" title="We recovered the paper you were working on." onDismiss={dismissRecovery} actions={actions}>
+        {!recovery.hasId ? "It isn't in My Exams yet. Save it so it is kept." : recovery.dirty ? "It includes edits you hadn't saved to My Exams yet." : "It is also safely stored in My Exams."}
+      </RecoveryBanner>
+    );
+  } else if (recovery?.kind === "interrupted") {
+    const free = recovery.tier === "free";
+    const kept = recovery.sections?.length || 0;
+    const left = Math.max(0, (recovery.total || 0) - kept);
+    // Continuing is only safe when the settings are exactly the ones the kept sections were written for.
+    const sameSettings = kept > 0 && !!recovery.key && recovery.key === fingerprint(buildGenerationPayload(recovery.tier));
+    const canContinue = sameSettings && left > 0;
+    const again = () => requireLogin(() => handleGenerate(recovery.tier))();
+    const carryOn = () => requireLogin(() => handleGenerate(recovery.tier, { sections: recovery.sections, title: recovery.title, instructions: recovery.instructions }))();
+    const actions = canContinue
+      ? [{ label: `Continue (${left} section${left === 1 ? "" : "s"} left)`, onClick: carryOn, primary: true }, { label: "Start over", onClick: again }]
+      : [{ label: "Generate again", onClick: again, primary: true }];
+    recoveryBanner = (
+      <RecoveryBanner testId="recovery-interrupted" tone="warn" onDismiss={dismissRecovery} actions={actions}
+        title={recovery.failed ? "This paper stopped part-way." : "Your last paper didn't finish generating."}>
+        {recovery.total > 0 ? `${recovery.done} of ${recovery.total} sections ${canContinue ? "were written and kept. " : "had been written. "}` : ""}
+        {canContinue
+          ? (free ? "Continue writes only the rest, and Free AI is not charged. " : `Continue writes only the remaining ${left} and charges credits for those alone. `)
+          : (kept > 0 ? "Your settings have changed since then, so those sections can't be reused. " : "")}
+        {!canContinue && (free ? "Free AI is not charged. " : "Your credit balance has been refreshed. If it looks lower than expected, email hello@eduformium.com and we will put it right. ")}
+        {canContinue ? "" : "Your settings are restored, so you can generate again straight away."}
+      </RecoveryBanner>
+    );
+  }
 
   const [downloadingWord, setDownloadingWord] = useState(false);
   const handleDownloadWord = async (mode) => {
@@ -835,7 +1070,7 @@ function QuestionsGeneratorInner() {
     // get a finished exam from a phone into WhatsApp/email/Drive in one tap.
     const file = new File([html], fileName, { type: "text/html" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: activeExamData.title || examType }); }
+      try { await navigator.share({ files: [file], title: activeExamData.title || examType, text: "Made with Eduformium Assessment Studio" }); }
       catch { /* user cancelled the share sheet - not an error */ }
     } else {
       const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
@@ -876,6 +1111,9 @@ function QuestionsGeneratorInner() {
 
   const handleSignOut = () => {
     signOut();
+    clearAllDrafts();                 // this browser keeps nothing of the account's work in progress
+    resetWizard({ paper: true });     // and the next person on this computer starts from a blank page
+    setRecovery(null);
     setUser(null);
     setCreditBalance(null);
   };
@@ -900,8 +1138,9 @@ function QuestionsGeneratorInner() {
         <header className="qa-hero qa-rise">
           <div className="qa-hero-row">
             <div style={{ minWidth: 0 }}>
-              <h1 style={{ fontFamily: F }}>Questions Generator</h1>
-              <p style={{ fontFamily: F }}>Build print-ready class tests, quizzes and exams from your curriculum in minutes.</p>
+              <div className="qa-hero-eyebrow" style={{ fontFamily: F }}>Tests · Quizzes · Exams · Mocks</div>
+              <h1 style={{ fontFamily: F }}>Assessment Studio</h1>
+              <p style={{ fontFamily: F }}>Written for you from the Ghana curriculum, <span style={{ whiteSpace: "nowrap" }}>print-ready</span>, with marking schemes included.</p>
             </div>
           </div>
           <WizardProgress hasClass={!!(className && subject)} hasTopics={selectedTopics.length > 0 || !!pastedSyllabus.trim()} hasExam={!!examData} />
@@ -914,6 +1153,7 @@ function QuestionsGeneratorInner() {
           </span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </button>
+        {recoveryBanner}
         </>
       )}
 
@@ -961,6 +1201,7 @@ function QuestionsGeneratorInner() {
            the real Lesson Planner's flow exactly. Everything else in the
            form follows from this, so it comes first on the page too. ── */}
       <TopicSelector
+        initialStrands={D.strands} onStrandsChange={setDraftStrands}
         subject={subject} setSubject={setSubject}
         className={className} setClassName={setClassName}
         shsCourse={shsCourse} setShsCourse={setShsCourse}
@@ -1240,7 +1481,7 @@ function QuestionsGeneratorInner() {
       )}
       {/* ── Output ──────────────────────────────────────────────── */}
       {examData && (
-        <div style={S.out}>
+        <div id="qa-paper-output" style={S.out}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
             <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--brand)", fontFamily: F }}>
               {(examData.style === "bece" ? cleanBeceTitle(examData.title, examType) : examData.title) || examType}: Ready

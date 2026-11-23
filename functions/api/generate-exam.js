@@ -618,6 +618,18 @@ async function handleGenerateExamStreaming(body, env, user) {
     runSections = renumberExamSections(runSections);   // a changed question count shifts the numbering of later sections
   }
 
+  // ── Continuing an interrupted run ──
+  // The browser may already hold some finished sections (it kept them as they arrived) and sends their ids. Only the rest are
+  // written, and only the rest are charged. Numbering was settled above on the FULL list, so the continuation lines up exactly.
+  let skipIds = [];
+  if (Array.isArray(body.skipSectionIds) && body.skipSectionIds.length) {
+    const known = new Set(runSections.map(sc => String(sc.id)));
+    skipIds = [...new Set(body.skipSectionIds.slice(0, 50).map(String))].filter(id => known.has(id));
+    if (skipIds.length >= runSections.length) return jsonResp({ error: "Every section is already written, so there is nothing left to generate." }, 400);
+  }
+  const sectionsToRun = skipIds.length ? runSections.filter(sc => !skipIds.includes(String(sc.id))) : runSections;
+  const startsWithFirst = !skipIds.includes(String(runSections[0].id)); // the title and instructions come with the paper's first section
+
   // ── Input screening (before any credit reservation or AI call) ──
   const screen = screenExamInput({ schoolName, pastedSyllabus, topics });
   if (!screen.ok) return jsonResp({ error: screen.error }, 400);
@@ -637,7 +649,7 @@ async function handleGenerateExamStreaming(body, env, user) {
   // supports fractional amounts, same as the Lesson Planner's 0.5-coin
   // lessons (COINS_PER_LESSON in generate-premium.js).
   const perSectionRate = includeMarkingScheme ? CREDIT_COST_PER_SECTION_WITH_MARKING : CREDIT_COST_PER_SECTION_QUESTIONS_ONLY;
-  const creditCost = tier === "free" ? 0 : Math.round(runSections.length * perSectionRate * 100) / 100;
+  const creditCost = tier === "free" ? 0 : Math.round(sectionsToRun.length * perSectionRate * 100) / 100;
   let balanceAfterDeduction = null;
   if (tier !== "free") {
     try {
@@ -651,35 +663,47 @@ async function handleGenerateExamStreaming(body, env, user) {
   const bodyWithTierDefaults = { ...body, includeMarkingScheme, ...(isWassce ? { examStyle: "wassce" } : isBece ? { examStyle: "bece", beceScheme: beceProfile.scheme, beceLanguage: beceProfile.language || "" } : { examStyle: "school" }) };
 
   const encoder = new TextEncoder();
+  // Credits were reserved above. They are given back if the run does not reach the teacher: a failure we catch, OR the browser
+  // disconnecting (page refreshed, tab killed, signal lost). `settled` makes sure that happens exactly once, and never after success.
+  let settled = false;
+  let clientGone = false;
+  const refundOnce = async () => {
+    if (settled) return;
+    settled = true;
+    if (tier !== "free" && creditCost > 0) await refundCoins(env, user.sub, creditCost);
+  };
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (obj) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
       const examData = { title: "", instructions: [], sections: [], answerKey: [] };
       try {
-        for (let i = 0; i < runSections.length; i++) {
-          const section = runSections[i];
-          send({ type: "progress", sectionId: section.id, sectionLabel: section.label, index: i + 1, total: runSections.length });
+        for (let i = 0; i < sectionsToRun.length; i++) {
+          if (clientGone) throw new Error("client disconnected"); // stop spending AI calls on a paper nobody is waiting for
+          const section = sectionsToRun[i];
+          const isFirst = i === 0 && startsWithFirst;
+          send({ type: "progress", sectionId: section.id, sectionLabel: section.label, index: skipIds.length + i + 1, total: runSections.length });
 
           const ping = setInterval(() => { try { send({ type: "ping" }); } catch {} }, 8000);
           let result;
           try {
-            result = await generateSection(env, bodyWithTierDefaults, section, i === 0, aiStrategy);
+            result = await generateSection(env, bodyWithTierDefaults, section, isFirst, aiStrategy);
           } finally {
             clearInterval(ping);
           }
-          if (i === 0) { examData.title = result.title || ""; examData.instructions = result.instructions || []; }
+          if (isFirst) { examData.title = result.title || ""; examData.instructions = result.instructions || []; }
           examData.sections.push(result.section);
           if (section.type === "objective") {
             (result.section.questions || []).forEach(q => {
               if (q.correctOption) examData.answerKey.push({ number: q.number, answer: q.correctOption });
             });
           }
-          // The finished section rides along so the client can show the paper building up live.
+          // The finished section rides along so the client can show the paper building up live (and keep it, in case the page is refreshed).
           // (The final "done" event stays the single source of truth for the saved/validated exam.)
           send({
             type: "section-done", sectionId: section.id, questionCount: result.section.questions.length,
             section: result.section,
-            ...(i === 0 ? { title: result.title || "", instructions: result.instructions || [] } : {}),
+            ...(isFirst ? { title: result.title || "", instructions: result.instructions || [] } : {}),
           });
         }
 
@@ -687,24 +711,30 @@ async function handleGenerateExamStreaming(body, env, user) {
         const questionCount = examData.sections.reduce((sum, s) => sum + (s.questions || []).length, 0);
         await logExamGeneration(env, user.sub, { ...body, totalMarks, questionCount }, creditCost, tier);
 
-        send({ type: "done", examData, creditsRemaining: balanceAfterDeduction, includeMarkingScheme, tier });
+        send({ type: "done", examData, creditsRemaining: balanceAfterDeduction, includeMarkingScheme, tier, ...(skipIds.length ? { continued: true } : {}) });
+        settled = true; // delivered: the credits are spent for good
       } catch (err) {
         let creditsRemaining = null;
-        if (tier !== "free" && creditCost > 0) {
-          await refundCoins(env, user.sub, creditCost);
-          creditsRemaining = await getBalance(env, user.sub);
-        }
+        await refundOnce();
+        if (tier !== "free" && creditCost > 0) { try { creditsRemaining = await getBalance(env, user.sub); } catch { /* the balance is a courtesy */ } }
         console.error("generate-exam (streaming) failed:", err?.stack || err?.message || err);
-        send({
-          type: "error",
-          message: tier === "free"
-            ? (err.message?.includes("temporarily at capacity") ? err.message : "Free generation failed. Please try again, or use Premium.")
-            : "Couldn't generate the exam. Please try again. You have not been charged.",
-          creditsRemaining,
-        });
+        try {
+          send({
+            type: "error",
+            message: tier === "free"
+              ? (err.message?.includes("temporarily at capacity") ? err.message : "Free generation failed. Please try again, or use Premium.")
+              : "Couldn't generate the exam. Please try again. You have not been charged.",
+            creditsRemaining,
+          });
+        } catch { /* the browser is already gone */ }
       } finally {
-        controller.close();
+        try { controller.close(); } catch { /* already closed by the disconnect */ }
       }
+    },
+    // The browser went away (refresh, closed tab, dropped signal). Hand the credits back now, not whenever the next write fails.
+    async cancel() {
+      clientGone = true;
+      await refundOnce();
     },
   });
 

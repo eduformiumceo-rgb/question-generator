@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * EDUFORMIUM - AI QUESTIONS GENERATOR
+ * EDUFORMIUM - ASSESSMENT STUDIO
  * Exam paper template + AI system-prompt builder
  *
  * Mirrors the existing lessonTemplate.js / shsLessonTemplate.js pattern:

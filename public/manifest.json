@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Eduformium Questions Generator",
-  "short_name": "Questions",
-  "description": "Class test, quiz and exam question generator for Ghana NaCCA / GES teachers",
+  "name": "Eduformium Assessment Studio",
+  "short_name": "Assessments",
+  "description": "Create class tests, quizzes, mock exams and BECE/WASSCE-style papers for Ghana NaCCA / GES teachers, with marking schemes included",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

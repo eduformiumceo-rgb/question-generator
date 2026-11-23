@@ -92,9 +92,11 @@ export default function TopicSelector({
   selectedTopics, setSelectedTopics,
   pastedSyllabus, setPastedSyllabus,
   onSuggestTopics,
+  initialStrands, onStrandsChange, // optional: lets the page restore / remember the ticked strands (draft recovery)
   S, F,
 }) {
-  const [selectedStrands, setSelectedStrands] = useState([]); // string[]
+  const [selectedStrands, setSelectedStrands] = useState(() => (Array.isArray(initialStrands) ? initialStrands : [])); // string[]
+  useEffect(() => { onStrandsChange?.(selectedStrands); }, [selectedStrands]); // eslint-disable-line react-hooks/exhaustive-deps
   const [suggesting, setSuggesting] = useState(false);
 
   // Uploaded scheme file: { name, kind, pages, text (full), inserted (what went into the box), truncated, originalLength }
@@ -127,14 +129,23 @@ export default function TopicSelector({
   // pick from a different class would silently mis-scope the exam. Moving
   // between SHS 1/2/3 keeps the programme and subject (the teacher is still
   // setting a paper for the same course) but clears strands, which differ by year.
+  // Both resets fire only on a real CHANGE (not on first render), so a draft restored after a refresh keeps its
+  // subject, topics and ticked strands. Comparing with the previous value (instead of a "first run" flag) also
+  // keeps it correct under React StrictMode, which runs every effect twice in development.
   const prevClass = useRef(className);
   useEffect(() => {
+    if (prevClass.current === className) return;
     const stayingInSHS = isSHSClass(prevClass.current) && isSHSClass(className);
     prevClass.current = className;
     if (!stayingInSHS) { setSubject(""); setShsCourse?.(""); setShsKey?.(""); }
     setSelectedStrands([]); setSelectedTopics([]);
   }, [className]); // eslint-disable-line
-  useEffect(() => { setSelectedStrands([]); setSelectedTopics([]); }, [lookupKey]); // eslint-disable-line
+  const prevLookup = useRef(lookupKey);
+  useEffect(() => {
+    if (prevLookup.current === lookupKey) return;
+    prevLookup.current = lookupKey;
+    setSelectedStrands([]); setSelectedTopics([]);
+  }, [lookupKey]); // eslint-disable-line
 
   const pickCourse = (course) => {
     setShsCourse(course); setShsKey(""); setSubject("");

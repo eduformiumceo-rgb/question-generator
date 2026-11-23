@@ -1,4 +1,4 @@
-# EDUFORMIUM - AI Questions Generator
+# EDUFORMIUM - Assessment Studio
 A **separate app**: its own repo, its own Cloudflare Pages project, its own
 domain (e.g. `questions.eduformium.com`) - wired to the Lesson Planner's
 **same Supabase project** for real single sign-on, and now sharing the

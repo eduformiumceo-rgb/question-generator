@@ -1,11 +1,11 @@
 /* ─────────────────────────────────────────────
-   Eduformium Questions Generator Service Worker  v1.0
+   Eduformium Assessment Studio Service Worker  v1.1
    - App shell works fully offline
    - API / auth / Supabase always go to network
    - Dynamic assets cached on first visit
 ───────────────────────────────────────────── */
 
-const CACHE_VERSION = "eduformium-questions-v1";
+const CACHE_VERSION = "eduformium-questions-v2"; // bumped with the rename: activate() deletes the old cache so installed apps pick up the new name
 const OFFLINE_PAGE  = "/index.html";
 
 // ── Install: cache the app shell ──────────────

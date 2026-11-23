@@ -55,7 +55,7 @@ export default function PaymentSuccess({ onDone, S, F }) {
           </>
         )}
         <button style={{ ...S.btn, width: "100%", marginTop: 16 }} onClick={onDone}>
-          Back to Questions Generator
+          Back to Assessment Studio
         </button>
       </div>
     </div>

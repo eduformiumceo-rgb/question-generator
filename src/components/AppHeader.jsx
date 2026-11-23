@@ -71,13 +71,9 @@ const HEADER_CSS = `
   .qh-chevron { display:flex; align-items:center; color:var(--text-muted);
     transition:transform .22s cubic-bezier(.22,1,.36,1); }
   .qh-hbg.is-open .qh-chevron { transform:rotate(180deg); }
-  .qh-who { padding:16px 18px 12px; }
+  .qh-who { padding:16px 18px 10px; }
   .qh-who-name { font-size:14.5px; font-weight:700; line-height:1.3; color:var(--text); font-family:${F}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .qh-who-mail { font-size:12.5px; line-height:1.3; color:var(--text-muted); font-family:${F}; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .qh-credit-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 12px 6px; padding:10px 12px; background:var(--surface-2); border-radius:12px; }
-  .qh-credit-lbl { font-size:11px; font-weight:600; line-height:1; letter-spacing:.05em; text-transform:uppercase; color:var(--text-muted); font-family:${F}; }
-  .qh-credit-num { font-size:18px; font-weight:800; line-height:1; color:var(--text); font-family:${F}; margin-top:6px; }
-  .qh-topup { height:32px; padding:0 16px; border-radius:99px; border:none; background:var(--btn); color:#fff; font-size:13px; font-weight:700; font-family:${F}; cursor:pointer; flex-shrink:0; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
   .qh-list { padding:4px 8px 8px; }
   .qh-row { display:flex; align-items:center; justify-content:flex-start; gap:12px; width:100%; height:44px; padding:0 10px; border:none; border-radius:10px; background:transparent; color:var(--text); font-size:14px; font-weight:500; line-height:1; font-family:${F}; cursor:pointer; text-align:left; box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
   a.qh-row { text-decoration:none; }
@@ -138,7 +134,7 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
               <span style={{ color: "var(--logo-edu)" }}>Edu</span><span style={{ color: "var(--logo-formium)" }}>formium</span>
             </div>
             <div className="qh-brand-sub" style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: F, lineHeight: 1, letterSpacing: ".02em", marginTop: 3, whiteSpace: "nowrap" }}>
-              Assessments made simple
+              Assessment Studio
             </div>
           </div>
 
@@ -204,15 +200,6 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
               <div className="qh-who">
                 <div className="qh-who-name">{user.name || user.email}</div>
                 {user.name && user.email && <div className="qh-who-mail">{user.email}</div>}
-              </div>
-            )}
-            {user && hasBalance && (
-              <div className="qh-credit-row">
-                <div>
-                  <div className="qh-credit-lbl">Credits</div>
-                  <div className="qh-credit-num">{credits}</div>
-                </div>
-                <button type="button" className="qh-topup" onClick={() => { closeMenu(); onTopUp(); }}>Top up</button>
               </div>
             )}
             <div className="qh-list">

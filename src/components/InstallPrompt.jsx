@@ -78,7 +78,7 @@ export default function InstallPrompt({ onClose, deferredPromptRef }) {
         }
       `}</style>
 
-      <div className="pwa-overlay" role="dialog" aria-modal="true" aria-label="Install Questions Generator">
+      <div className="pwa-overlay" role="dialog" aria-modal="true" aria-label="Install Assessment Studio">
         <div className="pwa-card">
 
           {/* -- Top strip -- */}
@@ -95,12 +95,12 @@ export default function InstallPrompt({ onClose, deferredPromptRef }) {
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <img
                 src="/questions-logo.png"
-                alt="Eduformium Questions"
+                alt="Eduformium Assessment Studio"
                 style={{ width: 46, height: 46, borderRadius: 12, flexShrink: 0, objectFit: "contain" }}
               />
               <div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", fontFamily: F, lineHeight: 1.1 }}>
-                  {done ? "App Installed" : "Questions Generator"}
+                  {done ? "App Installed" : "Assessment Studio"}
                 </div>
                 <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.72)", fontFamily: F, fontWeight: 500, marginTop: 3 }}>
                   {done ? "" : "Tests, quizzes and exams"}
@@ -122,7 +122,7 @@ export default function InstallPrompt({ onClose, deferredPromptRef }) {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </div>
                 <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)", fontFamily: F, lineHeight: 1.6 }}>
-                  Eduformium Questions has been added to your home screen.
+                  Eduformium Assessment Studio has been added to your home screen.
                 </p>
               </div>
             ) : (
