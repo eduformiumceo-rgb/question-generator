@@ -222,7 +222,7 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-ct { display: flex; align-items: center; gap: 12px; }
 .qa-ct h3 { color: var(--brand) !important; letter-spacing: -.01em; }
 
-/* Hero: the one deep-blue block on the page. Title, My Exams and the stepper live inside it. */
+/* Hero: the one deep-blue block on the page. Title, My Assessments and the stepper live inside it. */
 .qa-hero { background: radial-gradient(120% 100% at 100% 100%, rgba(13,148,136,.50) 0%, rgba(13,148,136,0) 62%), linear-gradient(135deg, var(--brand-solid) 0%, #133C80 100%); border-radius: 18px; padding: 22px 26px 18px; margin-bottom: 12px; color: #fff; }
 .qa-exams-tile { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; margin: 0 0 18px; padding: 10px 16px 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: border-color .15s, background .15s; }
 .qa-exams-tile:hover { border-color: var(--accent); }
@@ -262,13 +262,15 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-how-item h4 { margin: 6px 0 5px; font-size: 14.5px; font-weight: 700; color: var(--brand); }
 .qa-how-item p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
 
-/* Feature strip: plain text split by hairlines, no pills, no icons */
-.qa-feats { display: flex; flex-wrap: wrap; justify-content: center; row-gap: 6px; margin: 14px 0 6px; padding: 0; list-style: none; }
-.qa-feat { padding: 0 11px; font-size: 12px; white-space: nowrap; font-weight: 600; color: var(--text-secondary); line-height: 1.2; }
-.qa-feat + .qa-feat { border-left: 1px solid var(--border-strong); }
+/* Feature grid: two tidy columns, a bold line and a muted line each, hairline-framed */
+.qa-feats { display: grid; grid-template-columns: repeat(2, 1fr); margin: 18px 0 6px; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--card-bg); }
+.qa-feat { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; text-align: left; }
+.qa-feat:nth-child(even) { border-left: 1px solid var(--border); }
+.qa-feat:nth-child(n+3) { border-top: 1px solid var(--border); }
+.qa-feat strong { font-size: 13.5px; font-weight: 700; line-height: 1.25; color: var(--text); }
+.qa-feat span { font-size: 12.5px; line-height: 1.4; color: var(--text-muted); }
 @media (max-width: 640px) {
-  .qa-feats { column-gap: 2px; }
-  .qa-feat + .qa-feat { border-left: none; }
+  .qa-feat { padding: 12px 12px; }
   .qa-how { grid-template-columns: 1fr; }
   .qa-how-item, .qa-how-item + .qa-how-item { padding: 14px 0; border-left: none; }
   .qa-how-item + .qa-how-item { border-top: 1px solid var(--border); }
@@ -334,7 +336,7 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-gen-foot { margin: 14px 0 0; font-size: 12.5px; text-align: center; color: rgba(255,255,255,.65); }
 @media (max-width: 520px) { .qa-gen { padding: 18px 16px 14px; } .qa-opt { gap: 14px; } }
 
-/* My Exams button: on a phone it shrinks to the folder icon (plus the count), so the page title keeps its room */
+/* My Assessments button: on a phone it shrinks to the folder icon (plus the count), so the page title keeps its room */
 .qa-show-sm { display: none; font-weight: 700; }
 @media (max-width: 520px) {
   .qa-hide-sm { display: none; }

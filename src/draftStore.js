@@ -4,7 +4,7 @@
  * WHAT IT KEEPS (all in THIS browser only, nothing is sent anywhere):
  *   1. Wizard draft   class, subject, topics, difficulty, sections ... (small, localStorage).
  *                     Read synchronously so the page opens already filled in: no flash of an empty form.
- *   2. Paper snapshot the generated paper on screen, with edits not yet saved to My Exams
+ *   2. Paper snapshot the generated paper on screen, with edits not yet saved to My Assessments
  *                     (large, IndexedDB; localStorage only as a size-guarded fallback).
  *   3. Generation job a marker that "a generation was running", plus the sections finished so far, so an interrupted run
  *                     can be explained and CONTINUED (only the missing sections are written and charged).

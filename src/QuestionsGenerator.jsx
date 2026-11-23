@@ -297,7 +297,7 @@ function QuestionsGeneratorInner() {
   }, [isSHS]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Curriculum + Topics (GES / NaCCA only) ──────────────────────
-  const [subject, setSubject] = useState(D.subject ?? "");        // clean display name, e.g. "Biology" - what the AI, the paper and My Exams use
+  const [subject, setSubject] = useState(D.subject ?? "");        // clean display name, e.g. "Biology" - what the AI, the paper and My Assessments use
   const [shsCourse, setShsCourse] = useState(D.shsCourse ?? "");      // SHS only: programme / course, e.g. "General Science"
   const [shsKey, setShsKey] = useState(D.shsKey ?? "");            // SHS only: internal curriculum key, e.g. "Biology (GS)"
   const programme = isSHS ? shsCourse : "";          // sent to the AI, printed on the paper, saved with the exam
@@ -444,17 +444,17 @@ function QuestionsGeneratorInner() {
   }, []);
   React.useEffect(() => { fetchBalance(); }, [fetchBalance]);
 
-  // ── My Exams (saved papers) ────────────────────────────────────────────
+  // ── My Assessments (saved papers) ────────────────────────────────────────────
   // Same model as the Lesson Planner's "My Plans": every generated exam is
   // saved automatically, up to MAX_SAVED_EXAMS per teacher; the server evicts
   // the oldest on the next save so Supabase storage stays bounded.
   const [view, setView] = useState("generate"); // "generate" | "saved"
   const [savedCount, setSavedCount] = useState(null);
   const [savedRefresh, setSavedRefresh] = useState(0);
-  const [openedMeta, setOpenedMeta] = useState(null); // header details of a paper re-opened from My Exams
+  const [openedMeta, setOpenedMeta] = useState(null); // header details of a paper re-opened from My Assessments
   const [saveToast, setSaveToast] = useState(null); // { type: "info" | "warn", msg }
   const toastTimer = useRef(null);
-  const [savedId, setSavedId] = useState(null);        // id of the My Exams copy of the paper on screen
+  const [savedId, setSavedId] = useState(null);        // id of the My Assessments copy of the paper on screen
   const savedExamRef = useRef(null);                   // the examData object that copy was saved from
   const [savingChanges, setSavingChanges] = useState(false);
   const [barHidden, setBarHidden] = useState(false);   // hide the bottom bar while typing so it never covers inputs/keyboard
@@ -487,11 +487,11 @@ function QuestionsGeneratorInner() {
         const list = await ExamHistory.list().catch(() => null);
         if (list) setSavedCount(list.length);
         if (r?.deletedCount > 0) {
-          showSaveToast("warn", `${r.deletedCount > 1 ? `${r.deletedCount} oldest exams were` : "Your oldest exam was"} removed to make room. You can save up to ${max} exams.`);
+          showSaveToast("warn", `${r.deletedCount > 1 ? `${r.deletedCount} oldest assessments were` : "Your oldest assessment was"} removed to make room. You can save up to ${max}.`);
         } else if (list && list.length >= max - 1) {
-          showSaveToast("info", `${list.length} of ${max} exam slots used. Next save will remove your oldest exam.`);
+          showSaveToast("info", `${list.length} of ${max} slots used. Next save will remove your oldest assessment.`);
         } else {
-          showSaveToast("info", "Saved to My Exams.");
+          showSaveToast("info", "Saved to My Assessments.");
         }
         return true;
       } catch (e) {
@@ -500,7 +500,7 @@ function QuestionsGeneratorInner() {
       }
     }
     console.error("[save exam] failed after retries:", lastErr);
-    showSaveToast("warn", "Couldn't save this exam to My Exams. It's still on screen, but won't be saved for later.");
+    showSaveToast("warn", "Couldn't save this to My Assessments. It's still on screen, but won't be saved for later.");
     return false;
   };
 
@@ -512,9 +512,9 @@ function QuestionsGeneratorInner() {
       await ExamHistory.update(savedId, { exam_json: examData, title: examData.title || undefined });
       savedExamRef.current = examData;
       setSavedRefresh(n => n + 1);
-      showSaveToast("info", "Changes saved to My Exams.");
+      showSaveToast("info", "Changes saved to My Assessments.");
     } catch (e) {
-      if (e?.status === 404) { setSavedId(null); showSaveToast("warn", "This exam was removed from My Exams to make room, so the changes can't be saved there."); }
+      if (e?.status === 404) { setSavedId(null); showSaveToast("warn", "This assessment was removed from My Assessments to make room, so the changes can't be saved there."); }
       else showSaveToast("warn", e?.message || "Couldn't save your changes. Please try again.");
     } finally { setSavingChanges(false); }
   };
@@ -667,7 +667,7 @@ function QuestionsGeneratorInner() {
     stopFigureDrawing();
     setRecovery(null);                       // any "welcome back" / "interrupted" notice is now out of date
     clearJob();
-    clearPaperSnapshot();                    // the paper on screen is about to be replaced (the old one is in My Exams)
+    clearPaperSnapshot();                    // the paper on screen is about to be replaced (the old one is in My Assessments)
     setLoading(true);
     setLoadingTier(tierArg);
     setExamTier(tierArg);
@@ -735,7 +735,7 @@ function QuestionsGeneratorInner() {
       setExamVersion("A");
       setExamHasMarkingScheme(result.includeMarkingScheme !== false);
       setShowAnswerKey(false);
-      // Save to My Exams in the background - never blocks showing the paper.
+      // Save to My Assessments in the background - never blocks showing the paper.
       saveExamToHistory(result.examData, metaForSave(meta, { hasMarkingScheme: result.includeMarkingScheme !== false }));
       // The AI then draws the paper's figures one by one (never blocks the paper either).
       if (allowDiagrams) drawFiguresFor(result.examData);
@@ -816,7 +816,7 @@ function QuestionsGeneratorInner() {
     } catch { markFigure(slot.key, "failed"); }
   }, [markFigure, subject, className]);
 
-  /** Draws every empty figure of a freshly generated paper, then saves the drawings with the paper in My Exams. */
+  /** Draws every empty figure of a freshly generated paper, then saves the drawings with the paper in My Assessments. */
   const drawFiguresFor = async (generated) => {
     stopFigureDrawing();
     const ctrl = new AbortController();
@@ -855,7 +855,7 @@ function QuestionsGeneratorInner() {
 
   // ── Recovery after a refresh / crash / sign-in redirect (storage layer: draftStore.js) ─────────────────────────────
   // Three things are remembered in this browser: the paper setup (instantly, before first paint), the generated paper with any
-  // edits not yet saved to My Exams, and a marker that a generation was running. Nothing leaves the device; signing out wipes it.
+  // edits not yet saved to My Assessments, and a marker that a generation was running. Nothing leaves the device; signing out wipes it.
   const [recovery, setRecovery] = useState(() => (Object.keys(D).length ? {
     kind: "draft",
     summary: [D.className, D.subject, D.selectedTopics?.length ? `${D.selectedTopics.length} topic${D.selectedTopics.length === 1 ? "" : "s"}` : null].filter(Boolean).join(" · "),
@@ -924,7 +924,7 @@ function QuestionsGeneratorInner() {
         setExamTier(sn.examTier === "free" || sn.examTier === "premium" ? sn.examTier : null);
         setExamHasMarkingScheme(sn.examHasMarkingScheme !== false);
         setSavedId(sn.savedId || null);
-        // "Save changes" appears when the paper differs from the copy in My Exams; a stand-in object marks "it does".
+        // "Save changes" appears when the paper differs from the copy in My Assessments; a stand-in object marks "it does".
         savedExamRef.current = sn.savedId ? (sn.dirty ? {} : sn.examData) : null;
         setExamVersion(["A", "B", "C"].includes(sn.examVersion) ? sn.examVersion : "A");
         setOpenedMeta(sn.openedMeta && typeof sn.openedMeta === "object" ? sn.openedMeta : null);
@@ -983,11 +983,11 @@ function QuestionsGeneratorInner() {
     );
   } else if (recovery?.kind === "paper") {
     const actions = [{ label: "Show paper", onClick: showRecoveredPaper, primary: recovery.hasId && !recovery.dirty }];
-    if (!recovery.hasId) actions.unshift({ label: "Save to My Exams", onClick: saveRecoveredPaper, primary: true, busy: recoverySaving });
+    if (!recovery.hasId) actions.unshift({ label: "Save to My Assessments", onClick: saveRecoveredPaper, primary: true, busy: recoverySaving });
     else if (recovery.dirty) actions.unshift({ label: "Save changes", onClick: saveRecoveredPaper, primary: true, busy: recoverySaving });
     recoveryBanner = (
       <RecoveryBanner testId="recovery-paper" title="We recovered the paper you were working on." onDismiss={dismissRecovery} actions={actions}>
-        {!recovery.hasId ? "It isn't in My Exams yet. Save it so it is kept." : recovery.dirty ? "It includes edits you hadn't saved to My Exams yet." : "It is also safely stored in My Exams."}
+        {!recovery.hasId ? "It isn't in My Assessments yet. Save it so it is kept." : recovery.dirty ? "It includes edits you hadn't saved to My Assessments yet." : "It is also safely stored in My Assessments."}
       </RecoveryBanner>
     );
   } else if (recovery?.kind === "interrupted") {
@@ -1138,9 +1138,8 @@ function QuestionsGeneratorInner() {
         <header className="qa-hero qa-rise">
           <div className="qa-hero-row">
             <div style={{ minWidth: 0 }}>
-              <div className="qa-hero-eyebrow" style={{ fontFamily: F }}>Tests · Quizzes · Exams · Mocks</div>
               <h1 style={{ fontFamily: F }}>Assessment Studio</h1>
-              <p style={{ fontFamily: F }}>Written for you from the Ghana curriculum, <span style={{ whiteSpace: "nowrap" }}>print-ready</span>, with marking schemes included.</p>
+              <p style={{ fontFamily: F }}>Tests, quizzes and exams from the Ghana curriculum, with marking schemes.</p>
             </div>
           </div>
           <WizardProgress hasClass={!!(className && subject)} hasTopics={selectedTopics.length > 0 || !!pastedSyllabus.trim()} hasExam={!!examData} />
@@ -1148,8 +1147,8 @@ function QuestionsGeneratorInner() {
         <button type="button" className="qa-exams-tile qa-rise" onClick={requireLogin(() => setView("saved"))} style={{ fontFamily: F }}>
           <img src={savedCount ? folderPapers : folderEmpty} alt="" aria-hidden="true" />
           <span className="qa-exams-txt">
-            <strong>My Exams</strong>
-            <span>{savedCount ? `${savedCount} saved exam${savedCount === 1 ? "" : "s"}` : "Your saved papers appear here"}</span>
+            <strong>My Assessments</strong>
+            <span>{savedCount ? `${savedCount} saved` : "Tests, quizzes and exams you save appear here"}</span>
           </span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </button>
@@ -1195,7 +1194,7 @@ function QuestionsGeneratorInner() {
         />
       )}
 
-      {/* Wizard + result stay mounted (just hidden) while My Exams is open, so nothing the teacher typed is lost */}
+      {/* Wizard + result stay mounted (just hidden) while My Assessments is open, so nothing the teacher typed is lost */}
       <div className="qa-flow" style={{ display: view === "saved" ? "none" : undefined }}>
       {/* ── Curriculum + Topics (GES / NaCCA) - CLASS FIRST, matching
            the real Lesson Planner's flow exactly. Everything else in the
@@ -1579,7 +1578,7 @@ function QuestionsGeneratorInner() {
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", fontFamily: F, marginRight: 4 }}>Paper format</span>
               <span style={{ fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F }}>
-                {examStyle === "public" ? (isSHS ? "WASSCE style" : "BECE style") : "School exam"} (change it under Exam Type, near the top)
+                {examStyle === "public" ? (isSHS ? "WASSCE style" : "BECE style") : "School exam"}
               </span>
               {paperPreset === "custom" && <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F }}>Custom</span>}
             </div>

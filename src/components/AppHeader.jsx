@@ -1,12 +1,9 @@
 /**
  * AppHeader - sticky top bar, same look as the Lesson Planner's header:
- *   Left   Eduformium wordmark + tagline
- *   Right  Sign In (signed out)  |  credits + Topup + avatar menu (signed in)
+ *   Left   Eduformium wordmark + product name
+ *   Right  Sign In (signed out)  |  one credits chip (tap to top up) + avatar menu (signed in)
  *
- * Mobile: the long "N credits · Top up" pill that used to wrap and look
- * broken is now a compact coin + number + "+" chip that can never wrap,
- * sitting beside the avatar. Desktop shows the full "N Credits" pill and
- * a separate Topup button, exactly like the Lesson Planner.
+ * Kept deliberately quiet: appearance (light/dark), install and legal links live in the avatar menu.
  */
 import React, { useEffect, useState } from "react";
 import { F, S } from "../sharedStyles.jsx";
@@ -51,8 +48,15 @@ const HEADER_CSS = `
     height:56px; padding:0 32px; box-sizing:border-box; gap:10px; }
   .qh-brand { min-width:0; flex-shrink:1; }
   .qh-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-  .qh-credits-desktop { display:flex; align-items:center; gap:10px; margin-right:4px; }
-  .qh-credits-mobile  { display:none; }
+  .qh-credits { display:flex; align-items:center; gap:6px; height:34px; padding:0 8px 0 11px; border-radius:99px;
+    border:1px solid var(--border-strong); background:var(--input-bg); color:var(--text); cursor:pointer; font-family:${F};
+    font-size:13px; font-weight:700; line-height:1; white-space:nowrap; flex-shrink:0; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    transition:border-color .15s; }
+  .qh-credits:hover { border-color:var(--accent); }
+  .qh-credits-plus { width:20px; height:20px; border-radius:50%; background:var(--logo-formium,#0D9488); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; line-height:1; }
+  .qh-theme { display:flex; gap:4px; margin:6px 2px 2px; padding:3px; border-radius:10px; background:var(--surface-2); }
+  .qh-theme-opt { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; height:32px; border:none; border-radius:8px; background:transparent; color:var(--text-muted); font-family:${F}; font-size:12.5px; font-weight:600; cursor:pointer; }
+  .qh-theme-opt.is-on { background:var(--card-bg); color:var(--text); box-shadow:0 1px 2px rgba(16,24,40,.12); }
   .qh-overlay { position:fixed; inset:0; background:transparent; z-index:150; }
   .qh-menu { position:fixed; top:62px; right:12px; width:272px; max-width:calc(100vw - 24px);
     background:var(--card-bg); z-index:160; border-radius:16px; border:1px solid var(--border);
@@ -85,16 +89,9 @@ const HEADER_CSS = `
   .qh-legal a { padding:6px 0; font-size:12.5px; font-weight:500; line-height:1.2; font-family:${F}; color:var(--text-secondary); text-decoration:none; }
   .qh-legal a:hover { color:var(--accent); }
   .qh-legal-copy { grid-column:1 / -1; margin-top:6px; font-size:11.5px; line-height:1.2; color:var(--text-muted); font-family:${F}; }
-  .qh-tbtn { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;
-    background:var(--input-bg); border:1.5px solid var(--border-strong); color:var(--text-secondary); cursor:pointer;
-    -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:border-color .15s,color .15s; }
-  .qh-tbtn:hover { border-color:var(--accent); color:var(--accent); }
-  .qh-tbtn svg { width:16px; height:16px; }
   @media (max-width:640px) {
     .qh-inner { padding:0 12px; }
     .qh-brand-sub { font-size:8px !important; }
-    .qh-credits-desktop { display:none; }
-    .qh-credits-mobile { display:flex; }
   }
   @media (min-width:641px) and (max-width:900px) { .qh-inner { padding:0 20px; } }
 `;
@@ -109,8 +106,6 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
     window.addEventListener("edu-theme-change", on);
     return () => window.removeEventListener("edu-theme-change", on);
   }, []);
-  const nextTheme = themeMode === "light" ? "auto" : themeMode === "auto" ? "dark" : "light";
-  const CurIcon = (THEME_OPTS.find((o) => o.id === themeMode) || THEME_OPTS[0]).Icon;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -140,39 +135,17 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
 
           {/* Right side */}
           <div className="qh-right">
-            <button type="button" className="qh-tbtn" onClick={() => pickTheme(nextTheme)}
-              aria-label={`Appearance: ${themeMode}. Tap to switch to ${nextTheme}`} title={`Appearance: ${themeMode} (tap for ${nextTheme})`}>
-              <CurIcon />
-            </button>
             {!user && (
               <button onClick={onSignIn} style={{ ...S.btn, height: 34, padding: "0 18px", fontSize: 13, borderRadius: 99 }}>Sign In</button>
             )}
 
             {user && hasBalance && (
-              <>
-                {/* Desktop / tablet: full credits pill + Topup */}
-                <div className="qh-credits-desktop">
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, height: 32, padding: "0 12px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--input-bg)" }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", fontFamily: F, whiteSpace: "nowrap", letterSpacing: "-.01em" }}>
-                      {credits} Credits
-                    </span>
-                  </div>
-                  <button onClick={onTopUp} style={{
-                    height: 32, padding: "0 14px", borderRadius: 99, border: "none",
-                    background: "var(--logo-formium,#0D9488)", cursor: "pointer", fontSize: 12, fontWeight: 700,
-                    color: "#fff", fontFamily: F, whiteSpace: "nowrap", letterSpacing: "-.01em",
-                  }}>Topup</button>
-                </div>
-
-                {/* Mobile: one compact tappable chip - never wraps */}
-                <button className="qh-credits-mobile" onClick={onTopUp} aria-label={`${credits} credits. Tap to top up`} style={{
-                  alignItems: "center", gap: 5, height: 32, padding: "0 6px 0 9px", borderRadius: 99,
-                  border: "1px solid var(--tag-border)", background: "var(--accent-soft)", cursor: "pointer",
-                  fontFamily: F, flexShrink: 0, WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
-                }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", lineHeight: 1, whiteSpace: "nowrap" }}>{credits} Credits</span>
-                </button>
-              </>
+              /* One chip: the balance, tappable to top up. (Used to be a pill + a Topup button + a theme button.) */
+              <button type="button" className="qh-credits" onClick={onTopUp} aria-label={`${credits} credits. Tap to top up`} title="Top up credits">
+                <Coin size={15} />
+                <span>{credits}</span>
+                <span className="qh-credits-plus" aria-hidden="true">+</span>
+              </button>
             )}
 
               <button className={`qh-hbg${menuOpen ? " is-open" : ""}`} onClick={() => setMenuOpen((o) => !o)} aria-label="Menu" aria-expanded={menuOpen}>
@@ -191,7 +164,7 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
         </div>
       </header>
 
-      {/* Account dropdown: back to the Hub, who you are, your credits, install, sign out. (Theme lives in the header; My Exams is the card on the page.) */}
+      {/* Account dropdown: back to the Hub, who you are, your credits, install, sign out. (Appearance is here too; My Assessments is the card on the page.) */}
       {menuOpen && (
         <>
           <div className="qh-overlay" onClick={closeMenu} />
@@ -207,6 +180,13 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
                 Back to Eduformium Hub
               </a>
+              <div className="qh-theme" role="group" aria-label="Appearance">
+                {THEME_OPTS.map(({ id, label, Icon }) => (
+                  <button key={id} type="button" className={`qh-theme-opt${themeMode === id ? " is-on" : ""}`} aria-pressed={themeMode === id} onClick={() => pickTheme(id)}>
+                    <Icon />{label}
+                  </button>
+                ))}
+              </div>
               {canInstall && (
                 <button className="qh-row" role="menuitem" onClick={() => { closeMenu(); onInstall(); }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>

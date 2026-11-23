@@ -1,4 +1,4 @@
-// The REAL account handler (My Exams history) against an in-memory Supabase.
+// The REAL account handler (My Assessments history) against an in-memory Supabase.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { onRequest } from "../functions/api/exam-account/[[path]].js";
 
@@ -51,7 +51,7 @@ async function call(method, path, { body, sub = U1, auth = true, raw } = {}) {
 }
 const exam = (n = 1) => ({ title: `Exam ${n}`, subject: "Biology", class: "SHS 3", exam_type: "Mock Exam", exam_json: { sections: [{ id: "A", questions: [{ number: 1, text: "q" }] }] }, meta_json: { schoolName: "T" } });
 
-describe("exam-account: My Exams", () => {
+describe("exam-account: My Assessments", () => {
   it("saves, lists, opens, renames and deletes an exam", async () => {
     const s = await call("POST", "/history", { body: exam(1) });
     expect(s.status).toBe(200); const id = s.json.id;
@@ -114,7 +114,7 @@ describe("exam-account: My Exams", () => {
     expect((await call("POST", "/history", { auth: false, body: exam(1) })).status).toBe(401);
     expect((await call("DELETE", "/history", { auth: false })).status).toBe(401);
   });
-  it("clearing My Exams only clears the caller's own", async () => {
+  it("clearing My Assessments only clears the caller's own", async () => {
     await call("POST", "/history", { body: exam(1) }); await call("POST", "/history", { body: exam(2), sub: U2 });
     await call("DELETE", "/history");
     expect(rows.map(r => r.user_id)).toEqual([U2]);

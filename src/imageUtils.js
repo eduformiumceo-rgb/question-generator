@@ -68,7 +68,7 @@ export async function svgToPngDataUrl(svgMarkup, width = 800) {
    { src, size, caption }. Because it travels inside the exam data it
    (a) can never land on the wrong question, even though every section
    restarts its numbering at 1, (b) survives shuffled Version B/C papers,
-   and (c) is saved with the exam in My Exams with no extra plumbing.
+   and (c) is saved with the exam in My Assessments with no extra plumbing.
    ──────────────────────────────────────────────────────────────── */
 
 /**

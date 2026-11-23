@@ -1,5 +1,5 @@
 /**
- * SavedExams - the "My Exams" page. Same look and behaviour as the Lesson
+ * SavedExams - the "My Assessments" page. Same look and behaviour as the Lesson
  * Planner's HistoryTab: storage bar (n / 10), search, Open + delete per row,
  * Clear All with confirmation. Opening a row loads the full paper back into
  * the generator so it can be previewed, edited, printed or exported to Word.
@@ -20,7 +20,7 @@ const SKELETON_CSS = `@keyframes sx-shimmer{0%{background-position:-300px 0}100%
 .sx-sk{background:linear-gradient(90deg,var(--border) 0%,var(--input-bg) 40%,var(--border) 80%);background-size:600px 100%;animation:sx-shimmer 1.3s linear infinite;border-radius:8px}
 @media (prefers-reduced-motion:reduce){.sx-sk{animation:none}}`;
 const SkeletonRows = ({ n = 4 }) => (
-  <div aria-busy="true" aria-label="Loading your exams">
+  <div aria-busy="true" aria-label="Loading your assessments">
     <style>{SKELETON_CSS}</style>
     <div className="sx-sk" style={{ height: 62, borderRadius: 10, marginBottom: 16 }} />
     <div className="sx-sk" style={{ height: 44, borderRadius: 99, marginBottom: 16 }} />
@@ -99,7 +99,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
     try { await ExamHistory.update(e.id, { title }); }
     catch (err) {
       setExams((list) => list.map((x) => (x.id === e.id ? { ...x, title: before } : x)));
-      setActionError(err?.message || "Couldn't rename that exam.");
+      setActionError(err?.message || "Couldn't rename that assessment.");
     }
   };
   // Deletes are applied to the screen instantly, and only sent to the server after a
@@ -118,7 +118,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
     setLoading(true);
     ExamHistory.list()
       .then((all) => { const rows = all.filter(r => !pending.current.has(r.id)); if (!cancelled) { setExams(rows); onCount?.(rows.length); setLoading(false); } })
-      .catch((e) => { if (!cancelled) { setLoadError(e?.message || "Unknown error loading exams"); setLoading(false); } });
+      .catch((e) => { if (!cancelled) { setLoadError(e?.message || "Unknown error loading assessments"); setLoading(false); } });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, refreshKey]);
@@ -140,7 +140,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
       catch (e) { // the server refused: put it back rather than pretend it's gone
         pending.current.delete(id);
         setExams((list) => { const copy = [...list]; copy.splice(Math.min(index, copy.length), 0, item); onCount?.(copy.length); return copy; });
-        setActionError(e?.message || "Couldn't delete that exam.");
+        setActionError(e?.message || "Couldn't delete that assessment.");
       }
       setUndoId((cur) => (cur === id ? null : cur));
     }, 5000);
@@ -156,13 +156,13 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
   const clearAll = async () => {
     setActionError("");
     try { await ExamHistory.clear(); pending.current.forEach(p => clearTimeout(p.timer)); pending.current.clear(); setUndoId(null); setExams([]); onCount?.(0); }
-    catch (e) { setActionError(e?.message || "Couldn't clear your exams."); }
+    catch (e) { setActionError(e?.message || "Couldn't clear your assessments."); }
     finally { setConfirmClear(false); }
   };
   const open = async (id) => {
     setOpeningId(id); setActionError("");
     try { await onOpen(id); }
-    catch (e) { setActionError(e?.message || "Couldn't open that exam."); }
+    catch (e) { setActionError(e?.message || "Couldn't open that assessment."); }
     finally { setOpeningId(null); }
   };
 
@@ -171,7 +171,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 auto" }}>
         {exams.length > 0 && <img src={folderPapers} alt="" aria-hidden="true" style={{ width: 52, height: "auto", flexShrink: 0 }} />}
       <div>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>My Exams</h1>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>My Assessments</h1>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>Your saved papers, available on any device.</p>
       </div>
       </div>
@@ -181,8 +181,8 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
 
   if (!user) return (
     <div>{header}
-      <Center F={F} title="Sign in to see your exams" icon={<svg {...svgProps} stroke="var(--border-strong)"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>}>
-        <p style={{ margin: "0 0 14px" }}>Generated exams are saved to your account automatically.</p>
+      <Center F={F} title="Sign in to see your assessments" icon={<svg {...svgProps} stroke="var(--border-strong)"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>}>
+        <p style={{ margin: "0 0 14px" }}>Your tests, quizzes and exams are saved to your account automatically.</p>
         <button type="button" onClick={onSignIn} style={{ ...S.btn, margin: "0 auto", height: 42 }}>Sign In</button>
       </Center>
     </div>
@@ -194,7 +194,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
 
   if (loadError) return (
     <div>{header}
-      <Center F={F} tone="err" title="Couldn't load your exams" icon={<svg {...svgProps} stroke="var(--red-text)"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="13" /><line x1="12" y1="16" x2="12" y2="16.01" /></svg>}>
+      <Center F={F} tone="err" title="Couldn't load your assessments" icon={<svg {...svgProps} stroke="var(--red-text)"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="13" /><line x1="12" y1="16" x2="12" y2="16.01" /></svg>}>
         <p style={{ margin: "0 0 12px", fontFamily: "monospace", wordBreak: "break-word" }}>{loadError}</p>
         <button type="button" style={{ ...S.sm, margin: "0 auto" }} onClick={() => { setLoading(true); setLoadError(""); ExamHistory.list().then((r) => { setExams(r); onCount?.(r.length); }).catch((e) => setLoadError(e?.message || "Error")).finally(() => setLoading(false)); }}>Try again</button>
       </Center>
@@ -207,15 +207,15 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
       display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px 10px 16px", borderRadius: 12,
       background: "var(--card-bg)", border: "1px solid var(--border-strong)", boxShadow: "none", fontFamily: F, fontSize: 13, color: "var(--text)",
     }}>
-      <span>Exam deleted</span>
+      <span>Assessment deleted</span>
       <button type="button" onClick={() => undo(undoId)} style={{ ...S.sm, height: 34, fontWeight: 700, color: "var(--accent)", borderColor: "var(--accent)" }}>Undo</button>
     </div>
   );
 
   if (!exams.length) return (
     <div>{header}{undoBar}
-      <Center F={F} title="No saved exams yet" icon={<img src={folderEmpty} alt="" style={{ width: 150, height: "auto" }} />}>
-        Generate an exam and it will be saved here automatically. You can keep up to {MAX_SAVED_EXAMS}.
+      <Center F={F} title="No saved assessments yet" icon={<img src={folderEmpty} alt="" style={{ width: 150, height: "auto" }} />}>
+        Generate a test, quiz or exam and it will be saved here automatically. You can keep up to {MAX_SAVED_EXAMS}.
       </Center>
     </div>
   );
@@ -231,7 +231,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
       {undoBar}
       <div style={{ marginBottom: 16, padding: "11px 14px", background: "var(--input-bg)", border: "1px solid var(--border)", borderRadius: 10, fontFamily: F }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Exam Storage</span>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Storage</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: isFull ? "var(--red-text)" : isNearFull ? "var(--orange-text)" : "var(--text-secondary)" }}>{used} / {total}</span>
         </div>
         <div style={{ height: 5, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
@@ -239,16 +239,16 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
         </div>
         {isNearFull && (
           <div style={{ marginTop: 7, fontSize: 12.5, color: barColor, lineHeight: 1.5 }}>
-            {isFull ? "Storage full: saving a new exam will remove your oldest one." : "1 slot remaining: next save will remove your oldest exam."}
+            {isFull ? "Storage full: saving a new one will remove your oldest." : "1 slot remaining: next save will remove your oldest one."}
           </div>
         )}
       </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <input style={{ ...S.inp, flex: "1 1 200px", borderRadius: 99 }} placeholder="Search exams..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <input style={{ ...S.inp, flex: "1 1 200px", borderRadius: 99 }} placeholder="Search assessments..." value={q} onChange={(e) => setQ(e.target.value)} />
         {confirmClear ? (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>Delete all exams?</span>
+            <span style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>Delete all assessments?</span>
             <button type="button" style={{ ...S.danger, padding: "6px 12px", fontSize: 13, height: "auto" }} onClick={clearAll}>Yes, delete</button>
             <button type="button" style={{ padding: "6px 12px", fontSize: 13, borderRadius: 8, border: "1.5px solid var(--border-strong)", background: "var(--input-bg)", color: "var(--text)", cursor: "pointer", fontFamily: F }} onClick={() => setConfirmClear(false)}>Cancel</button>
           </div>
@@ -269,7 +269,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
         </div>
       )}
       {filtered.map((e) => {
-        const title = e.title || `${e.subject} ${e.class}`.trim() || "Untitled Exam";
+        const title = e.title || `${e.subject} ${e.class}`.trim() || "Untitled Assessment";
         const date = e.created_at ? new Date(e.created_at).toLocaleDateString("en-GH", { day: "numeric", month: "short", year: "numeric" }) : "";
         const tags = [e.subject, e.class, e.exam_type].filter(Boolean);
         return (
@@ -277,7 +277,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
             <div className="sx-info">
               <div style={{ minWidth: 0, flex: 1 }}>
                 {renamingId === e.id ? (
-                  <input autoFocus value={renameVal} maxLength={200} aria-label="Exam name"
+                  <input autoFocus value={renameVal} maxLength={200} aria-label="Assessment name"
                     onChange={(ev) => setRenameVal(ev.target.value)}
                     onBlur={() => saveRename(e)}
                     onKeyDown={(ev) => { if (ev.key === "Enter") ev.currentTarget.blur(); if (ev.key === "Escape") { setRenamingId(null); } }}
@@ -295,11 +295,11 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
               <button type="button" className="sx-btn sx-open" disabled={openingId === e.id} onClick={() => open(e.id)} style={{ fontFamily: F, opacity: openingId === e.id ? 0.6 : 1 }}>
                 {openingId === e.id ? "Opening…" : "Open"}
               </button>
-              <button type="button" className="sx-btn sx-icon" aria-label="Rename exam" title="Rename"
+              <button type="button" className="sx-btn sx-icon" aria-label="Rename assessment" title="Rename"
                 onClick={() => { setRenamingId(e.id); setRenameVal(e.title || ""); }}>
                 <IconPencil />
               </button>
-              <button type="button" className="sx-btn sx-icon sx-del" aria-label="Delete exam" title="Delete" onClick={() => del(e.id)}>
+              <button type="button" className="sx-btn sx-icon sx-del" aria-label="Delete assessment" title="Delete" onClick={() => del(e.id)}>
                 <IconTrash />
               </button>
             </div>

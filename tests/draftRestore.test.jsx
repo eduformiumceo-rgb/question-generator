@@ -127,22 +127,22 @@ describe("restoring must not fight the page\'s own rules", () => {
 });
 
 describe("the paper itself", () => {
-  it("comes back after a refresh, with a notice that it is also in My Exams", async () => {
+  it("comes back after a refresh, with a notice that it is also in My Assessments", async () => {
     auth.user = { id: "u1", email: "a@x.com", name: "Ama" };
     await savePaperSnapshot(paperSnap(), "u1");
     render(<QuestionsGenerator />);
     await waitFor(() => expect(screen.getByTestId("recovery-paper")).toBeTruthy());
-    expect(screen.getByTestId("recovery-paper").textContent).toMatch(/safely stored in My Exams/);
+    expect(screen.getByTestId("recovery-paper").textContent).toMatch(/safely stored in My Assessments/);
     expect(screen.getByText(/CLASS TEST: Ready/)).toBeTruthy();
   });
 
-  it("offers to save a paper that never reached My Exams", async () => {
+  it("offers to save a paper that never reached My Assessments", async () => {
     auth.user = { id: "u1", email: "a@x.com", name: "Ama" };
     await savePaperSnapshot(paperSnap({ savedId: null, dirty: true }), "u1");
     render(<QuestionsGenerator />);
     await waitFor(() => expect(screen.getByTestId("recovery-paper")).toBeTruthy());
-    expect(screen.getByTestId("recovery-paper").textContent).toMatch(/isn't in My Exams yet/);
-    expect(screen.getByRole("button", { name: "Save to My Exams" })).toBeTruthy();
+    expect(screen.getByTestId("recovery-paper").textContent).toMatch(/isn't in My Assessments yet/);
+    expect(screen.getByRole("button", { name: "Save to My Assessments" })).toBeTruthy();
   });
 
   it("flags edits that had not been saved yet", async () => {
@@ -347,18 +347,18 @@ describe("the banner's own buttons", () => {
     });
   });
 
-  it("'Save to My Exams' files a recovered, never-saved paper, then the notice goes away", async () => {
+  it("'Save to My Assessments' files a recovered, never-saved paper, then the notice goes away", async () => {
     await savePaperSnapshot(paperSnap({ savedId: null, dirty: true }), "u1");
     const u = userEvent.setup();
     render(<QuestionsGenerator />);
     const banner = await screen.findByTestId("recovery-paper");
-    await u.click(within(banner).getByRole("button", { name: "Save to My Exams" }));
+    await u.click(within(banner).getByRole("button", { name: "Save to My Assessments" }));
     await waitFor(() => expect(saves.length).toBe(1));
     expect(saves[0].exam_json.title).toBe("CLASS TEST");
     await waitFor(() => expect(screen.queryByTestId("recovery-paper")).toBeNull());
   });
 
-  it("'Save changes' updates the copy in My Exams for a recovered paper with unsaved edits", async () => {
+  it("'Save changes' updates the copy in My Assessments for a recovered paper with unsaved edits", async () => {
     await savePaperSnapshot(paperSnap({ savedId: "abc", dirty: true }), "u1");
     const u = userEvent.setup();
     render(<QuestionsGenerator />);

@@ -1,5 +1,5 @@
 /**
- * examHistory.js - client for the saved-exams ("My Exams") endpoints.
+ * examHistory.js - client for the saved-exams ("My Assessments") endpoints.
  * Mirrors the Lesson Planner's DB module: the server keeps at most
  * MAX_SAVED_EXAMS per teacher and silently evicts the oldest on the next
  * save, so Supabase storage can't grow without bound.

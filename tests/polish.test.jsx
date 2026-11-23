@@ -59,13 +59,12 @@ describe("CardTitle and Welcome", () => {
     expect(screen.getByRole("heading", { level: 3 }).textContent).toBe("Curriculum (GES / NaCCA)");
     expect(document.querySelector(".qa-tile")).toBeNull();
   });
-  it("Welcome shows three steps and the feature strip (including Diagrams), with no icons", () => {
+  it("Welcome shows a tidy grid of four features (title + detail each), with no icons", () => {
     const { container } = render(<Welcome F="sans-serif" />);
-    expect(container.querySelectorAll(".qa-how-item")).toHaveLength(3);
-    expect(container.querySelectorAll(".qa-feat")).toHaveLength(5);
+    expect(container.querySelectorAll(".qa-feat")).toHaveLength(4);
+    expect(container.querySelectorAll(".qa-feat strong")).toHaveLength(4);
     expect(container.querySelector("svg")).toBeNull();
-    expect(screen.getByText("Pick class and topics")).toBeTruthy();
     expect(screen.getByText(/BECE and WASSCE styles/)).toBeTruthy();
-    expect(screen.getByText(/Diagrams and figures/)).toBeTruthy();
+    expect(screen.getByText(/Diagrams and equations/)).toBeTruthy();
   });
 });
