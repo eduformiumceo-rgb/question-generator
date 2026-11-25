@@ -27,6 +27,7 @@ import { isSHSClass, termOptionsFor, mapTermForLevel, examTypesFor, mapExamTypeF
 import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, isSafeGeneratedSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
 import { getWassceProfile, wassceSections, wassceTotalMinutes, decorateWassceExam } from "./wassceStyle.js";
+import { renderShadingSheetHTML, SHEET_SPECS, SCHOOL_COLOUR_PRESETS, DEFAULT_SCHOOL_COLOURS, defaultSheetStyle, objectiveCount, clampQuestions, sheetSizeSummary, MAX_QUESTIONS } from "./shadingSheet.js";
 import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, answerableMarks, cleanBeceTitle } from "./beceStyle.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
@@ -285,6 +286,12 @@ function QuestionsGeneratorInner() {
   const [emblem, setEmblem] = useState(savedPrefs.emblem === "none" ? "none" : "auto"); // "auto" = generated crest when there's no logo
   const [schoolLogo, setSchoolLogo] = useState(() => readLogo()); // data URL - printed in the paper header
   const logoInputRef = useRef(null);
+  // Shading sheet (answer sheet for the objective questions). null = follow the level / style default.
+  const [sheetStyle, setSheetStyle] = useState(savedPrefs.sheetStyle === "bece" || savedPrefs.sheetStyle === "wassce" ? savedPrefs.sheetStyle : null);
+  const [sheetColourMode, setSheetColourMode] = useState(savedPrefs.sheetColourMode === "mono" || savedPrefs.sheetColourMode === "school" ? savedPrefs.sheetColourMode : null);
+  const [sheetColours, setSheetColours] = useState(savedPrefs.sheetColours && savedPrefs.sheetColours.main ? savedPrefs.sheetColours : DEFAULT_SCHOOL_COLOURS);
+  const [sheetOptions, setSheetOptions] = useState(savedPrefs.sheetOptions === 5 ? 5 : 4); // A-D or A-E
+  const [sheetQuestions, setSheetQuestions] = useState(null); // null = count from the paper's objective questions
   const [className, setClassName] = useState(D.className ?? "");
   const [term, setTerm] = useState(D.term ?? "Term 1");
   const [examType, setExamType] = useState(D.examType ?? "Class Test");
@@ -415,9 +422,9 @@ function QuestionsGeneratorInner() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ schoolName, schoolMotto, emblem, optionsLayout, paperPreset: presetChosenByUser.current ? paperPreset : undefined, idMode, idDigits, idLabel, notice, turnOver }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ schoolName, schoolMotto, emblem, optionsLayout, paperPreset: presetChosenByUser.current ? paperPreset : undefined, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver }));
     } catch { /* storage unavailable: nothing to remember, nothing breaks */ }
-  }, [schoolName, schoolMotto, emblem, optionsLayout, paperPreset, idMode, idDigits, idLabel, notice, turnOver]);
+  }, [schoolName, schoolMotto, emblem, optionsLayout, paperPreset, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver]);
   useEffect(() => {
     try {
       if (schoolLogo && schoolLogo.length < 900000) localStorage.setItem(LOGO_KEY, schoolLogo);
@@ -1100,6 +1107,31 @@ function QuestionsGeneratorInner() {
     tick();
   };
 
+  // ── Shading sheet ───────────────────────────────────────────────
+  // Style follows the level (BECE for Primary/JHS, WASSCE for SHS) until the teacher picks one. The question count comes from the
+  // paper's objective questions (real counts once generated, the section set-up before that) unless typed in.
+  const shadeStyle = sheetStyle || defaultSheetStyle(isSHS);
+  const shadeColourMode = sheetColourMode || SHEET_SPECS[shadeStyle].defaultColour;
+  const autoShadeCount = activeExamData ? objectiveCount(activeExamData.sections, { generated: true }) : objectiveCount(sections);
+  const shadeCount = sheetQuestions != null ? clampQuestions(sheetQuestions) : (autoShadeCount > 0 ? clampQuestions(autoShadeCount) : 0);
+  const openShadingSheet = () => {
+    if (!shadeCount) { alert("Add an objective section (or enter the number of questions) to make a shading sheet."); return; }
+    const crestSVG = !schoolLogo && emblem !== "none" ? schoolCrestSVG(schoolName) : "";
+    const html = renderShadingSheetHTML({
+      style: shadeStyle, questions: shadeCount, optionCount: sheetOptions, colourMode: shadeColourMode, colours: sheetColours, meta, crestSVG,
+    });
+    const w = window.open("", "_blank");
+    if (!w) { alert("Please allow pop-ups to print the shading sheet."); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    const t0 = Date.now();
+    const tick = () => {
+      if (w.closed) return;
+      if (w.__paperReady || Date.now() - t0 > 6000) setTimeout(() => w.print(), 150);
+      else setTimeout(tick, 80);
+    };
+    tick();
+  };
+
   // Same pattern as the Lesson Planner's own onLoginRequired: don't hard-wall
   // the whole page behind a sign-in screen. Let a teacher fill in the whole
   // wizard first - subject, topics, sections, everything - and only ask them
@@ -1334,6 +1366,100 @@ function QuestionsGeneratorInner() {
               style={S.inp}
             />
           </div>
+        </div>
+      </div>
+      )}
+
+      {/* ── Shading sheet - appears as soon as a subject is chosen. Two A5 answer sheets per A4 landscape page, to cut out. ── */}
+      {className && subject && (
+      <div style={S.card} data-testid="shading-card">
+        <CardTitle F={F} mb={14} desc="An answer sheet for the objective questions. Prints two per A4, ready to cut.">Shading Sheet</CardTitle>
+
+        <div className="qa-group">
+          <label style={S.lbl}>Sheet style</label>
+          <div className="qa-choices" role="group" aria-label="Shading sheet style">
+            {[
+              { id: "bece", label: "BECE-type sheet", desc: "School name and logo only. Plain black-and-white layout with large bubbles." },
+              { id: "wassce", label: "WASSCE-type sheet", desc: "Framed sheet with your school name, logo, motto and colours, and a paper-version row." },
+            ].map(o => (
+              <button key={o.id} type="button" className="qa-choice" aria-pressed={shadeStyle === o.id} onClick={() => { setSheetStyle(o.id); setSheetColourMode(null); }}>
+                <span className="qa-choice-t" style={{ fontFamily: F }}>{o.label}</span>
+                <span className="qa-choice-d" style={{ fontFamily: F }}>{o.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="qa-group">
+          <label style={S.lbl}>Print colour</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {[{ id: "school", l: "School colours" }, { id: "mono", l: "Black & white" }].map(o => (
+              <button key={o.id} type="button" className="qa-chip" aria-pressed={shadeColourMode === o.id} onClick={() => setSheetColourMode(o.id)}>{o.l}</button>
+            ))}
+          </div>
+          {shadeColourMode === "school" && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                {SCHOOL_COLOUR_PRESETS.map(c => {
+                  const on = sheetColours.main === c.main && sheetColours.accent === c.accent;
+                  return (
+                    <button key={c.id} type="button" className="qa-chip" aria-pressed={on} title={c.label} onClick={() => setSheetColours({ main: c.main, accent: c.accent })} style={{ gap: 8 }}>
+                      <span aria-hidden="true" style={{ display: "inline-flex", width: 26, height: 14, borderRadius: 4, overflow: "hidden", border: "1px solid var(--border-strong)" }}>
+                        <span style={{ flex: 1, background: c.main }} /><span style={{ flex: 1, background: c.accent }} />
+                      </span>
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="eduq-grid-2">
+                <div>
+                  <label style={S.lbl}>Main colour</label>
+                  <input type="color" value={sheetColours.main} onChange={e => setSheetColours(c => ({ ...c, main: e.target.value.toUpperCase() }))} aria-label="Main school colour" style={{ ...S.inp, padding: 4, height: 44, cursor: "pointer" }} />
+                </div>
+                <div>
+                  <label style={S.lbl}>Accent colour</label>
+                  <input type="color" value={sheetColours.accent} onChange={e => setSheetColours(c => ({ ...c, accent: e.target.value.toUpperCase() }))} aria-label="Accent school colour" style={{ ...S.inp, padding: 4, height: 44, cursor: "pointer" }} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="qa-group">
+          <div className="eduq-grid-2">
+            <div>
+              <label style={S.lbl}>Answer options</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[{ n: 4, l: "A to D" }, { n: 5, l: "A to E" }].map(o => (
+                  <button key={o.n} type="button" className="qa-chip" aria-pressed={sheetOptions === o.n} onClick={() => setSheetOptions(o.n)}>{o.l}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={S.lbl}>Questions on the sheet</label>
+              {sheetQuestions == null && shadeCount > 0 ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontFamily: F, fontSize: 14, color: "var(--text)" }}>
+                  <span><b>{shadeCount}</b> <span style={{ color: "var(--text-muted)" }}>from your objective section</span></span>
+                  <button type="button" style={S.sm} onClick={() => setSheetQuestions(shadeCount)}>Change</button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <NumberField min={1} max={MAX_QUESTIONS} value={sheetQuestions ?? ""} onChange={v => setSheetQuestions(v)} aria-label="Number of questions on the shading sheet" style={S.inp} />
+                  {autoShadeCount > 0 && <button type="button" style={S.sm} onClick={() => setSheetQuestions(null)}>Use paper's count</button>}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="qa-note" style={{ fontFamily: F, marginTop: 14, lineHeight: 1.6 }}>
+          {shadeCount
+            ? sheetSizeSummary(shadeStyle, shadeCount, sheetOptions) + ". Print on A4 landscape at 100% (Actual size)."
+            : "This paper has no objective section yet. Add one below, or type the number of questions above."}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <button type="button" style={{ ...S.btn, height: 44, padding: "0 20px" }} disabled={!shadeCount} onClick={openShadingSheet}>Preview &amp; print shading sheet</button>
         </div>
       </div>
       )}
@@ -1660,6 +1786,9 @@ function QuestionsGeneratorInner() {
             {downloadingWord ? "Preparing…" : "Word"}
           </button>
           <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} onClick={handleShare} title="Share as a file (WhatsApp, email, Drive…)">Share</button>
+          {shadeCount > 0 && (
+            <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} onClick={openShadingSheet} title="Answer sheet for the objective questions, two per A4 to cut out">Shading sheet</button>
+          )}
           <button type="button" style={{ ...S.btn, height: 40, padding: "0 20px", fontSize: 14, flexShrink: 0 }} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>
             Print / PDF
           </button>
