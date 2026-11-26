@@ -1,22 +1,33 @@
 import { describe, it, expect } from "vitest";
 import {
-  SHEET_SPECS, PRINT_PAGE, renderShadingSheetHTML, layoutFor, objectiveCount, clampQuestions,
+  SHEET_SPECS, PRINT_PAGE, renderShadingSheetHTML, renderAnswerBookletHTML, objectiveCount, clampQuestions,
   ALIGN_MARK, sheetPalette, textOn, inkOf, luminance, normHex, defaultSheetStyle, sheetSizeSummary, SCHOOL_COLOUR_PRESETS,
 } from "../src/shadingSheet.js";
 import { BECE_GEOM, BECE_PER_SHEET, fitSchoolName, timingMarkRows } from "../src/beceSheet.js";
+import { WASSCE_GEOM, WASSCE_PAGE, wassceLayout, wassceRowsPerColumn, wassceTimingMarks } from "../src/wassceSheet.js";
+import { theoryCount, bookletLineCount, BOOKLET_GEOM } from "../src/bookletSheet.js";
 
 const meta = { schoolName: "St. Mary's Senior High School", schoolMotto: "Knowledge, Discipline, Service", subject: "Core Mathematics", className: "SHS 3", term: "Semester 1", examType: "End of Semester Exam", examVersion: "B", idDigits: 10 };
 const html = (o) => renderShadingSheetHTML({ meta, ...o });
 const count = (s, re) => (s.match(re) || []).length;
 
 describe("physical sizes", () => {
-  it("each sheet is half of A4 and two make exactly one A4 landscape page", () => {
-    for (const st of Object.values(SHEET_SPECS)) {
-      expect(st.card).toEqual({ w: 148.5, h: 210 });
-      expect(st.card.w * 2).toBe(PRINT_PAGE.w);
-      expect(st.card.h).toBe(PRINT_PAGE.h);
-    }
+  it("BECE: each sheet is half of A4 and two make exactly one A4 landscape page", () => {
+    const st = SHEET_SPECS.bece;
+    expect(st.card).toEqual({ w: 148.5, h: 210 });
+    expect(st.card.w * 2).toBe(PRINT_PAGE.w);
+    expect(st.card.h).toBe(PRINT_PAGE.h);
     expect(PRINT_PAGE).toEqual({ w: 297, h: 210 });
+  });
+
+  it("WASSCE: one sheet is one full A4 portrait page", () => {
+    expect(SHEET_SPECS.wassce.card).toEqual({ w: 210, h: 297 });
+    expect(WASSCE_PAGE).toEqual({ w: 210, h: 297 });
+    const h = html({ style: "wassce", questions: 50 });
+    expect(h).toContain("@page{size:210mm 297mm;margin:0}");
+    expect(count(h, /<section class="sheet">/g)).toBe(1);
+    expect(count(h, /<div class="card st-wassce">/g)).toBe(1);
+    expect(h).not.toContain('class="cut"');
   });
 
   it("the page is declared A4 landscape with no margin, and carries two sheets per page", () => {
@@ -29,15 +40,14 @@ describe("physical sizes", () => {
   });
 
   for (const style of ["bece", "wassce"]) {
-    if (style === "wassce") it("wassce: bubble, row and column sizes do not change with the number of questions", () => {
-      const spec = SHEET_SPECS[style];
+    if (style === "wassce") it("wassce: bubble size and column width are the same whatever the number of questions", () => {
       const css = (n) => html({ style, questions: n }).match(/<style>([\s\S]*?)<\/style>/)[1];
-      const a = css(12), b = css(40);
-      for (const needle of [`width:${spec.bubble}mm;height:${spec.bubble}mm`, `.row{height:${spec.rowPitch}mm`, `.card{position:relative;width:148.5mm;height:210mm`]) {
-        expect(a).toContain(needle);
-        expect(b).toContain(needle);
+      for (const n of [12, 40, 100]) {
+        const c = css(n);
+        expect(c).toContain(`.o{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:${WASSCE_GEOM.ans.bub.w}mm;height:${WASSCE_GEOM.ans.bub.h}mm`);
+        expect(c).toContain(`.card{position:relative;width:210mm;height:297mm`);
       }
-      expect(a).toBe(b);
+      expect(wassceLayout(12).colW).toBe(wassceLayout(100).colW);
     });
 
     it(`${style}: the school's name and logo are printed on both copies`, () => {
@@ -48,16 +58,22 @@ describe("physical sizes", () => {
           .map(m => [...m[1].matchAll(/<div>([^<]*)<\/div>/g)].map(x => x[1]).join(" ").replace(/&#39;|&#x27;/g, "'"));
         expect(printed.length).toBeGreaterThanOrEqual(2);
         expect(printed.slice(0, 2)).toEqual([...Array(2)].map(() => "St. Mary's Senior High School"));
+        expect(count(h, /class="logo" src="data:image\/png/g)).toBe(2);
       } else {
-        expect(count(h, /St\.\s+Mary(?:'|&#39;|&#x27;)s Senior High School/g)).toBeGreaterThanOrEqual(2);
+        // one full sheet: the name is printed in the letterhead (and again in the footer), the logo once
+        expect(count(h, /St\.\s+Mary(?:'|&#39;|&#x27;)s Senior High School/g)).toBeGreaterThanOrEqual(1);
+        expect(count(h, /class="logo" src="data:image\/png/g)).toBe(1);
       }
-      expect(count(h, /class="logo" src="data:image\/png/g)).toBe(2);
     });
 
-    if (style === "wassce") it("wassce: every question number appears once per copy, never more", () => {
-      const h = html({ style, questions: 37 });
-      for (let q = 1; q <= 37; q++) expect(count(h, new RegExp(`<span class="qn">${q}</span>`, "g"))).toBe(2);
-      expect(h).not.toContain('<span class="qn">38</span>');
+    if (style === "wassce") it("wassce: prints EXACTLY the number of questions on the paper, each question number once", () => {
+      for (const n of [1, 12, 37, 40, 50, 60, 75, 100]) {
+        const h = html({ style, questions: n });
+        for (let q = 1; q <= n; q++) expect(count(h, new RegExp(`<span class="qn">${q}</span>`, "g"))).toBe(1);
+        expect(h).not.toContain(`<span class="qn">${n + 1}</span>`);
+        expect(count(h, /class="ar"/g)).toBe(n);
+        expect(h).toContain(`Questions 1 &ndash; ${n}`);
+      }
     });
   }
 
@@ -79,40 +95,64 @@ describe("physical sizes", () => {
 });
 
 describe("layout", () => {
-  it("never shrinks a bubble: five options use fewer columns instead of overlapping", () => {
-    for (const spec of Object.values(SHEET_SPECS)) {
+  it("WASSCE: columns of 10, 15 or 20 rows, never more than five columns, and the whole answer block fits above the footer", () => {
+    expect(wassceRowsPerColumn(40)).toBe(10);
+    expect(wassceRowsPerColumn(50)).toBe(10);
+    expect(wassceRowsPerColumn(60)).toBe(15);
+    expect(wassceRowsPerColumn(75)).toBe(15);
+    expect(wassceRowsPerColumn(100)).toBe(20);
+    for (const n of [1, 10, 25, 40, 50, 51, 60, 75, 76, 100]) {
       for (const opts of [4, 5]) {
-        const l = layoutFor(spec, 50, opts);
-        expect(l.cols).toBeGreaterThanOrEqual(3);
-        expect(l.pitch).toBeGreaterThanOrEqual(spec.bubble + 0.7 - 1e-9);
-        expect(l.pitch).toBeLessThanOrEqual(spec.optionPitch);
-        // all columns plus gaps fit inside the sheet
-        expect(l.cols * l.colW + (l.cols - 1) * spec.colGap).toBeLessThanOrEqual(spec.card.w - 2 * spec.margin + 1e-9);
+        const L = wassceLayout(n, opts);
+        expect(L.cols).toBeLessThanOrEqual(5);
+        expect(L.cols * L.per).toBeGreaterThanOrEqual(n);
+        expect(L.pitch).toBeGreaterThanOrEqual(WASSCE_GEOM.ans.minPitch - 1e-9);
+        expect(L.colsTop + L.colH).toBeLessThanOrEqual(WASSCE_GEOM.ans.bottom + 0.5);
+        // bubbles never touch: option pitch leaves a gap
+        expect(L.optPitch).toBeGreaterThanOrEqual(WASSCE_GEOM.ans.bub.w + 0.5);
       }
     }
   });
 
-  it("one sheet holds the standard paper, and a long paper continues on a second A4", () => {
-    expect(html({ style: "bece", questions: 40 })).toContain('data-sheets="1"');      // BECE: 40 questions
-    expect(html({ style: "wassce", questions: 50 })).toContain('data-sheets="1"');    // WASSCE: 50 questions
-    expect(html({ style: "wassce", questions: 60 })).toContain('data-sheets="1"');    // WASSCE: 60 questions
+  it("WASSCE: everything stays inside the printable area, in order, with nothing overlapping", () => {
+    const g = WASSCE_GEOM, L = wassceLayout(100, 5);
+    expect(g.L).toBeGreaterThanOrEqual(5);
+    expect(g.L + g.CW).toBeLessThan(g.strip.x);
+    expect(g.W - (g.strip.x + g.strip.w)).toBeGreaterThanOrEqual(4.5);
+    const order = [g.head.top + g.head.h, g.ruleTop, L.infoTop, L.infoTop + L.idH, L.insTop, L.titleTop, L.colsTop, L.colsTop + L.colH, L.footTop, L.footTop + g.foot.h];
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThanOrEqual(order[i - 1]);
+    expect(g.H - (g.foot.top + g.foot.h)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("WASSCE: one timing mark per index row and per answer row, in order", () => {
+    const m = wassceTimingMarks(50);
+    expect(m.length).toBe(10 + 10);
+    for (let i = 1; i < m.length; i++) expect(m[i]).toBeGreaterThan(m[i - 1]);
+    expect(count(html({ style: "wassce", questions: 100 }), /<i class="tm"/g)).toBe(10 + 20);
+  });
+
+  it("every question fits on one WASSCE sheet up to the maximum of 100; BECE continues on a second sheet after 60", () => {
+    for (const n of [50, 60, 100]) expect(html({ style: "wassce", questions: n })).toContain('data-sheets="1"');
+    expect(html({ style: "bece", questions: 40 })).toContain('data-sheets="1"');
     const long = html({ style: "bece", questions: 100 });
     expect(Number(long.match(/data-sheets="(\d+)"/)[1])).toBeGreaterThan(1);
     expect(count(long, /<section class="sheet">/g)).toBe(Number(long.match(/data-sheets="(\d+)"/)[1]));
     for (let q = 1; q <= 100; q++) expect(count(long, new RegExp(`<span class="qn">${q}</span>`, "g"))).toBe(2);
   });
 
-  it("option letters: A-D by default, A-E on request", () => {
+  it("option letters: A-D by default, A-E on request (WASSCE)", () => {
     const four = html({ style: "wassce", questions: 10 });
     const five = html({ style: "wassce", questions: 10, optionCount: 5 });
-    expect(four).not.toMatch(/<i class="b ">E<\/i>/);
-    expect(five).toMatch(/<i class="b ">E<\/i>/);
+    expect(four).not.toMatch(/<i class="o ">E<\/i>/);
+    expect(five).toMatch(/<i class="o ">E<\/i>/);
+    expect(count(four, /<i class="o ">D<\/i>/g)).toBeGreaterThanOrEqual(10);
   });
 
   it("the index-number grid has one column of 0-9 per digit", () => {
     const h = html({ style: "wassce", questions: 10, meta: { ...meta, idDigits: 8 } });
-    expect(count(h, /<div class="ix-col">/g)).toBe(16); // 8 digits x 2 copies
-    expect(count(h, /<div class="ix-c">/g)).toBe(160);
+    expect(count(h, /<div class="gc"/g)).toBe(8);        // 8 digit columns (one sheet)
+    expect(count(h, /<div class="dg">/g)).toBe(80);
+    expect(count(h, /<div class="gbc"/g)).toBe(8);       // and a write-in box above each
     const b = html({ style: "bece", questions: 10, meta: { ...meta, idDigits: 8 } });
     expect(count(b, /<div class="gc"/g)).toBe(16);      // 8 digit columns x 2 copies
     expect(count(b, /<div class="dg">/g)).toBe(160);
@@ -188,7 +228,15 @@ describe("styles", () => {
     expect(h).toContain("#C99A2E");
     expect(h).toContain("Knowledge, Discipline, Service");
     expect(h).toContain("PAPER VERSION");
-    expect(h).toContain('class="frame"');
+    expect(h).toContain("INDEX NUMBER");
+    expect(h).toContain("INSTRUCTIONS TO CANDIDATES");
+    expect(h).toContain("OBJECTIVE TEST ANSWER SHEET");
+  });
+  it("WASSCE style pre-shades the paper version when known, with candidate and supervisor fields", () => {
+    const h = html({ style: "wassce", questions: 50, meta: { ...meta, examVersion: "B" } });
+    expect(count(h, /<i class="o vo fill">B<b class="pc pf"><\/b><\/i>/g)).toBe(1);
+    expect(count(html({ style: "wassce", questions: 50, meta: { ...meta, examVersion: "" } }), /class="o vo fill"/g)).toBe(0);
+    for (const t of ["SURNAME", "OTHER NAMES", "SUBJECT", "DATE", "CANDIDATE'S SIGNATURE", "FOR SUPERVISOR ONLY", "FOR OFFICIAL USE ONLY"]) expect(h).toContain(t);
   });
   it("school colours can be switched on for BECE style, and off for WASSCE style", () => {
     expect(html({ style: "bece", questions: 40, colourMode: "school", colours: { main: "#0F5C32", accent: "#C99A2E" } })).toContain("#0F5C32");
@@ -209,8 +257,10 @@ describe("styles", () => {
   });
   it("the size summary reads from the spec", () => {
     const t = sheetSizeSummary("wassce", 50, 4);
-    expect(t).toContain("148.5 × 210 mm");
-    expect(t).toContain(`bubbles ${SHEET_SPECS.wassce.bubble} mm`);
+    expect(t).toContain("210 × 297 mm");
+    expect(t).toContain("exactly 50 questions");
+    expect(t).toContain("5 columns of 10");
+    expect(sheetSizeSummary("bece", 40)).toContain("148.5 × 210 mm");
   });
 });
 
@@ -249,24 +299,19 @@ describe("print safety and professional details", () => {
   it("corner alignment marks sit inside the area ordinary office printers can print (at least 4 mm from the edge)", () => {
     expect(ALIGN_MARK.inset).toBeGreaterThanOrEqual(4);
     const h = html({ style: "wassce", questions: 40 });
-    expect(h).toContain(`.reg{position:absolute;width:${ALIGN_MARK.size}mm`);
-    expect(ALIGN_MARK.inset + ALIGN_MARK.size).toBeLessThan(SHEET_SPECS.wassce.margin - 1.8); // clear of the WASSCE frame
+    expect(h).toContain(`.reg{position:absolute;width:${WASSCE_GEOM.mark.size}mm`);
+    expect(WASSCE_GEOM.mark.inset).toBeGreaterThanOrEqual(4);
+    expect(WASSCE_GEOM.mark.inset + WASSCE_GEOM.mark.size).toBeLessThan(WASSCE_GEOM.L);       // clear of the WASSCE content
     expect(ALIGN_MARK.inset + ALIGN_MARK.size).toBeLessThan(SHEET_SPECS.bece.margin);        // clear of the BECE content
   });
 
   it("the official-use score and its total are laid out inside their own box", () => {
     const h = html({ style: "wassce", questions: 50 });
-    expect(h).toContain('<span class="score"><span>Score</span><i></i><span>/ 50</span></span>');
-  });
-
-  it("a continuation sheet has name and index-number lines so loose pages can be matched to a candidate", () => {
-    const h = html({ style: "wassce", questions: 100 });
-    expect(count(h, /class="mini2"/g)).toBe(2 * (Number(h.match(/data-sheets="(\d+)"/)[1]) - 1));
-    expect(h).toContain("INDEX No.");
+    expect(h).toMatch(/Score <i class="sc"><\/i> \/ 50/);
   });
 
   it("WASSCE style has a sex (M/F) pair beside paper version; BECE style has neither", () => {
-    expect(html({ style: "wassce", questions: 50 })).toMatch(/<i class="b">M<\/i><i class="b">F<\/i>/);
+    expect(html({ style: "wassce", questions: 50 })).toMatch(/<i class="o vo">M<\/i><i class="o vo">F<\/i>/);
     expect(html({ style: "bece", questions: 40 })).not.toContain(">SEX<");
   });
 
@@ -280,5 +325,67 @@ describe("print safety and professional details", () => {
 
   it("the index-number instruction is on the WASSCE sheet", () => {
     expect(html({ style: "wassce", questions: 40 })).toContain("Write your index number in the boxes");
+    expect(html({ style: "wassce", questions: 40, preview: true })).not.toContain('class="bar"');
+  });
+});
+
+describe("answer booklet", () => {
+  const bk = (o) => renderAnswerBookletHTML({ meta, ...o });
+  it("is a cover plus ruled A4 portrait pages, one page per sheet", () => {
+    const h = bk({ pages: 12, questions: 8 });
+    expect(h).toContain("@page{size:210mm 297mm;margin:0}");
+    expect(count(h, /<section class="page /g)).toBe(12);
+    expect(count(h, /<section class="page cover">/g)).toBe(1);
+    expect(h).toContain('data-pages="12"');
+    expect(h).toContain("ANSWER BOOKLET");
+    expect(h).toContain("Page 1 of 12");
+    expect(h).toContain("Turn over");
+    expect(h).toContain("END OF BOOKLET");
+    expect(count(h, /END OF BOOKLET/g)).toBe(1);
+  });
+  it("cover has the candidate fields, the instructions and the examiner's table with one row per question", () => {
+    const h = bk({ pages: 8, questions: 12 });
+    for (const t of ["SURNAME", "OTHER NAMES", "INDEX NUMBER", "CANDIDATE'S SIGNATURE", "INSTRUCTIONS TO CANDIDATES", "FOR EXAMINER'S USE ONLY", "TOTAL MARKS"]) expect(h).toContain(t);
+    for (let q = 1; q <= 12; q++) expect(count(h, new RegExp(`<td class="qq">${q}</td>`, "g"))).toBe(1);
+    expect(h).not.toContain('<td class="qq">13</td>');
+    expect(count(h, /<table class="et">/g)).toBe(2);                       // 12 questions: two tables of ten rows
+    expect(count(bk({ pages: 8, questions: 6 }), /<table class="et">/g)).toBe(1);
+  });
+  it("every answer page carries the index-number boxes, a question-number margin and the page number", () => {
+    const h = bk({ pages: 8, questions: 5 });
+    expect(count(h, /class="mg-note"/g)).toBe(7);
+    expect(count(h, /<span class="ih-r">/g)).toBe(7);
+    for (let p = 2; p <= 8; p++) expect(h).toContain(`<span class="ipn">${p}</span>`);
+    expect(count(h, /<svg class="ruled"/g)).toBe(7);
+    expect(count(h, /<line /g)).toBe(7 * bookletLineCount());
+  });
+  it("plain ruling prints the margin but no lines", () => {
+    const h = bk({ pages: 8, questions: 5, ruling: "plain" });
+    expect(count(h, /<line /g)).toBe(0);
+    expect(count(h, /class="mg-note"/g)).toBe(7);
+  });
+  it("lines fit between the header and the footer, inside the printable area", () => {
+    const i = BOOKLET_GEOM.inner;
+    expect(i.linesTop + (bookletLineCount() - 1) * i.pitch).toBeLessThanOrEqual(i.linesBottom);
+    expect(i.footTop).toBeLessThan(BOOKLET_GEOM.H - 4.5);
+  });
+  it("uses the school's own name, logo and colours, never an examining body's", () => {
+    const h = bk({ pages: 8, questions: 5, colours: { main: "#0F5C32", accent: "#C99A2E" }, meta: { ...meta, schoolLogo: "data:image/png;base64,AAAA" } });
+    expect(h).toContain("#0F5C32");
+    expect(count(h, /class="logo" src="data:image\/png/g)).toBe(1);
+    expect(h).not.toMatch(/WAEC|West African Examinations/i);
+    expect(bk({ pages: 8, questions: 5, colourMode: "mono", colours: { main: "#0F5C32", accent: "#C99A2E" } })).not.toContain("#0F5C32");
+  });
+  it("clamps the page and question counts and escapes the school name", () => {
+    expect(bk({ pages: 1, questions: 5 })).toContain('data-pages="4"');
+    expect(bk({ pages: 999, questions: 5 })).toContain('data-pages="40"');
+    expect(bk({ pages: 8, questions: 99 })).toContain('data-questions="30"');
+    expect(bk({ pages: 8, questions: 5, meta: { ...meta, schoolName: "<script>alert(1)</script> SHS" } })).not.toContain("<script>alert(1)");
+  });
+  it("counts only hand-written questions for the examiner's table", () => {
+    const secs = [{ type: "objective", enabled: true, questionCount: 50 }, { type: "essay", enabled: true, questionCount: 6 }, { type: "structured", enabled: false, questionCount: 9 }];
+    expect(theoryCount(secs)).toBe(6);
+    expect(theoryCount([{ type: "objective", questions: new Array(40).fill({}) }, { type: "essay", questions: new Array(5).fill({}) }], { generated: true })).toBe(5);
+    expect(theoryCount([])).toBe(0);
   });
 });

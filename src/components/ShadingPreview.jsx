@@ -6,17 +6,21 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 
-const PAGE_W_PX = 1123; // A4 landscape at 96 dpi (297 mm)
+const MM_PX = 96 / 25.4;
+const LANDSCAPE = { w: 297, h: 210, orientation: "landscape" };   // A4 landscape: two BECE sheets per page
 const ZOOMS = [1, 1.5, 2, 3];
 const WRAP_PAD = 12;
 
-export default function ShadingPreview({ html, style, onStyle, colourMode, onColourMode, questions, onClose, S, F }) {
+export default function ShadingPreview({ html, style, onStyle, colourMode, onColourMode, questions, onClose, S, F, page = LANDSCAPE, title = "Shading sheet preview", subtitle, showStyle = true, printHint }) {
+  const PAGE_W_PX = Math.round(page.w * MM_PX);
+  const PAGE_H_PX = Math.round(page.h * MM_PX);
+  const portrait = page.orientation === "portrait";
   const frameRef = useRef(null);
   const wrapRef = useRef(null);
   const [fit, setFit] = useState(0.8);
   const [zoomIdx, setZoomIdx] = useState(0);
   const scale = fit * ZOOMS[zoomIdx];
-  const [frameH, setFrameH] = useState(794);
+  const [frameH, setFrameH] = useState(PAGE_H_PX);
   const [ready, setReady] = useState(false);
 
   // Escape closes the preview.
@@ -36,14 +40,14 @@ export default function ShadingPreview({ html, style, onStyle, colourMode, onCol
     if (ro) ro.observe(el);
     window.addEventListener("resize", calc);
     return () => { if (ro) ro.disconnect(); window.removeEventListener("resize", calc); };
-  }, []);
+  }, [PAGE_W_PX]);
 
   useEffect(() => { setReady(false); }, [html]);
 
   const measure = () => {
     try {
       const d = frameRef.current && frameRef.current.contentDocument;
-      if (d) setFrameH(Math.max(794, d.documentElement.scrollHeight));
+      if (d) setFrameH(Math.max(PAGE_H_PX, d.documentElement.scrollHeight));
     } catch { /* same-origin srcdoc; ignore */ }
     setReady(true);
   };
@@ -66,13 +70,15 @@ export default function ShadingPreview({ html, style, onStyle, colourMode, onCol
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "12px 48px 12px 16px", borderBottom: "1px solid var(--border-strong)", position: "relative" }}>
           <div style={{ flex: "1 1 220px", minWidth: 0 }}>
-            <h3 id="shade-prev-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Shading sheet preview</h3>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>{questions} questions · A4 landscape · prints two sheets per page, cut along the dashed line</div>
+            <h3 id="shade-prev-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>{title}</h3>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>{subtitle || (portrait ? `${questions} questions · A4 portrait · one full sheet per candidate` : `${questions} questions · A4 landscape · prints two sheets per page, cut along the dashed line`)}</div>
           </div>
-          <div role="group" aria-label="Sheet style" style={{ display: "flex", gap: 6 }}>
-            <button type="button" style={chip(style === "bece")} aria-pressed={style === "bece"} onClick={() => onStyle("bece")}>BECE-type</button>
-            <button type="button" style={chip(style === "wassce")} aria-pressed={style === "wassce"} onClick={() => onStyle("wassce")}>WASSCE-type</button>
-          </div>
+          {showStyle && (
+            <div role="group" aria-label="Sheet style" style={{ display: "flex", gap: 6 }}>
+              <button type="button" style={chip(style === "bece")} aria-pressed={style === "bece"} onClick={() => onStyle("bece")}>BECE-type</button>
+              <button type="button" style={chip(style === "wassce")} aria-pressed={style === "wassce"} onClick={() => onStyle("wassce")}>WASSCE-type</button>
+            </div>
+          )}
           <div role="group" aria-label="Print colour" style={{ display: "flex", gap: 6 }}>
             <button type="button" style={chip(colourMode === "school")} aria-pressed={colourMode === "school"} onClick={() => onColourMode("school")}>School colours</button>
             <button type="button" style={chip(colourMode === "mono")} aria-pressed={colourMode === "mono"} onClick={() => onColourMode("mono")}>Black &amp; white</button>
@@ -84,14 +90,14 @@ export default function ShadingPreview({ html, style, onStyle, colourMode, onCol
         <div ref={wrapRef} style={{ overflow: "auto", background: "#d9dce1", padding: WRAP_PAD, flex: 1, minHeight: 0 }}>
           <div style={{ width: PAGE_W_PX * scale, height: frameH * scale, margin: "0 auto", position: "relative" }}>
             <iframe
-              ref={frameRef} title="Shading sheet preview" srcDoc={html} onLoad={measure} sandbox="allow-same-origin allow-modals"
+              ref={frameRef} title={title} srcDoc={html} onLoad={measure} sandbox="allow-same-origin allow-modals"
               style={{ width: PAGE_W_PX, height: frameH, border: 0, background: "#fff", transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute", left: 0, top: 0, boxShadow: "0 2px 12px rgba(0,0,0,.25)" }}
             />
           </div>
         </div>
 
         <div style={{ padding: "8px 16px", fontSize: 12, color: "var(--text-muted)", fontFamily: F, borderTop: "1px solid var(--border-strong)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 240px" }}>In the print dialog choose <b>A4, Landscape, Margins: None, Scale: 100%</b>. Everything on the sheet, including the timing marks, stays inside the area ordinary office printers can print.</div>
+          <div style={{ flex: "1 1 240px" }}>{printHint || <>In the print dialog choose <b>A4, {portrait ? "Portrait" : "Landscape"}, Margins: None, Scale: 100%</b>. Everything on the sheet, including the timing marks, stays inside the area ordinary office printers can print.</>}</div>
           <div role="group" aria-label="Zoom" style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button type="button" style={{ ...S.sm, height: 34, minWidth: 34 }} aria-label="Zoom out" disabled={zoomIdx === 0} onClick={() => setZoomIdx(i => Math.max(0, i - 1))}>−</button>
             <span style={{ minWidth: 44, textAlign: "center", fontWeight: 600 }}>{Math.round(ZOOMS[zoomIdx] * 100)}%</span>

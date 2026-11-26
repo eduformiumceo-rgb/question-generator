@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // The shading-sheet option inside the real generator screen: it appears once a subject is chosen,
-// follows the level (BECE for JHS, WASSCE for SHS), and opens an A4-landscape, two-per-page sheet.
+// follows the level (BECE for JHS, WASSCE for SHS): BECE opens an A4-landscape two-per-page sheet, WASSCE one full A4 portrait sheet.
 import React from "react";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
@@ -61,7 +61,7 @@ describe("Shading sheet option in the generator screen", () => {
     expect(screen.queryByTestId("shading-card")).toBeNull();
   });
 
-  it("SHS: appears after the subject, defaults to the WASSCE-type sheet with school colours, and prints two per A4 landscape", async () => {
+  it("SHS: appears after the subject, defaults to the WASSCE-type sheet with school colours, and prints one full A4 portrait sheet", async () => {
     const u = userEvent.setup();
     const w = { document: { open: vi.fn(), write: vi.fn(), close: vi.fn() }, closed: false, __paperReady: true, print: vi.fn() };
     vi.spyOn(window, "open").mockReturnValue(w);
@@ -74,13 +74,13 @@ describe("Shading sheet option in the generator screen", () => {
     expect(card.textContent).toMatch(/Sheet Layout/);
     expect(screen.getByRole("button", { name: /WASSCE-type sheet/i }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: /^School colours$/i }).getAttribute("aria-pressed")).toBe("true");
-    expect(card.textContent).toMatch(/148\.5 × 210 mm/);
-    expect(card.textContent).toMatch(/A4 landscape/);
+    expect(card.textContent).toMatch(/210 × 297 mm/);
+    expect(card.textContent).toMatch(/A4 portrait/);
     await u.click(screen.getByRole("button", { name: /Preview & print shading sheet/i }));
     const html = (await screen.findByTitle("Shading sheet preview")).getAttribute("srcdoc");   // preview first; printing happens from the preview window
-    expect(html).toContain("@page{size:297mm 210mm;margin:0}");
+    expect(html).toContain("@page{size:210mm 297mm;margin:0}");
     expect(html).toContain('data-sheet-style="wassce"');
-    expect((html.match(/<div class="card st-wassce">/g) || []).length).toBe(2);
+    expect((html.match(/<div class="card st-wassce">/g) || []).length).toBe(1);
   });
 
   it("Basic 9 (JHS 3): defaults to the BECE-type sheet in school colours (v11), black-and-white is one tap away, and the style can be switched", async () => {
@@ -96,5 +96,22 @@ describe("Shading sheet option in the generator screen", () => {
     expect(screen.getByRole("button", { name: /Black & white/i }).getAttribute("aria-pressed")).toBe("true");
     await u.click(screen.getByRole("button", { name: /WASSCE-type sheet/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /^School colours$/i }).getAttribute("aria-pressed")).toBe("true"));
+  });
+
+  it("has an Answer Booklet card that opens an A4 portrait booklet preview", async () => {
+    const u = userEvent.setup();
+    render(<QuestionsGenerator />);
+    await u.selectOptions(selectFor("Class"), "SHS 3");
+    await u.selectOptions(selectFor("Programme"), "General Science");
+    await u.selectOptions(selectFor("Subject"), "Biology (GS)");
+    await openShadingTab(u);
+    const card = await screen.findByTestId("booklet-card");
+    expect(card.textContent).toMatch(/Answer Booklet/);
+    await u.click(screen.getByRole("button", { name: /^16$/ }));
+    await u.click(screen.getByRole("button", { name: /Preview & print answer booklet/i }));
+    const html = (await screen.findByTitle("Answer booklet preview")).getAttribute("srcdoc");
+    expect(html).toContain('data-sheet-style="booklet"');
+    expect(html).toContain('data-pages="16"');
+    expect(html).toContain("@page{size:210mm 297mm;margin:0}");
   });
 });
