@@ -224,7 +224,7 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 
 /* Hero: the one deep-blue block on the page. Title, My Assessments and the stepper live inside it. */
 .qa-hero { background: radial-gradient(120% 100% at 100% 100%, rgba(13,148,136,.50) 0%, rgba(13,148,136,0) 62%), linear-gradient(135deg, var(--brand-solid) 0%, #133C80 100%); border-radius: 18px; padding: 22px 26px 18px; margin-bottom: 12px; color: #fff; }
-.qa-exams-tile { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; margin: 0 0 18px; padding: 10px 16px 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: border-color .15s, background .15s; }
+.qa-exams-tile { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; margin: 0 0 18px; padding: 10px 16px 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: border-color .15s, background-color .15s; }
 .qa-exams-tile:hover { border-color: var(--accent); }
 .qa-exams-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .qa-exams-tile img { width: 46px; height: auto; flex-shrink: 0; }
@@ -293,7 +293,7 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 /* Choice cards: a pick-one control where each option needs a short explanation (Exam Style). */
 .qa-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .qa-choice { font: inherit; text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; min-height: 76px; cursor: pointer;
-  background: var(--input-bg); border: 1.5px solid var(--border-strong); border-radius: 12px; color: var(--text); transition: border-color .15s, background .15s; }
+  background: var(--input-bg); border: 1.5px solid var(--border-strong); border-radius: 12px; color: var(--text); transition: border-color .15s, background-color .15s; }
 .qa-choice-t { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
 .qa-choice-d { font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
 .qa-choice[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
@@ -373,3 +373,45 @@ input[type="checkbox"]:checked { background-color: var(--btn); border-color: var
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 6.5l2.2 2.2L9.5 3.6'/%3E%3C/svg%3E"); }
 input[type="checkbox"]:checked:hover, input[type="checkbox"]:checked:focus { border-color: var(--btn) !important; }
 input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 2px; }
+
+/* ── App navigation: pill switch (desktop) + bottom tab bar (phone). Same look as the Lesson Planner. ──
+   --nav-fill: active pill / icon background. A dark teal in BOTH themes so white text on it always passes WCAG AA (5.5:1).
+   --nav-ink: active label colour on the page background (dark teal on light, light teal on dark). */
+:root, [data-theme="light"] { --nav-fill: #0F766E; --nav-ink: #0F766E; }
+[data-theme="dark"] { --nav-fill: #0F766E; --nav-ink: #3ECBB3; }
+.qa-top-nav { display: flex; background: var(--header-bg); border-bottom: 1px solid var(--border); overflow-x: hidden; }
+.qa-top-nav-in { width: 100%; max-width: 1040px; margin: 0 auto; display: flex; justify-content: center; padding: 14px 32px; }
+.qa-pill-track { display: inline-flex; align-items: center; position: relative; gap: 2px; padding: 3px; background: var(--input-bg); border: 1.5px solid var(--border-strong); border-radius: 99px; }
+.qa-pill-thumb { position: absolute; border-radius: 99px; background: var(--nav-fill); pointer-events: none; z-index: 0; transition: transform .22s cubic-bezier(0.34,1.2,0.64,1); }
+.qa-top-tab { position: relative; z-index: 1; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; border-radius: 99px; background: transparent; color: var(--text-secondary); font-size: 13.5px; letter-spacing: .01em; white-space: nowrap; cursor: pointer; transition: color .15s ease, background-color .15s ease; -webkit-tap-highlight-color: transparent; }
+.qa-top-tab:hover:not(.active) { background: rgba(13,148,136,.08); color: var(--nav-ink); opacity: 1; }
+.qa-top-tab.active, .qa-top-tab.active:hover { color: #fff; }
+.qa-top-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.qa-top-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--accent-soft); color: var(--nav-ink); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.qa-top-tab.active .qa-top-badge { background: rgba(255,255,255,.22); color: #fff; }
+
+.qa-bottom-nav { display: none; transition: transform .2s ease; position: fixed; left: 0; right: 0; bottom: 0; z-index: 130; align-items: stretch; background: var(--nav-bg); border-top: 1px solid var(--nav-border); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.qa-bnav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 56px; padding: 10px 4px; background: none; border: none; color: var(--text-secondary); font-size: 10px; font-weight: 500; cursor: pointer; transition: color .18s ease; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.qa-bnav-icon-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 52px; height: 30px; border-radius: 99px; transition: background-color .18s ease; }
+.qa-bnav-icon-wrap svg { width: 20px; height: 20px; display: block; flex-shrink: 0; transition: transform .2s cubic-bezier(0.34,1.3,0.64,1); }
+.qa-bnav-btn.active { color: var(--nav-ink); }
+.qa-bnav-btn.active .qa-bnav-icon-wrap { background: var(--nav-fill); }
+.qa-bnav-btn.active svg { color: #fff; transform: scale(1.05); }
+.qa-bnav-btn:not(.active):active .qa-bnav-icon-wrap { background: rgba(13,148,136,.1); }
+.qa-bnav-label { font-size: 10px; line-height: 1.2; letter-spacing: .01em; text-align: center; }
+.qa-bnav-btn.active .qa-bnav-label { font-weight: 700; color: var(--nav-ink); }
+.qa-bnav-badge { position: absolute; top: -3px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px; background: #DC2626; color: #fff; font-size: 9.5px; font-weight: 700; line-height: 16px; text-align: center; }
+.qa-bnav-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+@media (max-width: 640px) {
+  .qa-top-nav { display: none !important; }
+  .qa-bottom-nav { display: flex; }
+  .qa-nav-space { height: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  /* lift the finished-paper action bar and toasts above the bottom nav */
+  .qa-bottom-nav.is-hidden { transform: translateY(100%); }
+  .eduq-bar { bottom: calc(57px + env(safe-area-inset-bottom, 0px)) !important; padding-bottom: 10px !important; border-bottom: 1px solid var(--border); transition: transform .2s ease; }
+  .eduq-bar.nav-hidden { transform: translateY(calc(57px + env(safe-area-inset-bottom, 0px))); padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important; }
+  .qa-toast { bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; }
+  .qa-toast.has-bar { bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+@media (prefers-reduced-motion: reduce) { .qa-pill-thumb, .qa-bnav-icon-wrap svg, .qa-bottom-nav, .eduq-bar { transition: none !important; } }

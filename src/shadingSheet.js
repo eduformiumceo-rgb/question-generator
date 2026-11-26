@@ -3,8 +3,8 @@
  * ─────────────────────────────────────────────────────────────────
  * The objective-test SHADING SHEET (answer sheet) for a paper, in two styles:
  *
- *   "bece"   - BECE-type sheet. Restrained and standard: school name and logo
- *              only, black-and-white by default, large bubbles.
+ *   "bece"   - BECE-type sheet. Follows the Ghana Education Service objective answer sheet (see beceSheet.js):
+ *              60 questions as [A]-[E] boxes, candidate-number grid, timing marks. School name and logo, school colours.
  *   "wassce" - WASSCE-type sheet. Formal double-ruled frame, school name, logo,
  *              motto/address line and school colours, a paper-version row,
  *              denser five-column answer grid.
@@ -34,6 +34,8 @@
  */
 
 /** The printed A4 page (landscape) that carries two sheets. */
+import { renderBeceSheet, BECE_GEOM, BECE_PER_SHEET } from "./beceSheet.js";
+
 export const PRINT_PAGE = { w: 297, h: 210 };
 
 /** Physical specification of each style, all in millimetres. */
@@ -42,7 +44,7 @@ export const SHEET_SPECS = {
     id: "bece",
     label: "BECE style",
     card: { w: 148.5, h: 210 },          // one sheet = half of A4 (A5 portrait)
-    margin: 6,                           // blank border inside the sheet
+    margin: 8,                           // blank border inside the sheet (clear of every printer's unprintable edge)
     columns: 4,                          // answer columns across the sheet
     bubble: 4.2,                         // bubble diameter
     optionPitch: 5.6,                    // centre-to-centre, option to option
@@ -51,9 +53,9 @@ export const SHEET_SPECS = {
     colGap: 2.5,                         // gap between answer columns
     header: { h: 22, logo: 17 },         // letterhead block
     index: { bubble: 3.8, pitch: 5.6, rowPitch: 4.6, boxH: 6 }, // index-number grid
-    guideH: 21,                          // "how to shade" panel
+    guideH: 21.5,                          // "how to shade" panel
     ruleThick: 0.9,
-    defaultColour: "mono",               // faithful BECE look: black on white
+    defaultColour: "school",             // BECE layout in the school's colours (black & white is one tap away)
     showMotto: false,                    // BECE style: school name and logo only
     versionRow: false,
   },
@@ -61,22 +63,25 @@ export const SHEET_SPECS = {
     id: "wassce",
     label: "WASSCE style",
     card: { w: 148.5, h: 210 },
-    margin: 6,
+    margin: 9,                           // the double-ruled frame sits at margin - 1.8 mm
     columns: 5,
-    bubble: 3.5,
-    optionPitch: 4.7,
-    rowPitch: 5.2,
-    numberW: 5.2,
-    colGap: 2,
-    header: { h: 24, logo: 18 },
+    bubble: 3.6,
+    optionPitch: 4.8,
+    rowPitch: 5.1,
+    numberW: 4.9,
+    colGap: 1.2,
+    header: { h: 22.5, logo: 18 },
     index: { bubble: 3.4, pitch: 5.6, rowPitch: 4.4, boxH: 5.6 },
-    guideH: 21,
+    guideH: 21.5,
     ruleThick: 1.1,
     defaultColour: "school",
     showMotto: true,
-    versionRow: true,
+    versionRow: true,                    // paper-version A/B/C bubbles and a sex (M/F) bubble pair
   },
 };
+
+/** Corner alignment marks: black squares kept 4.5 mm inside the sheet edge, which every office printer can reach. */
+export const ALIGN_MARK = { size: 1.7, inset: 4.5 };
 
 export const MAX_QUESTIONS = 100;
 
@@ -85,6 +90,7 @@ export const defaultSheetStyle = (isSHS) => (isSHS ? "wassce" : "bece");
 
 /** One-line size summary shown in the UI, read from the spec so it can never disagree with the print. */
 export function sheetSizeSummary(style, questions = 40, optionCount = 4) {
+  if (style === "bece") return `Each sheet is half of A4 (${BECE_GEOM.W} × ${BECE_GEOM.H} mm), two per A4 landscape, cut along the dashed line · ${BECE_PER_SHEET} questions per sheet in 3 columns, [A] to [E] boxes`;
   const s = SHEET_SPECS[style] || SHEET_SPECS.bece;
   const p = layoutFor(s, questions, optionCount);
   return `Each sheet is half of A4 (${s.card.w} × ${s.card.h} mm), two per A4 landscape, cut along the dashed line · ${p.cols} columns · bubbles ${s.bubble} mm · row spacing ${s.rowPitch} mm`;
@@ -100,6 +106,7 @@ export const SCHOOL_COLOUR_PRESETS = [
   { id: "purple-gold", label: "Purple & Gold", main: "#4B2A7B", accent: "#C99A2E" },
   { id: "sky-navy", label: "Sky Blue & Navy", main: "#1F7ACB", accent: "#12285C" },
   { id: "green-red", label: "Green & Red", main: "#14753F", accent: "#C62828" },
+  { id: "bece-red", label: "BECE Red (best for pencil)", main: "#B3151F", accent: "#B3151F" },
 ];
 export const DEFAULT_SCHOOL_COLOURS = { main: SCHOOL_COLOUR_PRESETS[0].main, accent: SCHOOL_COLOUR_PRESETS[0].accent };
 
@@ -173,7 +180,7 @@ export function layoutFor(spec, n, optionCount = 4) {
 /** Vertical plan of the first sheet, fixed per style (mm from the top of the sheet). */
 function plan(spec, digits) {
   const isW = spec.id === "wassce";
-  const headTop = spec.margin + (isW ? 3 : 0);
+  const headTop = spec.margin + (isW ? 1.5 : 0);
   const ixColH = 1.6 + spec.index.boxH + 1 + 10 * spec.index.rowPitch;   // one digit column, exact
   const indexH = 5 + ixColH + 0.6;                                      // header strip + column + border
   const candTop = headTop + spec.header.h + 3;
@@ -206,6 +213,7 @@ function shadeGuide() {
     <div class="guide-t">HOW TO SHADE</div>
     <div class="guide-body">
       <ul>
+        <li>Write your index number in the boxes, then shade the matching bubbles.</li>
         <li>Use an <b>HB pencil</b> only, not a pen.</li>
         <li>Shade <b>one</b> bubble per question, fully and darkly.</li>
         <li>To change an answer, rub out the old mark <b>completely</b>.</li>
@@ -258,6 +266,11 @@ export function renderShadingSheetHTML(o = {}) {
   const digits = Math.max(4, Math.min(15, Math.round(Number(meta.idDigits) || 10)));
   const isW = spec.id === "wassce";
 
+  // BECE-type sheets follow the Ghana Education Service objective answer sheet and have their own renderer.
+  if (spec.id === "bece") {
+    return renderBeceSheet({ PRINT_PAGE, pal, esc, mm, logoMarkup: crestFor(meta, o.crestSVG), meta, n, preview: !!o.preview });
+  }
+
   const name = String(meta.schoolName || "").trim();
   const nameLen = name.length;
   // Name size steps down in fixed jumps; the sheet's geometry never moves.
@@ -272,7 +285,7 @@ export function renderShadingSheetHTML(o = {}) {
 
   const lay = layoutFor(spec, n, optionCount);
   const fit1 = rowsFit(spec, P.gridTop1);
-  const miniTop = spec.margin + 12;
+  const miniTop = spec.margin + 16.5;
   const fitN = rowsFit(spec, miniTop);
 
   // Split the questions across sheets (a sheet only holds what fits at the fixed row pitch).
@@ -287,7 +300,7 @@ export function renderShadingSheetHTML(o = {}) {
 
   const logoMarkup = crestFor(meta, o.crestSVG);
   const verRow = spec.versionRow
-    ? `<div class="ver"><span class="lab">PAPER VERSION</span>${["A", "B", "C"].map(v => `<i class="b ${String(meta.examVersion || "") === v ? "fill" : ""}">${v}</i>`).join("")}</div>`
+    ? `<div class="ver"><span class="lab">PAPER VERSION</span>${["A", "B", "C"].map(v => `<i class="b ${String(meta.examVersion || "") === v ? "fill" : ""}">${v}</i>`).join("")}<span class="lab gapL">SEX</span><i class="b">M</i><i class="b">F</i></div>`
     : "";
 
   const header = `
@@ -315,11 +328,12 @@ export function renderShadingSheetHTML(o = {}) {
     </div>
     <div class="guide-wrap" style="top:${mm(P.guideTop)};height:${mm(spec.guideH)}">${shadeGuide()}</div>`;
 
-  const official = `<div class="official"><span>FOR OFFICIAL USE ONLY</span><span class="score">Score <i></i> / ${n}</span></div>`;
+  const official = `<div class="official"><span>FOR OFFICIAL USE ONLY</span><span class="score"><span>Score</span><i></i><span>/ ${n}</span></span></div>`;
 
   const cardHTML = (c, i) => {
     const top = c.first ? P.gridTop1 : miniTop;
-    const mini = c.first ? "" : `<div class="mini" style="top:${mm(spec.margin + 1)}"><b>${esc(name)}</b><span>ANSWER SHEET (continued)</span></div>`;
+    const mini = c.first ? "" : `<div class="mini" style="top:${mm(spec.margin + 0.5)}"><b>${esc(name)}</b><span>ANSWER SHEET (continued)</span></div>
+      <div class="mini2" style="top:${mm(spec.margin + 7.5)}"><span class="fld"><span class="lab">CANDIDATE'S NAME</span><span class="ln"></span></span><span class="fld w"><span class="lab">INDEX No.</span><span class="ln"></span></span></div>`;
     return `<div class="card st-${spec.id}">
       ${isW ? `<div class="frame"></div>` : ""}
       <i class="reg tl"></i><i class="reg tr"></i><i class="reg bl"></i><i class="reg br"></i>
@@ -337,12 +351,11 @@ export function renderShadingSheetHTML(o = {}) {
       <div class="slot l">${cardHTML(c, i)}</div>
       <div class="slot r">${cardHTML(c, i)}</div>
       <div class="cut"><span class="scis">&#9986;</span><em>cut here</em></div>
-      <i class="tick t1"></i><i class="tick t2"></i>
     </section>`).join("");
 
   const b = spec.bubble, ib = spec.index.bubble;
   const cutX = PRINT_PAGE.w / 2;
-  const regIn = 1;
+  const regIn = ALIGN_MARK.inset;
   const css = `
   @page{size:${mm(PRINT_PAGE.w)} ${mm(PRINT_PAGE.h)};margin:0}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -356,10 +369,10 @@ export function renderShadingSheetHTML(o = {}) {
   .cut .scis{position:absolute;top:${mm(2)};left:${mm(-2.6)};font-size:${mm(4.2)};background:#fff;line-height:1;color:#444;transform:rotate(90deg)}
   .cut em{position:absolute;bottom:${mm(1.4)};left:${mm(-6)};width:${mm(12)};text-align:center;font:italic ${mm(2)}/1 Arial,sans-serif;color:#666;background:#fff}
   .card{position:relative;width:${mm(spec.card.w)};height:${mm(spec.card.h)};overflow:hidden;background:#fff}
-  .reg{position:absolute;width:${mm(2.2)};height:${mm(2.2)};background:#000}
+  .reg{position:absolute;width:${mm(ALIGN_MARK.size)};height:${mm(ALIGN_MARK.size)};background:#000}
   .reg.tl{left:${mm(regIn)};top:${mm(regIn)}}.reg.tr{right:${mm(regIn)};top:${mm(regIn)}}
   .reg.bl{left:${mm(regIn)};bottom:${mm(regIn)}}.reg.br{right:${mm(regIn)};bottom:${mm(regIn)}}
-  .frame{position:absolute;left:${mm(spec.margin - 2)};right:${mm(spec.margin - 2)};top:${mm(spec.margin - 2)};bottom:${mm(spec.margin - 2)};border:${mm(0.6)} solid ${pal.ink};outline:${mm(0.2)} solid ${pal.ink};outline-offset:${mm(0.6)};pointer-events:none}
+  .frame{position:absolute;left:${mm(spec.margin - 1.8)};right:${mm(spec.margin - 1.8)};top:${mm(spec.margin - 1.8)};bottom:${mm(spec.margin - 1.8)};border:${mm(0.6)} solid ${pal.ink};outline:${mm(0.2)} solid ${pal.ink};outline-offset:${mm(0.6)};pointer-events:none}
   .head{position:absolute;left:${mm(spec.margin)};right:${mm(spec.margin)};height:${mm(spec.header.h)};display:flex;align-items:center;gap:${mm(3)};border-bottom:${mm(spec.ruleThick)} solid ${pal.ink};padding-bottom:${mm(1.4)}}
   .head::after{content:"";position:absolute;left:0;right:0;bottom:${mm(-spec.ruleThick - 0.9)};height:${mm(0.3)};background:${pal.mono ? pal.ink : pal.accent}}
   .head-logo{width:${mm(spec.header.logo)};height:${mm(spec.header.logo)};flex:none;display:flex;align-items:center;justify-content:center}
@@ -377,6 +390,7 @@ export function renderShadingSheetHTML(o = {}) {
   .lab{font-size:${mm(2)};font-weight:700;letter-spacing:.05em;color:${pal.ink};white-space:nowrap}
   .ln{flex:1;border-bottom:${mm(0.3)} solid #000;height:${mm(5)}}
   .ver{display:flex;align-items:center;gap:${mm(1.8)};margin-top:${mm(0.6)}}
+  .ver .gapL{margin-left:${mm(3)}}
   .ix{flex:none}
   .ix-h{font-size:${mm(2.1)};font-weight:800;letter-spacing:.1em;text-align:center;background:${pal.band};color:${pal.onBand};height:${mm(5)};line-height:${mm(5)}}
   .ix-cols{display:flex;background:${pal.tint};border:${mm(0.25)} solid ${pal.ink};border-top:none}
@@ -389,7 +403,7 @@ export function renderShadingSheetHTML(o = {}) {
   .guide{height:100%;border:${mm(0.25)} solid ${pal.ink};padding:${mm(1.4)} ${mm(2.4)};background:#fff;display:flex;flex-direction:column}
   .guide-t{font-size:${mm(2.1)};font-weight:800;letter-spacing:.1em;color:${pal.ink};margin-bottom:${mm(1)}}
   .guide-body{display:flex;gap:${mm(3)};flex:1}
-  .guide ul{list-style:none;font-size:${mm(2.1)};line-height:1.5;color:#222;flex:1;min-width:0}
+  .guide ul{list-style:none;font-size:${mm(2.1)};line-height:1.4;color:#222;flex:1;min-width:0}
   .guide li::before{content:"\\25AA";color:${pal.mono ? "#000" : pal.accentInk};margin-right:${mm(1.1)}}
   .egs{flex:none;width:${mm(38)};display:flex;flex-wrap:wrap;align-content:center;gap:${mm(1.8)} 0}
   .eg{display:flex;align-items:center;gap:${mm(1.2)};width:${mm(19)}}
@@ -402,7 +416,7 @@ export function renderShadingSheetHTML(o = {}) {
   .gcol{display:flex;flex-direction:column}
   .row{height:${mm(spec.rowPitch)};display:flex;align-items:center;padding-left:${mm(0.6)}}
   .row.alt{background:${pal.tint}}
-  .qn{width:${mm(spec.numberW - 0.6)};font-size:${mm(2.5)};font-weight:800;color:${pal.ink};text-align:right;padding-right:${mm(1.1)};flex:none}
+  .qn{width:${mm(spec.numberW - 0.6)};font-size:${mm(2.4)};font-weight:800;color:${pal.ink};text-align:right;padding-right:${mm(1.1)};flex:none}
   .opts{display:flex}
   .b{display:inline-flex;align-items:center;justify-content:center;flex:none;width:${mm(b)};height:${mm(b)};border-radius:50%;border:${mm(0.3)} solid ${pal.ink};background:#fff;font-style:normal;font-size:${mm(b * 0.52)};font-weight:700;color:${pal.ink};line-height:1}
   .b.fill{background:#111;color:#fff;border-color:#111}
@@ -412,11 +426,14 @@ export function renderShadingSheetHTML(o = {}) {
   .b.dot{color:#fff;position:relative}
   .b.dot::after{content:"";position:absolute;width:${mm(0.9)};height:${mm(0.9)};border-radius:50%;background:#111}
   .foot{position:absolute;left:${mm(spec.margin)};right:${mm(spec.margin)};bottom:${mm(spec.margin - 0.5)};display:flex;justify-content:space-between;align-items:flex-end;font-size:${mm(1.9)};color:#333}
-  .official{white-space:nowrap;display:flex;gap:${mm(4)};align-items:center;border:${mm(0.25)} dashed #777;padding:${mm(0.8)} ${mm(2.4)};font-weight:700;letter-spacing:.05em}
-  .score i{display:inline-block;width:${mm(10)};border-bottom:${mm(0.3)} solid #000;margin:0 ${mm(0.8)}}
-  .mini{position:absolute;left:${mm(spec.margin)};right:${mm(spec.margin)};display:flex;justify-content:space-between;gap:${mm(3)};border-bottom:${mm(spec.ruleThick)} solid ${pal.ink};padding-bottom:${mm(1.4)};font-size:${mm(2.4)};color:${pal.ink}}
+  .official{white-space:nowrap;display:inline-flex;gap:${mm(4)};align-items:flex-end;border:${mm(0.25)} dashed #777;padding:${mm(0.9)} ${mm(3)};font-weight:700;letter-spacing:.04em}
+  .score{display:inline-flex;align-items:flex-end;gap:${mm(1)}}
+  .score i{display:block;width:${mm(9)};height:${mm(2.2)};border-bottom:${mm(0.3)} solid #000}
+  .mini{position:absolute;left:${mm(spec.margin)};right:${mm(spec.margin)};display:flex;justify-content:space-between;gap:${mm(3)};font-size:${mm(2.6)};color:${pal.ink}}
+  .mini2{position:absolute;left:${mm(spec.margin)};right:${mm(spec.margin)};display:flex;gap:${mm(4)};border-bottom:${mm(spec.ruleThick)} solid ${pal.ink};padding-bottom:${mm(1.4)}}
+  .mini2 .fld{flex:1}.mini2 .fld.w{flex:0 0 ${mm(46)}}
   @media screen{
-    body{background:#d9dce1;padding:${mm(14)} 0}
+    body{background:#d9dce1;padding:${mm(o.preview ? 6 : 14)} 0}
     .sheet{margin:0 auto ${mm(10)};box-shadow:0 1mm 4mm rgba(0,0,0,.25)}
     .bar{position:fixed;left:0;right:0;top:0;z-index:9;background:#111;color:#fff;font:600 13px/1.4 Arial,sans-serif;padding:8px 14px;text-align:center}
   }
@@ -434,7 +451,7 @@ export function renderShadingSheetHTML(o = {}) {
 
   const title = `${esc(name || "School")} - Shading Sheet`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${title}</title><style>${css}</style></head><body data-sheet-style="${spec.id}" data-questions="${n}" data-sheets="${cards.length}">
-<div class="bar">Print on A4 LANDSCAPE at 100% (Actual size), margins None. Then cut along the dashed line: two sheets, each half of A4.</div>
+${o.preview ? "" : `<div class="bar">Print on A4 LANDSCAPE at 100% (Actual size), margins None. Then cut along the dashed line: two sheets, each half of A4.</div>`}
 ${sheets}
 <script>${script}</script></body></html>`;
 }

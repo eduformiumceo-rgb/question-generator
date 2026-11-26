@@ -45,8 +45,9 @@ const selectFor = (t) => {
 };
 // The paste box lives in a collapsed "Type or paste topics" accordion; open it if it is closed.
 const openPaste = async (u) => {
-  if (screen.queryByPlaceholderText(/List the topics/)) return;
-  await u.click(screen.getByRole("button", { name: /Type or paste topics/i }));
+  // The box stays in the page while its accordion is collapsed, so check the accordion itself, not just the box.
+  const toggle = screen.getAllByRole("button", { name: /Type or paste topics|Edit scheme text/i }).find(b => b.hasAttribute("aria-expanded"));
+  if (toggle && toggle.getAttribute("aria-expanded") === "false") await u.click(toggle);
 };
 const upload = (f) => fireEvent.change(screen.getByLabelText("Upload scheme of learning file"), { target: { files: [f] } });
 const docxFile = async (rows = SCHEME_ROWS) => new File([await makeDocx(rows)], "Term 1 Scheme.docx");

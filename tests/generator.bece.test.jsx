@@ -47,7 +47,7 @@ describe("BECE style in the generator screen", () => {
     await u.click(await screen.findByRole("button", { name: /BECE style/i }));
     await waitFor(() => expect(pageText()).toMatch(/Paper 2 \(Essay\):\s*60 marks/));
     expect(pageText()).toMatch(/Paper 1 \(Objective\):\s*40 questions/);
-    expect(pageText()).toMatch(/real BECE papers/);
+    expect(pageText()).toMatch(/real BECE paper format/);
     expect(pageText()).toMatch(/Paper 2, then Paper 1/);
   });
   it("changing subject reloads the BECE structure (Mathematics -> Integrated Science)", async () => {

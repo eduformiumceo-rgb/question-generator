@@ -48,7 +48,7 @@ describe("WASSCE style in the generator screen", () => {
     await u.click(btn);
     await waitFor(() => expect(pageText()).toMatch(/Paper 1 \(Objective\):\s*50 questions/));
     expect(pageText()).toMatch(/Paper 2 \(Essay\):\s*70 marks/);
-    expect(pageText()).toMatch(/real WASSCE papers/);
+    expect(pageText()).toMatch(/real WASSCE paper format/);
     expect(pageText()).toMatch(/Paper 1, then Paper 2/);
   });
 

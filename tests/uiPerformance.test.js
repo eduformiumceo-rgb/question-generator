@@ -13,7 +13,7 @@ describe("UI polish layer: no expensive effects", () => {
 
   it("uses no shadows, filters, blur or will-change (outside comments)", () => {
     const code = polish.replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(code).not.toMatch(/box-shadow\s*:\s*(?!none)/);
+    expect(code).not.toMatch(/box-shadow\s*:\s*(?!\s*none)/);   // "none" is the only allowed value
     expect(code).not.toMatch(/(^|[;{\s])filter\s*:/);
     expect(code).not.toMatch(/backdrop-filter/);
     expect(code).not.toMatch(/blur\(/);

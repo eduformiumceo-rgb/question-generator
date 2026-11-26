@@ -75,7 +75,7 @@ const bigBtn = (F, variant, disabled) => ({
 
 
 // Exact grouping and order from the real App.jsx's Step 1 class Select.
-const CLASS_GROUPS = [
+export const CLASS_GROUPS = [
   { label: "Kindergarten", classes: ["KG 1", "KG 2"] },
   { label: "Lower Primary", classes: ["Basic 1", "Basic 2", "Basic 3"] },
   { label: "Upper Primary", classes: ["Basic 4", "Basic 5", "Basic 6"] },

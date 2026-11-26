@@ -17,7 +17,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { F, S, Spinner } from "./sharedStyles.jsx";
 import ExamStructureBuilder, { DEFAULT_SECTIONS, paperTotals, nextSectionId, sectionLabel } from "./components/ExamStructureBuilder.jsx";
-import TopicSelector from "./components/TopicSelector.jsx";
+import TopicSelector, { CLASS_GROUPS } from "./components/TopicSelector.jsx";
 import FigurePanel from "./components/FigurePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { diagramDrawing } from "./examFigures.js";
@@ -43,6 +43,9 @@ import { screenExamInput } from "./moderation.js";
 import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "./freeTierLimits.js";
 import NumberField from "./components/NumberField.jsx";
 import TopUpModal from "./components/TopUpModal.jsx";
+import ShadingPreview from "./components/ShadingPreview.jsx";
+import { TopNav, BottomNav } from "./components/AppNav.jsx";
+import SchoolIdentityFields from "./components/SchoolIdentityFields.jsx";
 // Reuses the Lesson Planner's auth.js UNCHANGED (same Google OAuth flow, same
 // getToken()/getUser()) - this app is a separate Cloudflare Pages deployment
 // but points at the SAME Supabase project and JWT secret, so a teacher who
@@ -56,8 +59,6 @@ import AuthModal from "./AuthModal_upgraded.jsx";
 import { goToHubSignIn } from "./hubSignIn.js";
 import AppHeader from "./components/AppHeader.jsx";
 import SavedExams from "./components/SavedExams.jsx";
-import folderPapers from "./assets/folder-papers.webp";
-import folderEmpty from "./assets/folder-empty.webp";
 import { ExamHistory, MAX_SAVED_EXAMS, metaForSave } from "./examHistory.js";
 import InstallPrompt from "./components/InstallPrompt.jsx";
 import { usePwaInstall } from "./pwaInstall.js";
@@ -285,13 +286,16 @@ function QuestionsGeneratorInner() {
   const [schoolMotto, setSchoolMotto] = useState(savedPrefs.schoolMotto || "");
   const [emblem, setEmblem] = useState(savedPrefs.emblem === "none" ? "none" : "auto"); // "auto" = generated crest when there's no logo
   const [schoolLogo, setSchoolLogo] = useState(() => readLogo()); // data URL - printed in the paper header
-  const logoInputRef = useRef(null);
   // Shading sheet (answer sheet for the objective questions). null = follow the level / style default.
   const [sheetStyle, setSheetStyle] = useState(savedPrefs.sheetStyle === "bece" || savedPrefs.sheetStyle === "wassce" ? savedPrefs.sheetStyle : null);
   const [sheetColourMode, setSheetColourMode] = useState(savedPrefs.sheetColourMode === "mono" || savedPrefs.sheetColourMode === "school" ? savedPrefs.sheetColourMode : null);
   const [sheetColours, setSheetColours] = useState(savedPrefs.sheetColours && savedPrefs.sheetColours.main ? savedPrefs.sheetColours : DEFAULT_SCHOOL_COLOURS);
   const [sheetOptions, setSheetOptions] = useState(savedPrefs.sheetOptions === 5 ? 5 : 4); // A-D or A-E
   const [sheetQuestions, setSheetQuestions] = useState(null); // null = count from the paper's objective questions
+  // The sheet's own class / exam type / term. null = follow the paper. Setting them here never changes the Assessment form.
+  const [sheetClass, setSheetClass] = useState(null);
+  const [sheetExamType, setSheetExamType] = useState(null);
+  const [sheetTerm, setSheetTerm] = useState(null);
   const [className, setClassName] = useState(D.className ?? "");
   const [term, setTerm] = useState(D.term ?? "Term 1");
   const [examType, setExamType] = useState(D.examType ?? "Class Test");
@@ -455,7 +459,12 @@ function QuestionsGeneratorInner() {
   // Same model as the Lesson Planner's "My Plans": every generated exam is
   // saved automatically, up to MAX_SAVED_EXAMS per teacher; the server evicts
   // the oldest on the next save so Supabase storage stays bounded.
-  const [view, setView] = useState("generate"); // "generate" | "saved"
+  // Tabs: "generate" (Assessment) | "shading" (Shading Sheet) | "saved" (My Assessments). The tab is kept in the address (#shading, #saved)
+  // so refresh, Back/Forward and shared links all land on the right tab. Unknown hashes (e.g. a sign-in redirect) are ignored.
+  const [view, setView] = useState(viewFromHash);
+  const scrollPos = useRef({});                       // scroll position remembered per tab
+  const viewRef = useRef(view); viewRef.current = view;
+  const [navHidden, setNavHidden] = useState(false);  // phone: bottom nav slides away while scrolling down, back on scroll up
   const [savedCount, setSavedCount] = useState(null);
   const [savedRefresh, setSavedRefresh] = useState(0);
   const [openedMeta, setOpenedMeta] = useState(null); // header details of a paper re-opened from My Assessments
@@ -551,8 +560,8 @@ function QuestionsGeneratorInner() {
     });
     if (typeof m.landscape === "boolean") setLandscape(m.landscape);
     if (["vertical", "two", "row"].includes(m.optionsLayout)) setOptionsLayout(m.optionsLayout);
+    scrollPos.current.generate = 0;
     setView("generate");
-    window.scrollTo?.({ top: 0 });
   };
 
   // "X/5 left" on the Free button - same proactive-remaining-count pattern
@@ -888,6 +897,7 @@ function QuestionsGeneratorInner() {
     if (paper) {
       setExamData(null); setSavedId(null); savedExamRef.current = null; setOpenedMeta(null);
       setExamVersion("A"); setShowAnswerKey(false); setEditMode(false); setLivePreview(null);
+      scrollPos.current.generate = 0;
       setView("generate");
     }
   };
@@ -1110,27 +1120,34 @@ function QuestionsGeneratorInner() {
   // ── Shading sheet ───────────────────────────────────────────────
   // Style follows the level (BECE for Primary/JHS, WASSCE for SHS) until the teacher picks one. The question count comes from the
   // paper's objective questions (real counts once generated, the section set-up before that) unless typed in.
-  const shadeStyle = sheetStyle || defaultSheetStyle(isSHS);
+  const effClass = sheetClass !== null ? sheetClass : className;
+  const sameAsPaper = effClass === className;
+  const sheetIsSHS = isSHSClass(effClass);
+  const effExamTypes = examTypesFor(effClass);
+  const effExamType = sheetExamType && effExamTypes.includes(sheetExamType) ? sheetExamType : (sameAsPaper ? examType : (effExamTypes[0] || examType));
+  const effTerms = termOptionsFor(effClass);
+  const effTerm = sheetTerm && effTerms.includes(sheetTerm) ? sheetTerm : (sameAsPaper && effTerms.includes(term) ? term : (effTerms[0] || term));
+  const shadeStyle = sheetStyle || defaultSheetStyle(sheetIsSHS);
   const shadeColourMode = sheetColourMode || SHEET_SPECS[shadeStyle].defaultColour;
-  const autoShadeCount = activeExamData ? objectiveCount(activeExamData.sections, { generated: true }) : objectiveCount(sections);
+  const autoShadeCount = !sameAsPaper ? 0 : (activeExamData ? objectiveCount(activeExamData.sections, { generated: true }) : objectiveCount(sections));
   const shadeCount = sheetQuestions != null ? clampQuestions(sheetQuestions) : (autoShadeCount > 0 ? clampQuestions(autoShadeCount) : 0);
+  const [showShadePreview, setShowShadePreview] = useState(false);
+  // Leaving a tab remembers where you were on it; coming back restores it (a tab you have not visited opens at the top).
+  const goTab = (id) => {
+    if (id === viewRef.current) { window.scrollTo?.({ top: 0, behavior: "smooth" }); return; }   // tapping the active tab scrolls to top
+    scrollPos.current[viewRef.current] = window.scrollY || 0;
+    setNavHidden(false);
+    setView(id);
+  };
   const openShadingSheet = () => {
     if (!shadeCount) { alert("Add an objective section (or enter the number of questions) to make a shading sheet."); return; }
-    const crestSVG = !schoolLogo && emblem !== "none" ? schoolCrestSVG(schoolName) : "";
-    const html = renderShadingSheetHTML({
-      style: shadeStyle, questions: shadeCount, optionCount: sheetOptions, colourMode: shadeColourMode, colours: sheetColours, meta, crestSVG,
-    });
-    const w = window.open("", "_blank");
-    if (!w) { alert("Please allow pop-ups to print the shading sheet."); return; }
-    w.document.open(); w.document.write(html); w.document.close();
-    const t0 = Date.now();
-    const tick = () => {
-      if (w.closed) return;
-      if (w.__paperReady || Date.now() - t0 > 6000) setTimeout(() => w.print(), 150);
-      else setTimeout(tick, 80);
-    };
-    tick();
+    setShowShadePreview(true);   // preview first; printing happens from the preview window
   };
+  const shadeHtml = showShadePreview && shadeCount ? renderShadingSheetHTML({
+    style: shadeStyle, questions: shadeCount, optionCount: sheetOptions, colourMode: shadeColourMode, colours: sheetColours,
+    meta: { ...meta, className: effClass, term: effTerm, examType: effExamType, ...(sameAsPaper ? {} : { subject: "", programme: "" }) },
+    crestSVG: !schoolLogo && emblem !== "none" ? schoolCrestSVG(schoolName) : "", preview: true,
+  }) : "";
 
   // Same pattern as the Lesson Planner's own onLoginRequired: don't hard-wall
   // the whole page behind a sign-in screen. Let a teacher fill in the whole
@@ -1139,6 +1156,45 @@ function QuestionsGeneratorInner() {
   // account (Generate, or opening the top-up modal). Confirmed against the
   // real App.jsx: `onClick={!user ? onLoginRequired : generate}` is the
   // exact pattern used throughout, not something invented for this app.
+  // Address <-> tab. Changing the tab pushes #shading / #saved (Assessment clears it); Back/Forward and manual edits change the tab.
+  useEffect(() => {
+    if (window.history && "scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+    const onNav = () => {
+      const h = window.location.hash;
+      if (h !== "" && h !== "#shading" && h !== "#saved") return;          // not one of ours
+      const next = viewFromHash();
+      if (next === viewRef.current) return;
+      scrollPos.current[viewRef.current] = window.scrollY || 0;
+      setNavHidden(false);
+      setView(next);
+    };
+    window.addEventListener("popstate", onNav);
+    window.addEventListener("hashchange", onNav);
+    return () => { window.removeEventListener("popstate", onNav); window.removeEventListener("hashchange", onNav); };
+  }, []);
+  useEffect(() => {
+    if (viewFromHash() !== view) window.history.pushState(null, "", window.location.pathname + window.location.search + TAB_HASH[view]);
+    document.title = TAB_TITLE[view];
+    const y = scrollPos.current[view] || 0;
+    const id = requestAnimationFrame(() => window.scrollTo?.({ top: y }));
+    return () => cancelAnimationFrame(id);
+  }, [view]);
+  // Phone: slide the bottom nav away on scroll down, bring it back on scroll up, so a finished paper never has two bars stacked on it.
+  useEffect(() => {
+    let last = window.scrollY || 0, ticking = false;
+    const onScroll = () => {
+      if (ticking) return; ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY || 0, d = y - last;
+        if (Math.abs(d) > 8) { setNavHidden(y > 120 && d > 0); last = y; }
+        if (y <= 40) setNavHidden(false);
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const requireLogin = (action) => (user ? action : () => setShowAuthModal(true));
 
   const handleSignOut = () => {
@@ -1162,8 +1218,9 @@ function QuestionsGeneratorInner() {
       canInstall={pwa.canReopen}
       onInstall={pwa.reopen}
       savedCount={savedCount}
-      onOpenSaved={() => { setView("saved"); window.scrollTo?.({ top: 0 }); }}
+      onOpenSaved={() => goTab("saved")}
     />
+    <TopNav tab={view} setTab={goTab} savedCount={savedCount} F={F} />
     <div style={{ maxWidth: 760, margin: "0 auto", padding: `24px 16px ${examData && view === "generate" ? 110 : 60}px`, fontFamily: F }}>
       {view === "generate" && (
         <>
@@ -1176,19 +1233,12 @@ function QuestionsGeneratorInner() {
           </div>
           <WizardProgress hasClass={!!(className && subject)} hasTopics={selectedTopics.length > 0 || !!pastedSyllabus.trim()} hasExam={!!examData} />
         </header>
-        <button type="button" className="qa-exams-tile qa-rise" onClick={requireLogin(() => setView("saved"))} style={{ fontFamily: F }}>
-          <img src={savedCount ? folderPapers : folderEmpty} alt="" aria-hidden="true" />
-          <span className="qa-exams-txt">
-            <strong>My Assessments</strong>
-            <span>{savedCount ? `${savedCount} saved` : "Your saved tests, quizzes and exams"}</span>
-          </span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </button>
         {recoveryBanner}
         </>
       )}
 
       {view === "saved" && (
+        <div role="tabpanel" aria-labelledby="qa-tab-saved">
         <SavedExams
           user={user} refreshKey={savedRefresh} S={S} F={F}
           onOpen={handleOpenSaved}
@@ -1196,10 +1246,11 @@ function QuestionsGeneratorInner() {
           onSignIn={() => setShowAuthModal(true)}
           onCount={setSavedCount}
         />
+        </div>
       )}
 
       {saveToast && (
-        <div role="status" style={{
+        <div role="status" className={`qa-toast${examData && view === "generate" ? " has-bar" : ""}`} style={{
           position: "fixed", left: 12, right: 12, bottom: examData && view === "generate" ? 84 : "max(16px, env(safe-area-inset-bottom, 16px))", margin: "0 auto", maxWidth: 420, zIndex: 200,
           padding: "11px 14px", borderRadius: 12, fontFamily: F, fontSize: 13, lineHeight: 1.45,
           background: "var(--card-bg)", color: saveToast.type === "warn" ? "var(--orange-text)" : "var(--text)",
@@ -1226,8 +1277,17 @@ function QuestionsGeneratorInner() {
         />
       )}
 
-      {/* Wizard + result stay mounted (just hidden) while My Assessments is open, so nothing the teacher typed is lost */}
-      <div className="qa-flow" style={{ display: view === "saved" ? "none" : undefined }}>
+      {showShadePreview && shadeHtml && (
+        <ShadingPreview
+          html={shadeHtml} questions={shadeCount} S={S} F={F}
+          style={shadeStyle} onStyle={(id) => { setSheetStyle(id); setSheetColourMode(null); }}
+          colourMode={shadeColourMode} onColourMode={setSheetColourMode}
+          onClose={() => setShowShadePreview(false)}
+        />
+      )}
+
+      {/* Wizard + result stay mounted (just hidden) while the Shading Sheet or My Assessments tab is open, so nothing the teacher typed is lost */}
+      <div className="qa-flow" role="tabpanel" aria-labelledby="qa-tab-generate" style={{ display: view !== "generate" ? "none" : undefined }}>
       {/* ── Curriculum + Topics (GES / NaCCA) - CLASS FIRST, matching
            the real Lesson Planner's flow exactly. Everything else in the
            form follows from this, so it comes first on the page too. ── */}
@@ -1309,47 +1369,7 @@ function QuestionsGeneratorInner() {
       {className && (
       <div style={S.card}>
         <CardTitle F={F} mb={20} desc="Printed in the header of the paper.">Paper Details</CardTitle>
-        <div style={{ marginBottom: 14, display: "flex", gap: 12, alignItems: "flex-end" }}>
-          <div style={{ flex: 1 }}>
-            <label style={S.lbl}>School Name</label>
-            <input value={schoolName} onChange={e => setSchoolName(e.target.value)} placeholder="e.g. St. Mary's JHS" style={S.inp} />
-          </div>
-          <div>
-            <label style={S.lbl}>School Logo</label>
-            <input
-              ref={logoInputRef} type="file" accept="image/*" style={{ display: "none" }}
-              onChange={async e => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                if (file.size > 4 * 1024 * 1024) { alert("Please use a logo image under 4MB."); return; }
-                try { setSchoolLogo(await fileToPngDataUrl(file, 512)); }
-                catch { alert("Sorry, that image couldn't be read. Please try a PNG or JPG."); }
-                e.target.value = "";
-              }}
-            />
-            {schoolLogo ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <img src={schoolLogo} alt="School logo" style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 8, border: "1px solid var(--border)", background: "#fff" }} />
-                <button type="button" style={S.danger} onClick={() => setSchoolLogo(null)}>Remove</button>
-              </div>
-            ) : (
-              <button type="button" style={{ ...S.sm, height: 48 }} onClick={() => logoInputRef.current?.click()}>Upload</button>
-            )}
-          </div>
-        </div>
-        <div className="eduq-grid-2" style={{ marginBottom: 14 }}>
-          <div>
-            <label style={S.lbl}>Motto or address line <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional)</span></label>
-            <input value={schoolMotto} maxLength={90} onChange={e => setSchoolMotto(e.target.value)} placeholder="e.g. Knowledge, Discipline, Service" style={S.inp} />
-          </div>
-          <div>
-            <label style={S.lbl}>Emblem when no logo</label>
-            <select value={emblem} onChange={e => setEmblem(e.target.value)} style={S.sel} disabled={!!schoolLogo} title={schoolLogo ? "Your uploaded logo is used" : ""}>
-              <option value="auto">Generated school crest</option>
-              <option value="none">No emblem</option>
-            </select>
-          </div>
-        </div>
+        <SchoolIdentityFields S={S} schoolName={schoolName} setSchoolName={setSchoolName} schoolLogo={schoolLogo} setSchoolLogo={setSchoolLogo} schoolMotto={schoolMotto} setSchoolMotto={setSchoolMotto} emblem={emblem} setEmblem={setEmblem} />
         <div className="eduq-grid-2">
           <div>
             <label style={S.lbl}>{isSHS ? "Semester" : "Term"} *</label>
@@ -1366,100 +1386,6 @@ function QuestionsGeneratorInner() {
               style={S.inp}
             />
           </div>
-        </div>
-      </div>
-      )}
-
-      {/* ── Shading sheet - appears as soon as a subject is chosen. Two A5 answer sheets per A4 landscape page, to cut out. ── */}
-      {className && subject && (
-      <div style={S.card} data-testid="shading-card">
-        <CardTitle F={F} mb={14} desc="An answer sheet for the objective questions. Prints two per A4, ready to cut.">Shading Sheet</CardTitle>
-
-        <div className="qa-group">
-          <label style={S.lbl}>Sheet style</label>
-          <div className="qa-choices" role="group" aria-label="Shading sheet style">
-            {[
-              { id: "bece", label: "BECE-type sheet", desc: "School name and logo only. Plain black-and-white layout with large bubbles." },
-              { id: "wassce", label: "WASSCE-type sheet", desc: "Framed sheet with your school name, logo, motto and colours, and a paper-version row." },
-            ].map(o => (
-              <button key={o.id} type="button" className="qa-choice" aria-pressed={shadeStyle === o.id} onClick={() => { setSheetStyle(o.id); setSheetColourMode(null); }}>
-                <span className="qa-choice-t" style={{ fontFamily: F }}>{o.label}</span>
-                <span className="qa-choice-d" style={{ fontFamily: F }}>{o.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="qa-group">
-          <label style={S.lbl}>Print colour</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {[{ id: "school", l: "School colours" }, { id: "mono", l: "Black & white" }].map(o => (
-              <button key={o.id} type="button" className="qa-chip" aria-pressed={shadeColourMode === o.id} onClick={() => setSheetColourMode(o.id)}>{o.l}</button>
-            ))}
-          </div>
-          {shadeColourMode === "school" && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                {SCHOOL_COLOUR_PRESETS.map(c => {
-                  const on = sheetColours.main === c.main && sheetColours.accent === c.accent;
-                  return (
-                    <button key={c.id} type="button" className="qa-chip" aria-pressed={on} title={c.label} onClick={() => setSheetColours({ main: c.main, accent: c.accent })} style={{ gap: 8 }}>
-                      <span aria-hidden="true" style={{ display: "inline-flex", width: 26, height: 14, borderRadius: 4, overflow: "hidden", border: "1px solid var(--border-strong)" }}>
-                        <span style={{ flex: 1, background: c.main }} /><span style={{ flex: 1, background: c.accent }} />
-                      </span>
-                      {c.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="eduq-grid-2">
-                <div>
-                  <label style={S.lbl}>Main colour</label>
-                  <input type="color" value={sheetColours.main} onChange={e => setSheetColours(c => ({ ...c, main: e.target.value.toUpperCase() }))} aria-label="Main school colour" style={{ ...S.inp, padding: 4, height: 44, cursor: "pointer" }} />
-                </div>
-                <div>
-                  <label style={S.lbl}>Accent colour</label>
-                  <input type="color" value={sheetColours.accent} onChange={e => setSheetColours(c => ({ ...c, accent: e.target.value.toUpperCase() }))} aria-label="Accent school colour" style={{ ...S.inp, padding: 4, height: 44, cursor: "pointer" }} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="qa-group">
-          <div className="eduq-grid-2">
-            <div>
-              <label style={S.lbl}>Answer options</label>
-              <div style={{ display: "flex", gap: 8 }}>
-                {[{ n: 4, l: "A to D" }, { n: 5, l: "A to E" }].map(o => (
-                  <button key={o.n} type="button" className="qa-chip" aria-pressed={sheetOptions === o.n} onClick={() => setSheetOptions(o.n)}>{o.l}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label style={S.lbl}>Questions on the sheet</label>
-              {sheetQuestions == null && shadeCount > 0 ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontFamily: F, fontSize: 14, color: "var(--text)" }}>
-                  <span><b>{shadeCount}</b> <span style={{ color: "var(--text-muted)" }}>from your objective section</span></span>
-                  <button type="button" style={S.sm} onClick={() => setSheetQuestions(shadeCount)}>Change</button>
-                </div>
-              ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <NumberField min={1} max={MAX_QUESTIONS} value={sheetQuestions ?? ""} onChange={v => setSheetQuestions(v)} aria-label="Number of questions on the shading sheet" style={S.inp} />
-                  {autoShadeCount > 0 && <button type="button" style={S.sm} onClick={() => setSheetQuestions(null)}>Use paper's count</button>}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="qa-note" style={{ fontFamily: F, marginTop: 14, lineHeight: 1.6 }}>
-          {shadeCount
-            ? sheetSizeSummary(shadeStyle, shadeCount, sheetOptions) + ". Print on A4 landscape at 100% (Actual size)."
-            : "This paper has no objective section yet. Add one below, or type the number of questions above."}
-        </div>
-        <div style={{ marginTop: 14 }}>
-          <button type="button" style={{ ...S.btn, height: 44, padding: "0 20px" }} disabled={!shadeCount} onClick={openShadingSheet}>Preview &amp; print shading sheet</button>
         </div>
       </div>
       )}
@@ -1748,13 +1674,174 @@ function QuestionsGeneratorInner() {
         </section>
       )}
       </div>
+
+      {/* ── Shading Sheet tab: its own page, like the Lesson Planner's tabs. Two A5 answer sheets per A4 landscape page, to cut out. ── */}
+      {view === "shading" && (
+        <div data-testid="shading-tab" role="tabpanel" aria-labelledby="qa-tab-shading">
+          <header className="qa-hero qa-rise">
+            <div className="qa-hero-row" style={{ marginBottom: 4 }}>
+              <h1 style={{ fontFamily: F }}>Shading Sheet</h1>
+              <p style={{ fontFamily: F }}>An answer sheet for your objective questions, in BECE or WASSCE style. Two per A4, ready to cut.</p>
+            </div>
+          </header>
+      <div style={S.card}>
+        <CardTitle F={F} mb={20} desc="Printed in the header of the sheet. Shared with the Assessment tab, so you only enter it once.">School &amp; Exam Details</CardTitle>
+        <div style={{ marginBottom: 14 }}>
+          <label style={S.lbl}>Class *</label>
+          <select value={effClass} onChange={e => setSheetClass(e.target.value)} style={S.sel}>
+            <option value="">- Select Class -</option>
+            {CLASS_GROUPS.map(group => (
+              <optgroup key={group.label} label={group.label}>
+                {group.classes.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          {!sameAsPaper && className && (
+            <div className="qa-note" style={{ fontFamily: F, marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <span>Different from your paper's class ({className}). Your Assessment form is not affected.</span>
+              <button type="button" style={S.sm} onClick={() => { setSheetClass(null); setSheetExamType(null); setSheetTerm(null); }}>Use paper's class</button>
+            </div>
+          )}
+        </div>
+        {effClass && (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <label style={S.lbl}>Exam type</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {effExamTypes.map(t => (
+                  <button key={t} type="button" className="qa-chip" aria-pressed={effExamType === t} onClick={() => setSheetExamType(t)}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <SchoolIdentityFields S={S} schoolName={schoolName} setSchoolName={setSchoolName} schoolLogo={schoolLogo} setSchoolLogo={setSchoolLogo} schoolMotto={schoolMotto} setSchoolMotto={setSchoolMotto} emblem={emblem} setEmblem={setEmblem} />
+            <div>
+              <label style={S.lbl}>{sheetIsSHS ? "Semester" : "Term"}</label>
+              <select value={effTerm} onChange={e => setSheetTerm(e.target.value)} style={S.sel}>
+                {effTerms.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </>
+        )}
+      </div>
+
+          {effClass && sameAsPaper && autoShadeCount > 0 && sheetQuestions == null && (
+            <div className="qa-note" role="status" style={{ fontFamily: F, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <span><b>Linked to your paper:</b> {autoShadeCount} objective question{autoShadeCount === 1 ? "" : "s"}{subject ? ` · ${subject}` : ""}{examData ? "" : " (from your set-up, not generated yet)"}.</span>
+              <button type="button" style={S.sm} onClick={() => goTab("generate")}>Open Assessment</button>
+            </div>
+          )}
+          {effClass ? (
+            <div>
+            <div style={S.card} data-testid="shading-card">
+        <CardTitle F={F} mb={14} desc="Choose the look of the answer sheet. Prints two per A4, ready to cut.">Sheet Layout</CardTitle>
+
+        <div className="qa-group">
+          <label style={S.lbl}>Sheet style</label>
+          <div className="qa-choices" role="group" aria-label="Shading sheet style">
+            {[
+              { id: "bece", label: "BECE-type sheet", desc: "Same layout as the Ghana Education Service answer sheet, with your school's name and logo, in your school colours." },
+              { id: "wassce", label: "WASSCE-type sheet", desc: "Framed sheet with your school name, logo, motto and colours, and a paper-version row." },
+            ].map(o => (
+              <button key={o.id} type="button" className="qa-choice" aria-pressed={shadeStyle === o.id} onClick={() => { setSheetStyle(o.id); setSheetColourMode(null); }}>
+                <span className="qa-choice-t" style={{ fontFamily: F }}>{o.label}</span>
+                <span className="qa-choice-d" style={{ fontFamily: F }}>{o.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="qa-group">
+          <label style={S.lbl}>Print colour</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {[{ id: "school", l: "School colours" }, { id: "mono", l: "Black & white" }].map(o => (
+              <button key={o.id} type="button" className="qa-chip" aria-pressed={shadeColourMode === o.id} onClick={() => setSheetColourMode(o.id)}>{o.l}</button>
+            ))}
+          </div>
+          {shadeColourMode === "school" && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                {SCHOOL_COLOUR_PRESETS.map(c => {
+                  const on = sheetColours.main === c.main && sheetColours.accent === c.accent;
+                  return (
+                    <button key={c.id} type="button" className="qa-chip" aria-pressed={on} title={c.label} onClick={() => setSheetColours({ main: c.main, accent: c.accent })} style={{ gap: 8 }}>
+                      <span aria-hidden="true" style={{ display: "inline-flex", width: 26, height: 14, borderRadius: 4, overflow: "hidden", border: "1px solid var(--border-strong)" }}>
+                        <span style={{ flex: 1, background: c.main }} /><span style={{ flex: 1, background: c.accent }} />
+                      </span>
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="eduq-grid-2">
+                <div>
+                  <label style={S.lbl}>Main colour</label>
+                  <input type="color" value={sheetColours.main} onChange={e => setSheetColours(c => ({ ...c, main: e.target.value.toUpperCase() }))} aria-label="Main school colour" style={{ ...S.inp, padding: 4, height: 44, cursor: "pointer" }} />
+                </div>
+                <div>
+                  <label style={S.lbl}>Accent colour</label>
+                  <input type="color" value={sheetColours.accent} onChange={e => setSheetColours(c => ({ ...c, accent: e.target.value.toUpperCase() }))} aria-label="Accent school colour" style={{ ...S.inp, padding: 4, height: 44, cursor: "pointer" }} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="qa-group">
+          <div className="eduq-grid-2">
+            <div>
+              <label style={S.lbl}>Answer options</label>
+              {shadeStyle === "bece" ? (
+                <div style={{ minHeight: 44, display: "flex", alignItems: "center", fontFamily: F, fontSize: 14, color: "var(--text)" }}>
+                  <span><b>A to E</b> <span style={{ color: "var(--text-muted)" }}>on every question, as on the BECE sheet</span></span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 8 }}>
+                  {[{ n: 4, l: "A to D" }, { n: 5, l: "A to E" }].map(o => (
+                    <button key={o.n} type="button" className="qa-chip" aria-pressed={sheetOptions === o.n} onClick={() => setSheetOptions(o.n)}>{o.l}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <label style={S.lbl}>Questions on the sheet</label>
+              {sheetQuestions == null && shadeCount > 0 ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontFamily: F, fontSize: 14, color: "var(--text)" }}>
+                  <span><b>{shadeCount}</b> <span style={{ color: "var(--text-muted)" }}>from your objective section</span></span>
+                  <button type="button" style={S.sm} onClick={() => setSheetQuestions(shadeCount)}>Change</button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <NumberField min={1} max={MAX_QUESTIONS} value={sheetQuestions ?? ""} onChange={v => setSheetQuestions(v)} aria-label="Number of questions on the shading sheet" style={S.inp} />
+                  {autoShadeCount > 0 && <button type="button" style={S.sm} onClick={() => setSheetQuestions(null)}>Use paper's count</button>}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="qa-note" style={{ fontFamily: F, marginTop: 14, lineHeight: 1.6 }}>
+          {shadeCount
+            ? sheetSizeSummary(shadeStyle, shadeCount, sheetOptions) + ". Print on A4 landscape at 100% (Actual size)."
+            : "No objective section in your paper yet. Type the number of questions above, or add an objective section on the Assessment tab."}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <button type="button" style={{ ...S.btn, height: 44, padding: "0 20px" }} disabled={!shadeCount} onClick={openShadingSheet}>Preview &amp; print shading sheet</button>
+        </div>
+      </div>
+            </div>
+          ) : (
+            <div className="qa-note" style={{ fontFamily: F, lineHeight: 1.6 }}>Choose a class above to set up your shading sheet.</div>
+          )}
+        </div>
+      )}
     </div>
     {/* Room at the bottom of the page so the sticky action bar never covers the last card */}
     <div aria-hidden="true" style={{ height: examData ? 96 : 40 }} />
+    <div className="qa-nav-space" aria-hidden="true" />
 
     {/* ── Sticky action bar: the things you do with a finished paper, always one tap away ── */}
     {view === "generate" && examData && !loading && !barHidden && (
-      <div className="eduq-bar" style={{
+      <div className={`eduq-bar${navHidden ? " nav-hidden" : ""}`} style={{
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 120,
         background: "var(--card-bg)", borderTop: "1px solid var(--border)",
         padding: "10px 12px max(10px, env(safe-area-inset-bottom, 10px))",
@@ -1795,6 +1882,7 @@ function QuestionsGeneratorInner() {
         </div>
       </div>
     )}
+    <BottomNav tab={view} setTab={goTab} savedCount={savedCount} hidden={navHidden} F={F} />
     </>
   );
 }
@@ -1807,9 +1895,16 @@ function QuestionsGeneratorInner() {
  * each - is a real usability regression against the "smooth on low-end
  * Android" requirement, not a cosmetic nitpick.
  */
+const TAB_HASH = { generate: "", shading: "#shading", saved: "#saved" };
+const TAB_TITLE = { generate: "Eduformium Assessment Studio: Tests, Quizzes & Exams", shading: "Shading Sheet · Eduformium Assessment Studio", saved: "My Assessments · Eduformium Assessment Studio" };
+function viewFromHash() {
+  if (typeof window === "undefined") return "generate";
+  return window.location.hash === "#shading" ? "shading" : window.location.hash === "#saved" ? "saved" : "generate";
+}
+
 const RESPONSIVE_CSS = `
   @keyframes eduq-rise { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
-  .eduq-bar { animation: eduq-rise .22s ease-out both; }
+  .eduq-bar { animation: eduq-rise .22s ease-out backwards; }
   @keyframes eduq-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .eduq-live-sec { animation: eduq-in .3s ease-out both; }
   @media (prefers-reduced-motion: reduce) { .eduq-bar, .eduq-live-sec { animation: none; } }
