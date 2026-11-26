@@ -225,7 +225,7 @@ describe("styles", () => {
   it("WASSCE style carries the school colours, motto and paper-version row", () => {
     const h = html({ style: "wassce", questions: 50, colours: { main: "#7A1020", accent: "#C99A2E" } });
     expect(h).toContain("#7A1020");
-    expect(h).toContain("#C99A2E");
+    expect(h).not.toContain("#C99A2E");                 // one school colour only: an old second colour is ignored
     expect(h).toContain("Knowledge, Discipline, Service");
     expect(h).toContain("PAPER VERSION");
     expect(h).toContain("INDEX NUMBER");
@@ -335,7 +335,7 @@ describe("answer booklet", () => {
     const h = bk({ pages: 12, questions: 8 });
     expect(h).toContain("@page{size:210mm 297mm;margin:0}");
     expect(count(h, /<section class="page /g)).toBe(12);
-    expect(count(h, /<section class="page cover">/g)).toBe(1);
+    expect(count(h, /<section class="page rt cover">/g)).toBe(1);
     expect(h).toContain('data-pages="12"');
     expect(h).toContain("ANSWER BOOKLET");
     expect(h).toContain("Page 1 of 12");
@@ -345,7 +345,7 @@ describe("answer booklet", () => {
   });
   it("cover has the candidate fields, the instructions and the examiner's table with one row per question", () => {
     const h = bk({ pages: 8, questions: 12 });
-    for (const t of ["SURNAME", "OTHER NAMES", "INDEX NUMBER", "CANDIDATE'S SIGNATURE", "INSTRUCTIONS TO CANDIDATES", "FOR EXAMINER'S USE ONLY", "TOTAL MARKS"]) expect(h).toContain(t);
+    for (const t of ["Candidate's Name:", "Index Number", "Instructions to Candidates", "FOR EXAMINER'S USE ONLY", "TOTAL"]) expect(h).toContain(t);
     for (let q = 1; q <= 12; q++) expect(count(h, new RegExp(`<td class="qq">${q}</td>`, "g"))).toBe(1);
     expect(h).not.toContain('<td class="qq">13</td>');
     expect(count(h, /<table class="et">/g)).toBe(2);                       // 12 questions: two tables of ten rows

@@ -96,19 +96,18 @@ export const printNote = (style) => style === "bece"
 /** The printed page of a style (for the preview window). */
 export const pageFor = (style) => (SHEET_SPECS[style] || SHEET_SPECS.bece).page;
 
-/** Ready-made school colour pairs (name, main, accent). */
+/** Ready-made school colours. ONE colour per school: it prints the title bars, rules, boxes, letters and bubbles. */
 export const SCHOOL_COLOUR_PRESETS = [
-  { id: "navy-gold", label: "Navy & Gold", main: "#12285C", accent: "#C99A2E" },
-  { id: "maroon-gold", label: "Maroon & Gold", main: "#7A1020", accent: "#C99A2E" },
-  { id: "green-gold", label: "Green & Gold", main: "#0F5C32", accent: "#C99A2E" },
-  { id: "blue-red", label: "Royal Blue & Red", main: "#1747A6", accent: "#C62828" },
-  { id: "black-gold", label: "Black & Gold", main: "#1A1A1A", accent: "#C99A2E" },
-  { id: "purple-gold", label: "Purple & Gold", main: "#4B2A7B", accent: "#C99A2E" },
-  { id: "sky-navy", label: "Sky Blue & Navy", main: "#1F7ACB", accent: "#12285C" },
-  { id: "green-red", label: "Green & Red", main: "#14753F", accent: "#C62828" },
-  { id: "bece-red", label: "BECE Red (best for pencil)", main: "#B3151F", accent: "#B3151F" },
-];
-export const DEFAULT_SCHOOL_COLOURS = { main: SCHOOL_COLOUR_PRESETS[0].main, accent: SCHOOL_COLOUR_PRESETS[0].accent };
+  { id: "navy", label: "Navy", main: "#12285C" },
+  { id: "maroon", label: "Maroon", main: "#7A1020" },
+  { id: "green", label: "Forest Green", main: "#0F5C32" },
+  { id: "blue", label: "Royal Blue", main: "#1747A6" },
+  { id: "sky", label: "Sky Blue", main: "#1F7ACB" },
+  { id: "purple", label: "Purple", main: "#4B2A7B" },
+  { id: "black", label: "Black", main: "#1A1A1A" },
+  { id: "bece-red", label: "BECE Red (best for pencil)", main: "#B3151F" },
+].map(c => ({ ...c, accent: c.main }));
+export const DEFAULT_SCHOOL_COLOURS = { main: SCHOOL_COLOUR_PRESETS[0].main, accent: SCHOOL_COLOUR_PRESETS[0].main };
 
 /** Number of objective questions: from a generated paper (real counts) or from the section set-up. */
 export function objectiveCount(sections = [], { generated = false } = {}) {
@@ -151,7 +150,7 @@ export function sheetPalette({ colourMode = "school", main, accent } = {}) {
     return { band: "#1A1A1A", onBand: "#FFFFFF", ink: "#1A1A1A", accent: "#555555", accentInk: "#444444", tint: "#F0F0F0", tintDeep: "#DCDCDC", mono: true };
   }
   const band = normHex(main, DEFAULT_SCHOOL_COLOURS.main);
-  const acc = normHex(accent, DEFAULT_SCHOOL_COLOURS.accent);
+  const acc = band;                                     // one school colour: the second colour was only ever a hairline
   return { band, onBand: textOn(band), ink: inkOf(band), accent: acc, accentInk: inkOf(acc), tint: mix(band, "#FFFFFF", 0.92), tintDeep: mix(band, "#FFFFFF", 0.82), mono: false };
 }
 
@@ -169,7 +168,7 @@ const crestFor = (meta, crestSVG) =>
  *   questions    number of questions (1-100)
  *   optionCount  4 (A-D) or 5 (A-E)  (WASSCE-type only; the BECE sheet always prints A-E)
  *   colourMode   "school" | "mono"
- *   colours      { main, accent }
+ *   colours      { main } (one school colour; an old `accent` value is ignored)
  *   meta         { schoolName, schoolMotto, schoolLogo, subject, className, programme, term, examType, examVersion, idDigits }
  *   crestSVG     optional inline SVG used when no logo is uploaded
  * @returns a complete HTML document: BECE = A4 landscape, two A5 sheets per page; WASSCE = one A4 portrait sheet
@@ -181,7 +180,7 @@ export function renderShadingSheetHTML(o = {}) {
   const pal = sheetPalette({ colourMode: o.colourMode || spec.defaultColour, ...(o.colours || {}) });
   const logoMarkup = crestFor(meta, o.crestSVG);
   if (spec.id === "wassce") {
-    return renderWassceSheet({ pal, esc, mm, logoMarkup, meta, n, optionCount: Number(o.optionCount) === 5 ? 5 : 4, preview: !!o.preview, fitSchoolName, formalExamType });
+    return renderWassceSheet({ pal, esc, mm, mix, logoMarkup, meta, n, optionCount: Number(o.optionCount) === 5 ? 5 : 4, preview: !!o.preview, fitSchoolName, formalExamType });
   }
   // BECE-type sheets follow the Ghana Education Service objective answer sheet and have their own renderer.
   return renderBeceSheet({ PRINT_PAGE, pal, esc, mm, logoMarkup, meta, n, preview: !!o.preview });
@@ -189,13 +188,13 @@ export function renderShadingSheetHTML(o = {}) {
 
 /**
  * The ANSWER BOOKLET for hand-written (structured / essay) questions. See bookletSheet.js.
- * @param {object} o  { pages, questions (rows in the examiner's table), ruling "lined" | "plain", colourMode, colours, meta, crestSVG, preview }
+ * @param {object} o  { pages, paper "a4" | "a3", questions (rows in the examiner's table), ruling "lined" | "plain", colourMode, colours, meta, crestSVG, preview }
  */
 export function renderAnswerBookletHTML(o = {}) {
   const meta = o.meta || {};
   const pal = sheetPalette({ colourMode: o.colourMode || "school", ...(o.colours || {}) });
   return renderBookletHTML({
-    pal, esc, mm, logoMarkup: crestFor(meta, o.crestSVG), meta, pages: o.pages, questions: o.questions, ruling: o.ruling,
+    pal, esc, mm, logoMarkup: crestFor(meta, o.crestSVG), meta, mix, pages: o.pages, questions: o.questions, ruling: o.ruling, paper: o.paper,
     preview: !!o.preview, softInk: pal.mono ? "#8a8a8a" : mix(pal.ink, "#FFFFFF", 0.55),
   });
 }

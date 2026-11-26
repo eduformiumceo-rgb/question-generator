@@ -34,6 +34,7 @@ const selectFor = (labelText) => {
   return null;
 };
 const openShadingTab = (u) => u.click(screen.getAllByRole("tab", { name: /Shading Sheet/i })[0]);
+const openBookletTab = (u) => u.click(screen.getAllByRole("tab", { name: /Answer Booklet/i })[0]);
 const pageText = () => document.body.textContent.replace(/\s+/g, " ");
 
 describe("Shading sheet option in the generator screen", () => {
@@ -48,11 +49,11 @@ describe("Shading sheet option in the generator screen", () => {
     expect(screen.getAllByRole("tab", { name: /Shading Sheet/i })[0].getAttribute("aria-selected")).toBe("true");
   });
 
-  it("the three tabs switch between Assessment, Shading Sheet and My Assessments", async () => {
+  it("the four tabs switch between Assessment, Shading Sheet, Answer Booklet and My Assessments", async () => {
     const u = userEvent.setup();
     render(<QuestionsGenerator />);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map(t => t.textContent.replace(/\d+$/, ""))).toEqual(["Assessment", "Shading Sheet", "My Assessments"]);
+    expect(tabs.map(t => t.textContent.replace(/\d+$/, ""))).toEqual(["Assessment", "Shading Sheet", "Answer Booklet", "My Assessments"]);
     expect(tabs[0].getAttribute("aria-selected")).toBe("true");
     await u.click(tabs[1]);
     expect(tabs[1].getAttribute("aria-selected")).toBe("true");
@@ -73,7 +74,7 @@ describe("Shading sheet option in the generator screen", () => {
     const card = await screen.findByTestId("shading-card");
     expect(card.textContent).toMatch(/Sheet Layout/);
     expect(screen.getByRole("button", { name: /WASSCE-type sheet/i }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: /^School colours$/i }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /^School colour$/i }).getAttribute("aria-pressed")).toBe("true");
     expect(card.textContent).toMatch(/210 × 297 mm/);
     expect(card.textContent).toMatch(/A4 portrait/);
     await u.click(screen.getByRole("button", { name: /Preview & print shading sheet/i }));
@@ -91,27 +92,77 @@ describe("Shading sheet option in the generator screen", () => {
     await openShadingTab(u);
     await screen.findByTestId("shading-card");
     expect(screen.getByRole("button", { name: /BECE-type sheet/i }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: /^School colours$/i }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /^School colour$/i }).getAttribute("aria-pressed")).toBe("true");
     await u.click(screen.getByRole("button", { name: /Black & white/i }));
     expect(screen.getByRole("button", { name: /Black & white/i }).getAttribute("aria-pressed")).toBe("true");
     await u.click(screen.getByRole("button", { name: /WASSCE-type sheet/i }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /^School colours$/i }).getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^School colour$/i }).getAttribute("aria-pressed")).toBe("true"));
   });
 
-  it("has an Answer Booklet card that opens an A4 portrait booklet preview", async () => {
+  it("the Answer Booklet has its own tab (#booklet) with the school details, ONE colour picker, and A4 / A3 paper sizes", async () => {
+    const u = userEvent.setup();
+    render(<QuestionsGenerator />);
+    await u.selectOptions(selectFor("Class"), "SHS 3");
+    await u.selectOptions(selectFor("Programme"), "General Science");
+    await u.selectOptions(selectFor("Subject"), "Biology (GS)");
+    await openBookletTab(u);
+    expect(window.location.hash).toBe("#booklet");
+    expect(screen.queryByTestId("shading-card")).toBeNull();                    // not on the Shading Sheet tab any more
+    const card = await screen.findByTestId("booklet-card");
+    expect(card.textContent).toMatch(/Answer Booklet/);
+    expect(screen.getByText("School & Exam Details")).toBeTruthy();             // the same school details are on this tab
+    // one colour only: a single picker, no "accent" colour
+    expect(screen.getByLabelText("School colour")).toBeTruthy();
+    expect(screen.queryByLabelText(/accent/i)).toBeNull();
+    // paper sizes
+    const a4 = screen.getByRole("button", { name: /^A4 portrait$/i }), a3 = screen.getByRole("button", { name: /^A3 landscape$/i });
+    expect(a4.getAttribute("aria-pressed")).toBe("true");
+    expect(a3.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("A4 booklet: opens an A4 portrait preview with the chosen page count", async () => {
+    const u = userEvent.setup();
+    render(<QuestionsGenerator />);
+    await u.selectOptions(selectFor("Class"), "SHS 3");
+    await u.selectOptions(selectFor("Programme"), "General Science");
+    await u.selectOptions(selectFor("Subject"), "Biology (GS)");
+    await openBookletTab(u);
+    await screen.findByTestId("booklet-card");
+    await u.click(screen.getByRole("button", { name: /^16$/ }));
+    await u.click(screen.getByRole("button", { name: /Preview & print answer booklet/i }));
+    const html = (await screen.findByTitle("Answer booklet preview")).getAttribute("srcdoc");
+    expect(html).toContain('data-sheet-style="booklet"');
+    expect(html).toContain('data-paper="a4"');
+    expect(html).toContain('data-pages="16"');
+    expect(html).toContain("@page{size:210mm 297mm;margin:0}");
+  });
+
+  it("A3 booklet: opens an A3 landscape preview where every sheet folds into two A4 pages", async () => {
+    const u = userEvent.setup();
+    render(<QuestionsGenerator />);
+    await u.selectOptions(selectFor("Class"), "SHS 3");
+    await u.selectOptions(selectFor("Programme"), "General Science");
+    await u.selectOptions(selectFor("Subject"), "Biology (GS)");
+    await openBookletTab(u);
+    await screen.findByTestId("booklet-card");
+    await u.click(screen.getByRole("button", { name: /^A3 landscape$/i }));
+    await u.click(screen.getByRole("button", { name: /^12$/ }));
+    await u.click(screen.getByRole("button", { name: /Preview & print answer booklet/i }));
+    const html = (await screen.findByTitle("Answer booklet preview")).getAttribute("srcdoc");
+    expect(html).toContain('data-paper="a3"');
+    expect(html).toContain('data-pages="12"');
+    expect(html).toContain('data-sheets="3"');                                  // 12 pages = 3 A3 sheets
+    expect((html.match(/<section class="sheet"/g) || []).length).toBe(6);       // ...printed as 6 faces (front and back)
+    expect(html).toContain("@page{size:420mm 297mm;margin:0}");
+  });
+
+  it("the Shading Sheet tab keeps the scan-and-mark card for the WASSCE sheet", async () => {
     const u = userEvent.setup();
     render(<QuestionsGenerator />);
     await u.selectOptions(selectFor("Class"), "SHS 3");
     await u.selectOptions(selectFor("Programme"), "General Science");
     await u.selectOptions(selectFor("Subject"), "Biology (GS)");
     await openShadingTab(u);
-    const card = await screen.findByTestId("booklet-card");
-    expect(card.textContent).toMatch(/Answer Booklet/);
-    await u.click(screen.getByRole("button", { name: /^16$/ }));
-    await u.click(screen.getByRole("button", { name: /Preview & print answer booklet/i }));
-    const html = (await screen.findByTitle("Answer booklet preview")).getAttribute("srcdoc");
-    expect(html).toContain('data-sheet-style="booklet"');
-    expect(html).toContain('data-pages="16"');
-    expect(html).toContain("@page{size:210mm 297mm;margin:0}");
+    expect((await screen.findByTestId("scan-card")).textContent).toMatch(/Scan & mark/);
   });
 });

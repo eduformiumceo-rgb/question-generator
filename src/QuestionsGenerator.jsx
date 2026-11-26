@@ -26,9 +26,9 @@ import { autoDrawFigures, requestFigureSVG } from "./aiFigures.js";
 import { isSHSClass, termOptionsFor, mapTermForLevel, examTypesFor, mapExamTypeForLevel } from "./shsCourses.js";
 import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, isSafeGeneratedSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
-import { getWassceProfile, wassceSections, wassceTotalMinutes, decorateWassceExam } from "./wassceStyle.js";
+import { getWassceProfile, wassceSections, wassceTotalMinutes, decorateWassceExam, wassceCoverCode, wasscePaper2Code } from "./wassceStyle.js";
 import { renderShadingSheetHTML, renderAnswerBookletHTML, printNote, pageFor, SHEET_SPECS, SCHOOL_COLOUR_PRESETS, DEFAULT_SCHOOL_COLOURS, defaultSheetStyle, objectiveCount, clampQuestions, sheetSizeSummary, MAX_QUESTIONS } from "./shadingSheet.js";
-import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, answerableMarks, cleanBeceTitle } from "./beceStyle.js";
+import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, answerableMarks, cleanBeceTitle, beceCoverCode } from "./beceStyle.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
 // every visit. Loaded on demand inside handleDownloadWord() instead.
@@ -44,7 +44,9 @@ import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWE
 import NumberField from "./components/NumberField.jsx";
 import TopUpModal from "./components/TopUpModal.jsx";
 import ShadingPreview from "./components/ShadingPreview.jsx";
-import { theoryCount, BOOKLET_PAGE_OPTIONS, BOOKLET_DEFAULT_PAGES, BOOKLET_MAX_QUESTIONS, clampBookletQuestions } from "./bookletSheet.js";
+import ScanMarker from "./components/ScanMarker.jsx";
+import { keyFromExam } from "./omrReader.js";
+import { theoryCount, BOOKLET_PAGE_OPTIONS, BOOKLET_DEFAULT_PAGES, BOOKLET_MAX_QUESTIONS, BOOKLET_PAPERS, BOOKLET_SHEET, clampBookletQuestions, clampBookletPaper, bookletPageCount, bookletSheetCount } from "./bookletSheet.js";
 import { TopNav, BottomNav } from "./components/AppNav.jsx";
 import SchoolIdentityFields from "./components/SchoolIdentityFields.jsx";
 // Reuses the Lesson Planner's auth.js UNCHANGED (same Google OAuth flow, same
@@ -295,6 +297,7 @@ function QuestionsGeneratorInner() {
   const [sheetQuestions, setSheetQuestions] = useState(null); // null = count from the paper's objective questions
   // Answer booklet (for the hand-written structured / essay questions)
   const [bookletPages, setBookletPages] = useState(BOOKLET_DEFAULT_PAGES);
+  const [bookletPaper, setBookletPaper] = useState(clampBookletPaper(savedPrefs.bookletPaper));   // "a4" portrait pages, or "a3" landscape sheets folded in half
   const [bookletRuling, setBookletRuling] = useState("lined");   // "lined" | "plain"
   const [bookletQuestions, setBookletQuestions] = useState(null); // null = count from the paper's theory questions
   // The sheet's own class / exam type / term. null = follow the paper. Setting them here never changes the Assessment form.
@@ -431,9 +434,9 @@ function QuestionsGeneratorInner() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ schoolName, schoolMotto, emblem, optionsLayout, paperPreset: presetChosenByUser.current ? paperPreset : undefined, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ schoolName, schoolMotto, emblem, optionsLayout, paperPreset: presetChosenByUser.current ? paperPreset : undefined, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver, bookletPaper }));
     } catch { /* storage unavailable: nothing to remember, nothing breaks */ }
-  }, [schoolName, schoolMotto, emblem, optionsLayout, paperPreset, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver]);
+  }, [schoolName, schoolMotto, emblem, optionsLayout, paperPreset, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver, bookletPaper]);
   useEffect(() => {
     try {
       if (schoolLogo && schoolLogo.length < 900000) localStorage.setItem(LOGO_KEY, schoolLogo);
@@ -464,7 +467,7 @@ function QuestionsGeneratorInner() {
   // Same model as the Lesson Planner's "My Plans": every generated exam is
   // saved automatically, up to MAX_SAVED_EXAMS per teacher; the server evicts
   // the oldest on the next save so Supabase storage stays bounded.
-  // Tabs: "generate" (Assessment) | "shading" (Shading Sheet) | "saved" (My Assessments). The tab is kept in the address (#shading, #saved)
+  // Tabs: "generate" (Assessment) | "shading" (Shading Sheet) | "booklet" (Answer Booklet) | "saved" (My Assessments). The tab is kept in the address (#shading, #booklet, #saved)
   // so refresh, Back/Forward and shared links all land on the right tab. Unknown hashes (e.g. a sign-in redirect) are ignored.
   const [view, setView] = useState(viewFromHash);
   const scrollPos = useRef({});                       // scroll position remembered per tab
@@ -1152,9 +1155,19 @@ function QuestionsGeneratorInner() {
     setShowShadePreview(true);   // preview first; printing happens from the preview window
   };
   const openAnswerBooklet = () => setShowBookletPreview(true);
+  // The booklet's cover repeats the question paper's cover: the same paper-code box, paper names, duration and total marks.
+  const bookletCover = (() => {
+    if (!beceProfile || !publicActive || !sameAsPaper) return {};
+    const p = beceProfile;
+    const code = p.order === "21" || !p.paper2 ? (wassceActive ? wassceCoverCode(p) : beceCoverCode(p)) : (wassceActive ? wasscePaper2Code(p) : { code: "2", subject: String(p.label || "").toUpperCase(), kind: "Essay", duration: minutesLabel(p.paper2.minutes) });
+    const names = p.paper1 && p.paper2 ? (wassceActive && p.order !== "21" ? `${p.paper1.name} and ${p.paper2.name}` : `${p.paper2.name} and ${p.paper1.name}`) : "";
+    return { coverCode: code, paperNames: names };
+  })();
+  const bookletTotalMarks = activeExamData ? (Number(activeExamData.totalMarks) || "") : "";
+  const bookletPrinted = bookletPageCount(bookletPages, bookletPaper);
   const bookletHtml = showBookletPreview ? renderAnswerBookletHTML({
-    pages: bookletPages, questions: bookletCount, ruling: bookletRuling, colourMode: shadeColourMode, colours: sheetColours,
-    meta: { ...meta, className: effClass, term: effTerm, examType: effExamType, ...(sameAsPaper ? {} : { subject: "", programme: "" }) },
+    pages: bookletPages, paper: bookletPaper, questions: bookletCount, ruling: bookletRuling, colourMode: shadeColourMode, colours: sheetColours,
+    meta: { ...meta, className: effClass, term: effTerm, examType: effExamType, ...(sameAsPaper ? { durationMinutes, totalMarks: bookletTotalMarks, ...bookletCover } : { subject: "", programme: "" }) },
     crestSVG: !schoolLogo && emblem !== "none" ? schoolCrestSVG(schoolName) : "", preview: true,
   }) : "";
   const shadeHtml = showShadePreview && shadeCount ? renderShadingSheetHTML({
@@ -1175,7 +1188,7 @@ function QuestionsGeneratorInner() {
     if (window.history && "scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
     const onNav = () => {
       const h = window.location.hash;
-      if (h !== "" && h !== "#shading" && h !== "#saved") return;          // not one of ours
+      if (h !== "" && h !== "#shading" && h !== "#booklet" && h !== "#saved") return;          // not one of ours
       const next = viewFromHash();
       if (next === viewRef.current) return;
       scrollPos.current[viewRef.current] = window.scrollY || 0;
@@ -1219,6 +1232,73 @@ function QuestionsGeneratorInner() {
     setUser(null);
     setCreditBalance(null);
   };
+
+  const schoolExamCard = (
+      <div style={S.card}>
+        <CardTitle F={F} mb={20} desc="Printed in the header of the sheet. Shared with the Assessment tab, so you only enter it once.">School &amp; Exam Details</CardTitle>
+        <div style={{ marginBottom: 14 }}>
+          <label style={S.lbl}>Class *</label>
+          <select value={effClass} onChange={e => setSheetClass(e.target.value)} style={S.sel}>
+            <option value="">- Select Class -</option>
+            {CLASS_GROUPS.map(group => (
+              <optgroup key={group.label} label={group.label}>
+                {group.classes.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          {!sameAsPaper && className && (
+            <div className="qa-note" style={{ fontFamily: F, marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <span>Different from your paper's class ({className}). Your Assessment form is not affected.</span>
+              <button type="button" style={S.sm} onClick={() => { setSheetClass(null); setSheetExamType(null); setSheetTerm(null); }}>Use paper's class</button>
+            </div>
+          )}
+        </div>
+        {effClass && (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <label style={S.lbl}>Exam type</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {effExamTypes.map(t => (
+                  <button key={t} type="button" className="qa-chip" aria-pressed={effExamType === t} onClick={() => setSheetExamType(t)}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <SchoolIdentityFields S={S} schoolName={schoolName} setSchoolName={setSchoolName} schoolLogo={schoolLogo} setSchoolLogo={setSchoolLogo} schoolMotto={schoolMotto} setSchoolMotto={setSchoolMotto} emblem={emblem} setEmblem={setEmblem} />
+            <div>
+              <label style={S.lbl}>{sheetIsSHS ? "Semester" : "Term"}</label>
+              <select value={effTerm} onChange={e => setSheetTerm(e.target.value)} style={S.sel}>
+                {effTerms.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </>
+        )}
+      </div>
+  );
+  const colourGroup = (
+    <div className="qa-group" data-testid="colour-group">
+      <label style={S.lbl}>Print colour</label>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {[{ id: "school", l: "School colour" }, { id: "mono", l: "Black & white" }].map(o => (
+          <button key={o.id} type="button" className="qa-chip" aria-pressed={shadeColourMode === o.id} onClick={() => setSheetColourMode(o.id)}>{o.l}</button>
+        ))}
+      </div>
+      {shadeColourMode === "school" && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            {SCHOOL_COLOUR_PRESETS.map(c => (
+              <button key={c.id} type="button" className="qa-chip" aria-pressed={sheetColours.main === c.main} title={c.label} onClick={() => setSheetColours({ main: c.main, accent: c.main })} style={{ gap: 8 }}>
+                <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: 999, background: c.main, border: "1px solid var(--border-strong)" }} />
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <label style={S.lbl}>Or pick your own colour</label>
+          <input type="color" value={sheetColours.main} onChange={e => { const v = e.target.value.toUpperCase(); setSheetColours({ main: v, accent: v }); }} aria-label="School colour" style={{ ...S.inp, padding: 4, height: 44, width: 96, cursor: "pointer" }} />
+          <div className="qa-note" style={{ fontFamily: F, marginTop: 8 }}>One colour prints the title bars, rules, boxes and bubbles, on the shading sheet and the answer booklet.</div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -1301,10 +1381,13 @@ function QuestionsGeneratorInner() {
       )}
       {showBookletPreview && bookletHtml && (
         <ShadingPreview
-          html={bookletHtml} questions={bookletCount} S={S} F={F} page={{ w: 210, h: 297, orientation: "portrait" }}
-          title="Answer booklet preview" subtitle={`${bookletPages} pages · A4 portrait · cover + ${bookletPages - 1} ruled pages`} showStyle={false}
+          html={bookletHtml} questions={bookletCount} S={S} F={F} page={BOOKLET_SHEET[bookletPaper]}
+          title="Answer booklet preview"
+          subtitle={bookletPaper === "a3" ? `${bookletPrinted} pages · ${bookletSheetCount(bookletPages, "a3")} A3 landscape sheets, each folded in half into A4 pages` : `${bookletPrinted} pages · A4 portrait · cover + ${bookletPrinted - 1} ruled pages`} showStyle={false}
           colourMode={shadeColourMode} onColourMode={setSheetColourMode}
-          printHint={<>In the print dialog choose <b>A4, Portrait, Margins: None, Scale: 100%</b>. Print <b>double-sided (flip on the long edge)</b>, put the cover on top, and staple at the left to make the booklet.</>}
+          printHint={bookletPaper === "a3"
+            ? <>In the print dialog choose <b>A3, Landscape, Margins: None, Scale: 100%</b>. Print <b>double-sided, flip on the SHORT edge</b>. Nest the sheets in order, fold them in half and staple on the fold: every half is one A4 page.</>
+            : <>In the print dialog choose <b>A4, Portrait, Margins: None, Scale: 100%</b>. Print <b>double-sided (flip on the long edge)</b>, put the cover on top, and staple at the left to make the booklet.</>}
           onClose={() => setShowBookletPreview(false)}
         />
       )}
@@ -1699,53 +1782,86 @@ function QuestionsGeneratorInner() {
       </div>
 
       {/* ── Shading Sheet tab: its own page, like the Lesson Planner's tabs. Two A5 answer sheets per A4 landscape page, to cut out. ── */}
+      {view === "booklet" && (
+        <div data-testid="booklet-tab" role="tabpanel" aria-labelledby="qa-tab-booklet">
+          <header className="qa-hero qa-rise">
+            <div className="qa-hero-row" style={{ marginBottom: 4 }}>
+              <h1 style={{ fontFamily: F }}>Answer Booklet</h1>
+              <p style={{ fontFamily: F }}>A booklet for your structured and essay questions: a cover with your school's masthead, the examiner's marks table and ruled answer pages. Print it on A4 pages, or on A3 sheets that fold in half.</p>
+            </div>
+          </header>
+          {schoolExamCard}
+          {effClass ? (
+            <div>
+            <div style={S.card} data-testid="booklet-card">
+              <CardTitle F={F} mb={14} desc="For your structured and essay questions: a cover with your school's masthead and your paper's details, the examiner's marks table and ruled answer pages with a question-number margin. Choose A4 pages, or A3 sheets that fold in half.">Answer Booklet</CardTitle>
+              {colourGroup}
+              <div className="qa-group">
+                <label style={S.lbl}>Paper size</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }} role="group" aria-label="Booklet paper size">
+                  {BOOKLET_PAPERS.map(o => (
+                    <button key={o.id} type="button" className="qa-chip" aria-pressed={bookletPaper === o.id} onClick={() => setBookletPaper(o.id)}>{o.label}</button>
+                  ))}
+                </div>
+                <div className="qa-note" style={{ fontFamily: F, marginTop: 8 }}>{BOOKLET_PAPERS.find(o => o.id === bookletPaper).desc}</div>
+              </div>
+              <div className="qa-group">
+                <div className="eduq-grid-2">
+                  <div>
+                    <label style={S.lbl}>Pages in the booklet</label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {BOOKLET_PAGE_OPTIONS.map(n => (
+                        <button key={n} type="button" className="qa-chip" aria-pressed={bookletPages === n} onClick={() => setBookletPages(n)}>{n}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={S.lbl}>Answer pages</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {[{ id: "lined", l: "Lined" }, { id: "plain", l: "Plain (diagrams)" }].map(o => (
+                        <button key={o.id} type="button" className="qa-chip" aria-pressed={bookletRuling === o.id} onClick={() => setBookletRuling(o.id)}>{o.l}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="qa-group">
+                <label style={S.lbl}>Questions in the examiner's table</label>
+                {bookletQuestions == null && autoBookletCount > 0 ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontFamily: F, fontSize: 14, color: "var(--text)" }}>
+                    <span><b>{bookletCount}</b> <span style={{ color: "var(--text-muted)" }}>from your structured / essay sections</span></span>
+                    <button type="button" style={S.sm} onClick={() => setBookletQuestions(bookletCount)}>Change</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <NumberField min={1} max={BOOKLET_MAX_QUESTIONS} value={bookletQuestions ?? bookletCount} onChange={v => setBookletQuestions(v)} aria-label="Number of questions in the examiner's table" style={S.inp} />
+                    {autoBookletCount > 0 && <button type="button" style={S.sm} onClick={() => setBookletQuestions(null)}>Use paper's count</button>}
+                  </div>
+                )}
+              </div>
+              <div className="qa-note" style={{ fontFamily: F, marginTop: 14, lineHeight: 1.6 }}>
+                Uses the school name, logo, colours and cover details of your question paper. {bookletPaper === "a3" ? `${bookletPrinted} pages on ${bookletSheetCount(bookletPages, "a3")} A3 landscape sheets (imposed so they fold into a booklet). Print on A3 at 100%, double-sided, flip on the short edge, fold in half and staple on the fold.` : `${bookletPrinted} A4 pages (cover + ${bookletPrinted - 1} answer pages). Print on A4 portrait at 100%, double-sided, and staple at the left.`}
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <button type="button" style={{ ...S.btn, height: 44, padding: "0 20px" }} onClick={openAnswerBooklet}>Preview &amp; print answer booklet</button>
+              </div>
+            </div>
+            </div>
+          ) : (
+            <div className="qa-note" style={{ fontFamily: F, lineHeight: 1.6 }}>Choose a class above to set up your answer booklet.</div>
+          )}
+        </div>
+      )}
+
       {view === "shading" && (
         <div data-testid="shading-tab" role="tabpanel" aria-labelledby="qa-tab-shading">
           <header className="qa-hero qa-rise">
             <div className="qa-hero-row" style={{ marginBottom: 4 }}>
               <h1 style={{ fontFamily: F }}>Shading Sheet</h1>
-              <p style={{ fontFamily: F }}>An answer sheet for your objective questions in BECE or WASSCE style, and an answer booklet for your written questions.</p>
+              <p style={{ fontFamily: F }}>An answer sheet for your objective questions in BECE or WASSCE style. The WASSCE sheet can be scanned and marked automatically.</p>
             </div>
           </header>
-      <div style={S.card}>
-        <CardTitle F={F} mb={20} desc="Printed in the header of the sheet. Shared with the Assessment tab, so you only enter it once.">School &amp; Exam Details</CardTitle>
-        <div style={{ marginBottom: 14 }}>
-          <label style={S.lbl}>Class *</label>
-          <select value={effClass} onChange={e => setSheetClass(e.target.value)} style={S.sel}>
-            <option value="">- Select Class -</option>
-            {CLASS_GROUPS.map(group => (
-              <optgroup key={group.label} label={group.label}>
-                {group.classes.map(c => <option key={c} value={c}>{c}</option>)}
-              </optgroup>
-            ))}
-          </select>
-          {!sameAsPaper && className && (
-            <div className="qa-note" style={{ fontFamily: F, marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <span>Different from your paper's class ({className}). Your Assessment form is not affected.</span>
-              <button type="button" style={S.sm} onClick={() => { setSheetClass(null); setSheetExamType(null); setSheetTerm(null); }}>Use paper's class</button>
-            </div>
-          )}
-        </div>
-        {effClass && (
-          <>
-            <div style={{ marginBottom: 14 }}>
-              <label style={S.lbl}>Exam type</label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {effExamTypes.map(t => (
-                  <button key={t} type="button" className="qa-chip" aria-pressed={effExamType === t} onClick={() => setSheetExamType(t)}>{t}</button>
-                ))}
-              </div>
-            </div>
-            <SchoolIdentityFields S={S} schoolName={schoolName} setSchoolName={setSchoolName} schoolLogo={schoolLogo} setSchoolLogo={setSchoolLogo} schoolMotto={schoolMotto} setSchoolMotto={setSchoolMotto} emblem={emblem} setEmblem={setEmblem} />
-            <div>
-              <label style={S.lbl}>{sheetIsSHS ? "Semester" : "Term"}</label>
-              <select value={effTerm} onChange={e => setSheetTerm(e.target.value)} style={S.sel}>
-                {effTerms.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          </>
-        )}
-      </div>
+      {schoolExamCard}
 
           {effClass && sameAsPaper && autoShadeCount > 0 && sheetQuestions == null && (
             <div className="qa-note" role="status" style={{ fontFamily: F, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -1773,41 +1889,7 @@ function QuestionsGeneratorInner() {
           </div>
         </div>
 
-        <div className="qa-group">
-          <label style={S.lbl}>Print colour</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {[{ id: "school", l: "School colours" }, { id: "mono", l: "Black & white" }].map(o => (
-              <button key={o.id} type="button" className="qa-chip" aria-pressed={shadeColourMode === o.id} onClick={() => setSheetColourMode(o.id)}>{o.l}</button>
-            ))}
-          </div>
-          {shadeColourMode === "school" && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                {SCHOOL_COLOUR_PRESETS.map(c => {
-                  const on = sheetColours.main === c.main && sheetColours.accent === c.accent;
-                  return (
-                    <button key={c.id} type="button" className="qa-chip" aria-pressed={on} title={c.label} onClick={() => setSheetColours({ main: c.main, accent: c.accent })} style={{ gap: 8 }}>
-                      <span aria-hidden="true" style={{ display: "inline-flex", width: 26, height: 14, borderRadius: 4, overflow: "hidden", border: "1px solid var(--border-strong)" }}>
-                        <span style={{ flex: 1, background: c.main }} /><span style={{ flex: 1, background: c.accent }} />
-                      </span>
-                      {c.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="eduq-grid-2">
-                <div>
-                  <label style={S.lbl}>Main colour</label>
-                  <input type="color" value={sheetColours.main} onChange={e => setSheetColours(c => ({ ...c, main: e.target.value.toUpperCase() }))} aria-label="Main school colour" style={{ ...S.inp, padding: 4, height: 44, cursor: "pointer" }} />
-                </div>
-                <div>
-                  <label style={S.lbl}>Accent colour</label>
-                  <input type="color" value={sheetColours.accent} onChange={e => setSheetColours(c => ({ ...c, accent: e.target.value.toUpperCase() }))} aria-label="Accent school colour" style={{ ...S.inp, padding: 4, height: 44, cursor: "pointer" }} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {colourGroup}
 
         <div className="qa-group">
           <div className="eduq-grid-2">
@@ -1852,49 +1934,10 @@ function QuestionsGeneratorInner() {
         </div>
       </div>
 
-            <div style={S.card} data-testid="booklet-card">
-              <CardTitle F={F} mb={14} desc="For your structured and essay questions: a cover page, the examiner's marks table and ruled answer pages. Prints on A4 portrait, one page each.">Answer Booklet</CardTitle>
-              <div className="qa-group">
-                <div className="eduq-grid-2">
-                  <div>
-                    <label style={S.lbl}>Pages in the booklet</label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {BOOKLET_PAGE_OPTIONS.map(n => (
-                        <button key={n} type="button" className="qa-chip" aria-pressed={bookletPages === n} onClick={() => setBookletPages(n)}>{n}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label style={S.lbl}>Answer pages</label>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      {[{ id: "lined", l: "Lined" }, { id: "plain", l: "Plain (diagrams)" }].map(o => (
-                        <button key={o.id} type="button" className="qa-chip" aria-pressed={bookletRuling === o.id} onClick={() => setBookletRuling(o.id)}>{o.l}</button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="qa-group">
-                <label style={S.lbl}>Questions in the examiner's table</label>
-                {bookletQuestions == null && autoBookletCount > 0 ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontFamily: F, fontSize: 14, color: "var(--text)" }}>
-                    <span><b>{bookletCount}</b> <span style={{ color: "var(--text-muted)" }}>from your structured / essay sections</span></span>
-                    <button type="button" style={S.sm} onClick={() => setBookletQuestions(bookletCount)}>Change</button>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <NumberField min={1} max={BOOKLET_MAX_QUESTIONS} value={bookletQuestions ?? bookletCount} onChange={v => setBookletQuestions(v)} aria-label="Number of questions in the examiner's table" style={S.inp} />
-                    {autoBookletCount > 0 && <button type="button" style={S.sm} onClick={() => setBookletQuestions(null)}>Use paper's count</button>}
-                  </div>
-                )}
-              </div>
-              <div className="qa-note" style={{ fontFamily: F, marginTop: 14, lineHeight: 1.6 }}>
-                Uses the school name, logo and colours above. {bookletPages} A4 pages (cover + {bookletPages - 1} answer pages). Print on A4 portrait at 100%, double-sided, and staple at the left.
-              </div>
-              <div style={{ marginTop: 14 }}>
-                <button type="button" style={{ ...S.btn, height: 44, padding: "0 20px" }} onClick={openAnswerBooklet}>Preview &amp; print answer booklet</button>
-              </div>
-            </div>
+            {shadeStyle === "wassce" && (
+              <ScanMarker S={S} F={F} expectedN={shadeCount} optionCount={sheetOptions} digits={clampIdDigits(idDigits)}
+                keyFor={(v) => (examData ? keyFromExam(!v || v === "A" ? examData : createExamVariant(examData, v)) : null)} />
+            )}
             </div>
           ) : (
             <div className="qa-note" style={{ fontFamily: F, lineHeight: 1.6 }}>Choose a class above to set up your shading sheet.</div>
@@ -1965,11 +2008,12 @@ function QuestionsGeneratorInner() {
  * each - is a real usability regression against the "smooth on low-end
  * Android" requirement, not a cosmetic nitpick.
  */
-const TAB_HASH = { generate: "", shading: "#shading", saved: "#saved" };
-const TAB_TITLE = { generate: "Eduformium Assessment Studio: Tests, Quizzes & Exams", shading: "Shading Sheet · Eduformium Assessment Studio", saved: "My Assessments · Eduformium Assessment Studio" };
+const TAB_HASH = { generate: "", shading: "#shading", booklet: "#booklet", saved: "#saved" };
+const TAB_TITLE = { generate: "Eduformium Assessment Studio: Tests, Quizzes & Exams", shading: "Shading Sheet · Eduformium Assessment Studio", booklet: "Answer Booklet · Eduformium Assessment Studio", saved: "My Assessments · Eduformium Assessment Studio" };
 function viewFromHash() {
   if (typeof window === "undefined") return "generate";
-  return window.location.hash === "#shading" ? "shading" : window.location.hash === "#saved" ? "saved" : "generate";
+  const h = window.location.hash;
+  return h === "#shading" ? "shading" : h === "#booklet" ? "booklet" : h === "#saved" ? "saved" : "generate";
 }
 
 const RESPONSIVE_CSS = `

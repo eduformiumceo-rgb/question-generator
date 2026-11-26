@@ -1,9 +1,9 @@
 /**
- * AppNav - the three places in Assessment Studio, laid out like the Lesson Planner:
+ * AppNav - the four places in Assessment Studio, laid out like the Lesson Planner:
  *   Desktop / tablet  a centred pill switch under the header (sliding teal pill)
  *   Phone             a bottom tab bar with icon pills (hidden on desktop)
  *
- * Tabs:  Assessment (build a paper)  |  Shading Sheet (answer sheet)  |  My Assessments (saved papers)
+ * Tabs:  Assessment (build a paper)  |  Shading Sheet (answer sheet)  |  Answer Booklet (written answers)  |  My Assessments (saved papers)
  * Visibility is pure CSS (see theme.css, .qa-top-nav / .qa-bottom-nav) so there is no layout flash.
  */
 import React from "react";
@@ -15,6 +15,8 @@ export const NAV_TABS = [
     icon: <svg {...ic}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M9 14l2 2 4-4" /></svg> },
   { id: "shading", label: "Shading Sheet", short: "Shading",
     icon: <svg {...ic}><rect x="3" y="3" width="18" height="18" rx="2.5" /><circle cx="8.5" cy="8.5" r="1.6" /><circle cx="15.5" cy="8.5" r="1.6" fill="currentColor" /><circle cx="8.5" cy="15.5" r="1.6" fill="currentColor" /><circle cx="15.5" cy="15.5" r="1.6" /></svg> },
+  { id: "booklet", label: "Answer Booklet", short: "Booklet",
+    icon: <svg {...ic}><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z" /><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3" /><path d="M9 8h6M9 12h6" /></svg> },
   { id: "saved", label: "My Assessments", short: "Saved",
     icon: <svg {...ic}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg> },
 ];
