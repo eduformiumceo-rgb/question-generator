@@ -347,7 +347,7 @@ export default function TopicSelector({
                 onClick={() => fileInputRef.current?.click()}
                 style={{
                   ...bigBtn(F, "solid", schemeBusy),
-                  ...(dragging ? { background: "#0D9488" } : null),
+                  ...(dragging ? { background: "var(--accent)" } : null),
                 }}
               >
                 {schemeBusy ? "Reading your scheme…" : "Upload My Scheme of Learning"}

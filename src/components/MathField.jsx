@@ -115,8 +115,8 @@ export default function MathField({
           aria-pressed={open} aria-label="Maths symbols" title="Insert maths: fractions, roots, powers, symbols"
           style={{
             position: "absolute", right: 6, top: 6, width: 30, height: 28, borderRadius: 8, cursor: "pointer", fontSize: 15, lineHeight: 1,
-            border: `1px solid ${open ? "#0D9488" : "var(--border-strong)"}`,
-            background: open ? "#0D9488" : "var(--card-bg)", color: open ? "#fff" : "var(--text-muted)", fontFamily: "'Times New Roman',Times,serif",
+            border: `1px solid ${open ? "var(--btn)" : "var(--border-strong)"}`,
+            background: open ? "var(--btn)" : "var(--card-bg)", color: open ? "#fff" : "var(--text-muted)", fontFamily: "'Times New Roman',Times,serif",
           }}
         >{"\u2211"}</button>
       </div>

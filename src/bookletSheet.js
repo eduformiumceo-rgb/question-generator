@@ -18,7 +18,7 @@
  * left, even pages on the right, so no writing is lost in the staples.
  * Only the school's own name and logo are printed, never an examining body's name or crest.
  */
-import { fitSchoolName, formalExamType } from "./beceSheet.js";
+import { fitSchoolName } from "./beceSheet.js";
 
 export const BOOKLET_PAGE = { w: 210, h: 297 };
 export const BOOKLET_SHEET = { a4: { w: 210, h: 297, orientation: "portrait" }, a3: { w: 420, h: 297, orientation: "landscape" } };
@@ -133,7 +133,6 @@ export function renderBookletHTML(h) {
   const digits = Math.max(4, Math.min(12, Math.round(Number(meta.idDigits) || 10)));
   const idMode = ["line", "boxes", "none"].includes(meta.idMode) ? meta.idMode : "boxes";
   // SUBJECT and CLASS are never printed: they are blank write-in fields, so one printed booklet serves any subject or class.
-  const termLine = [formalExamType(meta.examType), String(meta.term || "").trim()].filter(Boolean).join("  \u00B7  ");
   const version = String(meta.examVersion || "").toUpperCase();
   const mastSide = 28 + 4;                                   // logo disc on the left, balanced by empty space on the right
   const fit = fitSchoolName(name, g.CW - 2 * mastSide);
@@ -188,7 +187,6 @@ export function renderBookletHTML(h) {
     <div class="etitle"><i class="er"></i><span class="ttl">ANSWER BOOKLET</span><i class="er"></i>${version ? `<span class="ver">VERSION ${esc(version)}</span>` : ""}</div>
     ${noticeText ? `<div class="notice">${esc(noticeText)}</div>` : ""}
     ${cc && cc.code ? `<div class="codebox"><span>Paper</span><b class="cb">${esc(cc.code)}</b></div>` : ""}
-    ${termLine ? `<div class="cline">${esc(termLine)}</div>` : ""}
     ${(meta.durationMinutes || meta.totalMarks) ? `<table class="meta">
       <tr>${meta.durationMinutes ? metaCell("Duration", `${meta.durationMinutes} mins`) : ""}${meta.totalMarks ? metaCell("Total Marks", meta.totalMarks) : ""}</tr>
     </table>` : ""}
@@ -302,7 +300,6 @@ export function renderBookletHTML(h) {
   .codebox{flex:none;align-self:center;display:flex;align-items:center;gap:${mm(3)};border:${mm(MID)} solid ${ink};padding:${mm(1)} ${mm(4)};font-size:${mm(2.6)};font-weight:700;letter-spacing:.14em;text-transform:uppercase}
   .cb{font-size:${mm(9)};font-weight:800;font-family:Georgia,"Times New Roman",serif;color:${ink}}
   .cname{font-size:${mm(8)};font-weight:800;text-transform:uppercase;letter-spacing:.07em;line-height:1.15}
-  .cline{flex:none;text-align:center;font-size:${mm(3.6)};letter-spacing:.08em;text-transform:uppercase;font-weight:600;margin:0}
   .meta{flex:none;width:100%;border-collapse:collapse;border:${mm(MID)} solid ${ink};table-layout:fixed}
   .meta td{border-right:${mm(THIN)} solid ${ink};padding:${mm(1)} ${mm(2.2)} ${mm(1.2)};vertical-align:top}
   .meta td:last-child{border-right:none}

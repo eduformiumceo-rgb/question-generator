@@ -87,13 +87,6 @@ export function timingMarkRows() {
   return out;
 }
 
-/** Exam type as it reads on a formal paper: "Mock Exam" -> "MOCK EXAMINATION", "End of Term Exam" -> "END OF TERM EXAMINATION". */
-export function formalExamType(t) {
-  const x = String(t || "").trim();
-  if (!x) return "";
-  return x.replace(/\bexams?\b/i, "Examination").toUpperCase();
-}
-
 /** @param h  helpers from shadingSheet.js: { PRINT_PAGE, pal, esc, mm, logoMarkup, meta, n, optionCount, preview } */
 export function renderBeceSheet(h) {
   const { PRINT_PAGE, pal, esc, mm, logoMarkup, meta, n, preview } = h;
@@ -101,7 +94,6 @@ export function renderBeceSheet(h) {
   const name = String(meta.schoolName || "").trim();
   const sheetsTotal = Math.max(1, Math.ceil(n / BECE_PER_SHEET));
   const digits = Math.max(4, Math.min(10, Math.round(Number(meta.idDigits) || 10)));
-  const examLine = [formalExamType(meta.examType), meta.term && String(meta.term).toUpperCase()].filter(Boolean).join("   |   ");
   // SUBJECT and CLASS are left blank for the candidate to write (like the name); the class is never printed in the heading either.
   const subject = [meta.subject, meta.programme].filter(Boolean).join(" - ");
   const sideSpace = g.head.logo + 3.5;   // reserved on BOTH sides so the text is centred on the sheet
@@ -119,7 +111,6 @@ export function renderBeceSheet(h) {
       <div class="head-mid">
         <div class="school" style="font-size:${mm(fit.size)}">${fit.lines.map(l => `<div>${esc(l)}</div>`).join("") || "&nbsp;"}</div>
         <div class="title">OBJECTIVE ANSWER SHEET</div>
-        ${examLine ? `<div class="exam">${esc(examLine)}</div>` : ""}
       </div>
     </div>
     <div class="rule"></div>`;
@@ -240,9 +231,7 @@ export function renderBeceSheet(h) {
   .school div{white-space:nowrap}
   .school{font-weight:800;line-height:1.1;color:${ink};text-transform:uppercase;letter-spacing:.01em}
   .title{margin-top:${mm(1.3)};font-size:${mm(3.7)};font-weight:600;letter-spacing:.07em;padding-left:.07em;color:${ink};padding-bottom:${mm(0.5)};border-bottom:${mm(MID)} solid ${ink}}
-  .exam{margin-top:${mm(1.3)};font-size:${mm(2.4)};font-weight:700;letter-spacing:.09em;color:${ink};white-space:nowrap}
   .head.l3 .title{margin-top:${mm(0.8)}}
-  .head.l3 .exam{margin-top:${mm(0.8)}}
   .rule{position:absolute;left:${mm(g.L)};top:${mm(g.rule.top)};width:${mm(g.CW)};height:0;border-top:${mm(LINE)} solid ${ink}}
 
   /* name / subject */

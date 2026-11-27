@@ -27,8 +27,8 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
   const fixes = [...new Set(findings.map(f => f.fix).filter(Boolean))];
   const chip = (label, active, onClick) => (
     <button type="button" onClick={onClick} aria-pressed={active} style={{
-      border: `1.5px solid ${active ? "#0D9488" : "var(--border-strong)"}`, background: active ? "rgba(13,148,136,.1)" : "transparent",
-      color: active ? "#0D9488" : "var(--text-secondary)", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: F,
+      border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}`, background: active ? "rgba(13,148,136,.1)" : "transparent",
+      color: active ? "var(--accent)" : "var(--text-secondary)", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: F,
     }}>{label}</button>
   );
 

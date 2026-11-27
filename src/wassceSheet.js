@@ -141,9 +141,9 @@ export function wassceSheetModel(n, optionCount = 4, digits = 10) {
   };
 }
 
-/** @param h helpers from shadingSheet.js: { pal, esc, mm, mix, logoMarkup, meta, n, optionCount, preview, fitSchoolName, formalExamType } */
+/** @param h helpers from shadingSheet.js: { pal, esc, mm, mix, logoMarkup, meta, n, optionCount, preview, fitSchoolName } */
 export function renderWassceSheet(h) {
-  const { pal, esc, mm, logoMarkup, meta, n, preview, fitSchoolName, formalExamType } = h;
+  const { pal, esc, mm, logoMarkup, meta, n, preview, fitSchoolName } = h;
   const mixFn = h.mix || ((a) => a);
   const g = WASSCE_GEOM, a = g.ans;
   const optionCount = Number(h.optionCount) === 5 ? 5 : 4;
@@ -155,7 +155,6 @@ export function renderWassceSheet(h) {
   const name = String(meta.schoolName || "").trim();
   const sideSpace = g.head.logo + 4;
   const fit = fitSchoolName(name, g.CW - 2 * sideSpace);
-  const examLine = [formalExamType(meta.examType), meta.term && String(meta.term).toUpperCase()].filter(Boolean).join("   |   ");
   const subject = [meta.subject, meta.programme].filter(Boolean).join(" - ");
   const version = String(meta.examVersion || "").toUpperCase();
 
@@ -169,7 +168,6 @@ export function renderWassceSheet(h) {
         <div class="school" style="font-size:${mm(fit.size)}">${fit.lines.map(l => `<div>${esc(l)}</div>`).join("") || "&nbsp;"}</div>
         ${meta.schoolMotto ? `<div class="motto">${esc(meta.schoolMotto)}</div>` : ""}
         <div class="title">OBJECTIVE TEST ANSWER SHEET</div>
-        ${examLine ? `<div class="exam">${esc(examLine)}</div>` : ""}
       </div>
     </div>
     <div class="rule1"></div><div class="rule2"></div>
@@ -295,7 +293,6 @@ export function renderWassceSheet(h) {
   .school{font-weight:800;line-height:1.1;color:${ink};text-transform:uppercase;letter-spacing:.01em}
   .motto{margin-top:${mm(0.7)};font-size:${mm(2.4)};font-style:italic;color:${ink}}
   .title{margin-top:${mm(1.4)};font-size:${mm(3.8)};font-weight:700;letter-spacing:.09em;padding-left:.09em;color:${ink}}
-  .exam{margin-top:${mm(1)};font-size:${mm(2.4)};font-weight:700;letter-spacing:.09em;color:${ink};white-space:nowrap}
   .rule1{position:absolute;left:${mm(g.L)};top:${mm(g.ruleTop)};width:${mm(g.CW)};border-top:${mm(LINE)} solid ${ink}}
   .rule2{position:absolute;left:${mm(g.L)};top:${mm(g.ruleTop + 1.5)};width:${mm(g.CW)};border-top:${mm(THIN)} solid ${rule2}}
 

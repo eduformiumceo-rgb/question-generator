@@ -45,7 +45,7 @@ const Coin = ({ size = 16 }) => (
 
 const HEADER_CSS = `
   .qh-inner { width:100%; display:flex; align-items:center; justify-content:space-between;
-    height:56px; padding:0 32px; box-sizing:border-box; gap:10px; }
+    height:56px; padding:0 32px; box-sizing:border-box; gap:10px; max-width:1240px; margin:0 auto; }
   .qh-brand { min-width:0; flex-shrink:1; }
   .qh-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
   .qh-credits { display:flex; align-items:center; gap:6px; height:34px; padding:0 8px 0 11px; border-radius:99px;
@@ -69,7 +69,7 @@ const HEADER_CSS = `
     background:var(--input-bg); border:1.5px solid var(--border-strong); cursor:pointer; flex-shrink:0;
     transition:border-color .15s; -webkit-tap-highlight-color:transparent; }
   .qh-hbg:active { opacity:.85; }
-  .qh-hbg.is-open { border-color:#0D9488; }
+  .qh-hbg.is-open { border-color:var(--accent); }
   .qh-avatar { width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,#1B3E8A,#0D9488);
     display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; position:relative; }
   .qh-chevron { display:flex; align-items:center; color:var(--text-muted);
@@ -91,7 +91,7 @@ const HEADER_CSS = `
   .qh-legal-copy { grid-column:1 / -1; margin-top:6px; font-size:11.5px; line-height:1.2; color:var(--text-muted); font-family:${F}; }
   @media (max-width:640px) {
     .qh-inner { padding:0 12px; }
-    .qh-brand-sub { font-size:8px !important; }
+    .qh-brand-sub { font-size:11px !important; }
   }
   @media (min-width:641px) and (max-width:900px) { .qh-inner { padding:0 20px; } }
 `;

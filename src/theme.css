@@ -1,31 +1,10 @@
 /**
- * theme.css
- * ─────────────────────────────────────────────────────────────────
- * This is the real THEME_CSS constant from your Lesson Planner's
- * App.jsx (found at the string `const THEME_CSS = \`...\`;`), copied
- * here byte-for-byte - NOT a reverse-engineered approximation. An
- * earlier version of this file was a guess built from colors already
- * hardcoded elsewhere in this app; this replaces that guess with the
- * actual source values.
- *
- * sharedStyles.jsx's header comment claims to copy "the F constant,
- * the S object, and THEME_CSS" - F and S were copied correctly; this
- * file is what was missing to make that claim true. Without it, every
- * var(--card-bg), var(--text), var(--border), etc. used throughout
- * this app resolved to nothing - cards had no background/border and
- * text fell back to browser defaults.
- *
- * NOT matched deliberately: the real App.jsx also never loads "DM
- * Sans" as an actual web font anywhere (no @font-face, no Google
- * Fonts <link> for it) - it silently falls back to system-ui in every
- * browser. Adding a DM Sans import here would make this app render
- * with a DIFFERENT font than the real Lesson Planner does in
- * practice, breaking pixel-parity rather than fixing it. So this file
- * intentionally matches that fallback, not "improves" on it.
- *
- * Toggle dark mode by setting <html data-theme="dark"> (or "light");
- * omitting the attribute defaults to light via the :root selector.
- * ─────────────────────────────────────────────────────────────────
+ * theme.css - design tokens and every shared style of the app.
+ * Toggle dark mode with <html data-theme="dark"> (or "light"); no attribute means light.
+ * Font: DM Sans (variable) is self-hosted via @fontsource in main.jsx; the Playfair logo font loads non-blocking from index.html.
+ * Colour rules: ONE teal family. --accent for borders/text, --btn for filled buttons with white text,
+ * --teal-bright for the lively highlights on the deep-blue panels. Do not hard-code teal hex values in components.
+ * Performance rules for the polish layers further down are enforced by tests/uiPerformance.test.js.
  */
 
 /* Fonts: NOT imported here. A CSS @import blocks the first paint until Google's server answers, and Inter (5 weights) was
@@ -71,6 +50,8 @@
   --nav-active:     #0D9488;
   --nav-h:          52px;
   --section-gap:    28px;
+  --teal-bright:    #14B8A6;   /* highlights on the deep-blue hero / generate panel */
+  --teal-bright-hover: #2DD4BF;
   --skel-base:      #EEF0F3;
   --skel-shine:     #F8F9FA;
   --logo-edu:       #1B3E8A;
@@ -122,6 +103,8 @@
   --nav-active:     #3ECBB3;
   --nav-h:          52px;
   --section-gap:    28px;
+  --teal-bright:    #14B8A6;
+  --teal-bright-hover: #2DD4BF;
   --skel-base:      rgba(255,255,255,.05);
   --skel-shine:     rgba(255,255,255,.09);
   --logo-edu:       #FFFFFF;
@@ -150,7 +133,7 @@ input, select, textarea { transition: border-color .15s, background .15s, color 
 input, textarea { border: none; outline: none; appearance: none; -webkit-appearance: none; }
 input:hover:not(:focus), select:hover:not(:focus), textarea:hover:not(:focus) { border-color: var(--border-hover) !important; }
 input:focus:not(.edu-inp-f), select:focus, textarea:focus:not(.edu-inp-f), button:focus { outline: none !important; box-shadow: none !important; }
-.edu-inp-f:focus { outline: none !important; border-color: #0D9488 !important; box-shadow: none !important; }
+.edu-inp-f:focus { outline: none !important; border-color: var(--accent) !important; box-shadow: none !important; }
 /* Checkboxes are excluded here: this rule's !important background used to repaint a just-clicked (focused) checkbox white,
    which hid its white tick, so a ticked box looked empty until you clicked elsewhere. They have their own states below. */
 input:not([type="checkbox"]):focus, textarea:focus { border-color: var(--accent) !important; background: var(--input-bg) !important; }
@@ -244,12 +227,12 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-steps { position: relative; display: flex; list-style: none; margin: 0; padding: 0; }
 .qa-steps::before, .qa-steps::after { content: ""; position: absolute; top: 13px; left: 12.5%; right: 12.5%; height: 2px; border-radius: 2px; }
 .qa-steps::before { background: rgba(255,255,255,.22); }
-.qa-steps::after { background: #2DD4BF; transform-origin: left center; transform: scaleX(var(--qa-p, 0)); transition: transform .5s cubic-bezier(.22,1,.36,1); }
+.qa-steps::after { background: var(--teal-bright-hover); transform-origin: left center; transform: scaleX(var(--qa-p, 0)); transition: transform .5s cubic-bezier(.22,1,.36,1); }
 .qa-step { position: relative; z-index: 1; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; }
 .qa-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
   background: var(--brand-solid); border: 2px solid rgba(255,255,255,.35); color: rgba(255,255,255,.7); transition: background-color .25s, border-color .25s, color .25s; }
 .qa-step.is-active .qa-dot { background: #fff; border-color: #fff; color: var(--brand-solid); animation: qa-pop .3s cubic-bezier(.22,1,.36,1) both; }
-.qa-step.is-done .qa-dot { background: #14B8A6; border-color: #14B8A6; color: #fff; animation: qa-pop .3s cubic-bezier(.22,1,.36,1) both; }
+.qa-step.is-done .qa-dot { background: var(--teal-bright); border-color: var(--teal-bright); color: #fff; animation: qa-pop .3s cubic-bezier(.22,1,.36,1) both; }
 .qa-step-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.62); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qa-step.is-active .qa-step-label, .qa-step.is-done .qa-step-label { color: #fff; }
 
@@ -329,10 +312,10 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-gen-btn b { font-size: 15px; font-weight: 700; }
 .qa-gen-btn span { font-size: 12.5px; font-weight: 500; opacity: .85; }
 .qa-gen-btn.is-free { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); }
-.qa-gen-btn.is-pro { background: #14B8A6; color: #052E2B; border: none; }
+.qa-gen-btn.is-pro { background: var(--teal-bright); color: #052E2B; border: none; }
 .qa-gen-btn.is-pro span { opacity: .8; }
 .qa-gen-btn:disabled { cursor: not-allowed; }
-@media (hover: hover) { .qa-gen-btn.is-free:not(:disabled):hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.65); } .qa-gen-btn.is-pro:not(:disabled):hover { background: #2DD4BF; } }
+@media (hover: hover) { .qa-gen-btn.is-free:not(:disabled):hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.65); } .qa-gen-btn.is-pro:not(:disabled):hover { background: var(--teal-bright-hover); } }
 .qa-gen-foot { margin: 14px 0 0; font-size: 12.5px; text-align: center; color: rgba(255,255,255,.65); }
 @media (max-width: 520px) { .qa-gen { padding: 18px 16px 14px; } .qa-opt { gap: 14px; } }
 
@@ -391,19 +374,19 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent) !importa
 .qa-top-tab.active .qa-top-badge { background: rgba(255,255,255,.22); color: #fff; }
 
 .qa-bottom-nav { display: none; transition: transform .2s ease; position: fixed; left: 0; right: 0; bottom: 0; z-index: 130; align-items: stretch; background: var(--nav-bg); border-top: 1px solid var(--nav-border); padding-bottom: env(safe-area-inset-bottom, 0px); }
-.qa-bnav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 56px; padding: 10px 4px; background: none; border: none; color: var(--text-secondary); font-size: 10px; font-weight: 500; cursor: pointer; transition: color .18s ease; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.qa-bnav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 56px; padding: 10px 4px; background: none; border: none; color: var(--text-secondary); font-size: 11px; font-weight: 500; cursor: pointer; transition: color .18s ease; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .qa-bnav-icon-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 52px; height: 30px; border-radius: 99px; transition: background-color .18s ease; }
 .qa-bnav-icon-wrap svg { width: 20px; height: 20px; display: block; flex-shrink: 0; transition: transform .2s cubic-bezier(0.34,1.3,0.64,1); }
 .qa-bnav-btn.active { color: var(--nav-ink); }
 .qa-bnav-btn.active .qa-bnav-icon-wrap { background: var(--nav-fill); }
 .qa-bnav-btn.active svg { color: #fff; transform: scale(1.05); }
 .qa-bnav-btn:not(.active):active .qa-bnav-icon-wrap { background: rgba(13,148,136,.1); }
-.qa-bnav-label { font-size: 10px; line-height: 1.2; letter-spacing: .01em; text-align: center; }
+.qa-bnav-label { font-size: 11px; line-height: 1.2; letter-spacing: .01em; text-align: center; }
 .qa-bnav-btn.active .qa-bnav-label { font-weight: 700; color: var(--nav-ink); }
 .qa-bnav-badge { position: absolute; top: -3px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px; background: #DC2626; color: #fff; font-size: 9.5px; font-weight: 700; line-height: 16px; text-align: center; }
 .qa-bnav-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .qa-top-nav { display: none !important; }
   .qa-bottom-nav { display: flex; }
   .qa-nav-space { height: calc(64px + env(safe-area-inset-bottom, 0px)); }
@@ -532,3 +515,66 @@ body { font-size: 15px; line-height: 1.5; color: var(--text); }
 button, input, select, textarea { font-family: inherit; }
 .qa-hero-eyebrow, .qa-how-eyebrow { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; }
 .qa-stack > * + * { margin-top: 18px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FINISH LAYER: touch targets, phone action sheet, desktop two-column, calmer detail.
+   Same rules as above: opacity/transform only, no shadows or filters, nothing loops.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Touch targets: 44px minimum on phones and touch screens. Mouse users keep the compact sizes.
+   Inline-sized buttons and fields are matched by their height so no component had to change. */
+@media (pointer: coarse), (max-width: 760px) {
+  button[style*="height: 34px"], button[style*="height: 36px"], button[style*="height: 38px"], button[style*="height: 40px"],
+  input[style*="height: 36px"], input[style*="height: 38px"], textarea[style*="height: 36px"],
+  .qh-credits, .qh-hbg, .qh-theme-opt, .qa-chip, .qa-sec-rm, .qa-hint-btn { min-height: 44px; }
+  .qa-hint-btn { display: inline-flex; align-items: center; }
+  .qa-sec-rm { min-width: 44px; }
+}
+/* Small round or fixed-size controls grow their TAP area, not their looks. */
+.qa-info, .qa-switch, .qa-dot-btn, .qa-swatch, .qa-top-tab { position: relative; }
+.qa-info::before { content: ""; position: absolute; inset: -11px; }
+.qa-switch::after { content: ""; position: absolute; inset: -9px -4px; }
+.qa-dot-btn::after { content: ""; position: absolute; inset: -9px; }
+.qa-swatch::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
+.qa-top-tab::after { content: ""; position: absolute; inset: -4px 0; }
+@media (pointer: coarse) { .qa-dot-btn { width: 30px !important; height: 30px !important; } }
+
+/* Generate panel: the same soft teal glow the hero has (a static gradient, no repaint cost) */
+.qa-gen { background: radial-gradient(120% 140% at 100% 100%, rgba(20,184,166,.28) 0%, rgba(20,184,166,0) 60%), var(--brand-solid); }
+
+/* Paper action bar. Desktop: one row, exactly as before. Phone: Paper/Answers, More, Print / PDF always in view;
+   everything else sits in a sheet that opens above the bar (nothing is hidden off-screen any more). */
+.qa-bar-sec { display: contents; }
+.qa-bar-morebtn { display: none; }
+.qa-bar-scrim { display: none; }
+.qa-bar-dot { display: inline-block; width: 8px; height: 8px; margin-left: 6px; border-radius: 50%; background: var(--teal-bright); vertical-align: middle; }
+@media (max-width: 760px) {
+  .qa-bar-in { overflow: visible !important; }
+  .qa-bar-seg button { padding: 0 11px !important; }
+  .qa-bar-print { padding: 0 16px !important; font-size: 14px !important; }
+  .qa-bar-morebtn { display: inline-flex; align-items: center; flex-shrink: 0; height: 40px; min-height: 44px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .qa-bar-morebtn[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--tag-text); }
+  .qa-bar-sec { display: none; }
+  .qa-bar-sec.is-open { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; position: absolute; left: 12px; right: 12px; bottom: calc(100% + 8px); padding: 12px;
+    background: var(--card-bg); border: 1px solid var(--border-strong); border-radius: 16px; transform-origin: bottom center; animation: qa-pop .2s cubic-bezier(.22,1,.36,1) both; }
+  .qa-bar-sec > button { width: 100%; justify-content: center; }
+  .qa-bar-sec > span { grid-column: 1 / -1; text-align: center; }
+  .qa-bar-scrim { display: block; position: fixed; inset: 0; z-index: 119; background: transparent; }
+}
+
+/* The paper and its review sit beside the form on a wide screen; on phones and tablets they follow it, as before. */
+.qa-split-out { display: contents; }
+.qa-split-out > * { animation: qa-fade .28s ease-out both; }
+@media (min-width: 1180px) {
+  .qa-page.has-paper { max-width: 1240px; }
+  .qa-page.has-paper .qa-flow { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); column-gap: 24px; align-items: start; }
+  .qa-page.has-paper .qa-flow > * { grid-column: 1; }
+  .qa-page.has-paper .qa-split-out { display: block; grid-column: 2; grid-row: 1 / span 60; min-width: 0; }
+  .qa-page.has-paper .qa-split-out > #qa-paper-output { margin-top: 0; }
+}
+/* Header lines up with the page column on very wide screens */
+@media (min-width: 1280px) { .qa-top-nav-in { max-width: 1240px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .qa-split-out > *, .qa-bar-sec.is-open { animation: none !important; }
+}

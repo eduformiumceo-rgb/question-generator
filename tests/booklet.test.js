@@ -92,7 +92,7 @@ describe("A3 landscape booklet", () => {
 describe("booklet cover", () => {
   const h = bk();
   it("carries everything the question paper's cover carries", () => {
-    for (const t of ["Achimota Senior High School", "Ut Omnes Unum Sint", "DO NOT OPEN THIS BOOKLET", "Term 2", "150 mins", "FOR EXAMINER'S USE ONLY", "Instructions to Candidates", "Candidate's Name", "Index Number", "VERSION B"]) expect(h.toLowerCase()).toContain(t.toLowerCase());
+    for (const t of ["Achimota Senior High School", "Ut Omnes Unum Sint", "DO NOT OPEN THIS BOOKLET", "150 mins", "FOR EXAMINER'S USE ONLY", "Instructions to Candidates", "Candidate's Name", "Index Number", "VERSION B"]) expect(h.toLowerCase()).toContain(t.toLowerCase());
     expect(h).toContain('<b class="cb">2</b>');
     expect(h).toContain(">Subject<"); expect(h).toContain(">Class<");
     for (const t of ["ESSAY", "OBJECTIVE", "2 HOURS 30 MINUTES", "Paper 1 and Paper 2", "crule", "wrow"]) expect(h).not.toContain(t);

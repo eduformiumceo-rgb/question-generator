@@ -33,7 +33,7 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-import { renderBeceSheet, BECE_GEOM, BECE_PER_SHEET, fitSchoolName, formalExamType } from "./beceSheet.js";
+import { renderBeceSheet, BECE_GEOM, BECE_PER_SHEET, fitSchoolName } from "./beceSheet.js";
 import { renderWassceSheet, WASSCE_PAGE, wassceLayout } from "./wassceSheet.js";
 import { renderBookletHTML } from "./bookletSheet.js";
 
@@ -180,7 +180,7 @@ export function renderShadingSheetHTML(o = {}) {
   const pal = sheetPalette({ colourMode: o.colourMode || spec.defaultColour, ...(o.colours || {}) });
   const logoMarkup = crestFor(meta, o.crestSVG);
   if (spec.id === "wassce") {
-    return renderWassceSheet({ pal, esc, mm, mix, logoMarkup, meta, n, optionCount: Number(o.optionCount) === 5 ? 5 : 4, preview: !!o.preview, fitSchoolName, formalExamType });
+    return renderWassceSheet({ pal, esc, mm, mix, logoMarkup, meta, n, optionCount: Number(o.optionCount) === 5 ? 5 : 4, preview: !!o.preview, fitSchoolName });
   }
   // BECE-type sheets follow the Ghana Education Service objective answer sheet and have their own renderer.
   return renderBeceSheet({ PRINT_PAGE, pal, esc, mm, logoMarkup, meta, n, preview: !!o.preview });

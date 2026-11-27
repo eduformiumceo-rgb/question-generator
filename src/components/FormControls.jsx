@@ -11,7 +11,7 @@ import { F } from "../sharedStyles.jsx";
 export function Toggle({ checked, onChange, label }) {
   return (
     <button
-      type="button" role="switch" aria-checked={checked} aria-label={label}
+      type="button" role="switch" className="qa-switch" aria-checked={checked} aria-label={label}
       onClick={() => onChange(!checked)}
       style={{
         position: "relative", width: 44, height: 26, flexShrink: 0, marginLeft: 12, padding: 0,
@@ -65,7 +65,7 @@ export function GenerationProgress({ progress, elapsed }) {
           return (
             <div key={i} style={{
               flex: 1, height: 6, borderRadius: 3,
-              background: isDone || isActive ? "#0D9488" : "var(--border)",
+              background: isDone || isActive ? "var(--accent)" : "var(--border)",
               animation: isActive ? "qgPulse 1.2s ease-in-out infinite" : "none",
               transition: "background .2s",
             }} />

@@ -36,3 +36,15 @@
 - Booklet and Shading pages: shorter hero text and card descriptions, full-width main buttons on phones.
 - Fields are 16px on phones (stops iOS zooming in), buttons and nav use the app font.
 - Edit tokens in `src/theme.css` ("CLEAN UI LAYER") and `src/sharedStyles.jsx`.
+
+---
+# Finish round (mobile first, no speed cost)
+
+- Phone header subtitle 8px -> 11px; bottom-nav labels 10px -> 11px.
+- 44px touch targets on touch screens / phones (CSS only; mouse users keep compact sizes). Tiny controls (info button, switches, answer dot, swatches, desktop tabs) grow their tap area, not their looks.
+- Bottom nav now covers up to 760px, so the 4-tab pill is never clipped on landscape phones / small tablets.
+- Paper action bar on phones: Paper/Answers, More, Print / PDF always visible; Word, Share, Shading sheet, Answer booklet and Save changes open from the More sheet (dot on More when there are unsaved changes). Desktop is unchanged.
+- Desktop >= 1180px: the paper and its review sit beside the form (two columns).
+- One teal family: tokens `--teal-bright`, `--teal-bright-hover`; components use `--accent` / `--btn` instead of hard-coded hex (also fixes low contrast of those spots in dark mode).
+- Generate panel gets the hero's teal glow (static gradient). Header lines up with the wide page column. `viewport-fit=cover` added. Soft haptic tap when a paper finishes.
+- Rules kept: opacity/transform animations only, no shadows or filters, nothing loops. `tests/finishLayer.test.js` pins the new rules; all 1182 tests pass; CSS grew about 3 KB (7 KB gzip total), JS unchanged in size class.

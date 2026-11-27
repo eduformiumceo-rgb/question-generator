@@ -150,8 +150,6 @@ function QuestionsGeneratorInner() {
   const [bookletQuestions, setBookletQuestions] = useState(null); // null = count from the paper's theory questions
   // The sheet's own class / exam type / term. null = follow the paper. Setting them here never changes the Assessment form.
   const [sheetClass, setSheetClass] = useState(null);
-  const [sheetExamType, setSheetExamType] = useState(null);
-  const [sheetTerm, setSheetTerm] = useState(null);
   const [className, setClassName] = useState(D.className ?? "");
   const [term, setTerm] = useState(D.term ?? "Term 1");
   const [examType, setExamType] = useState(D.examType ?? "Class Test");
@@ -329,6 +327,13 @@ function QuestionsGeneratorInner() {
   const [savedId, setSavedId] = useState(null);        // id of the My Assessments copy of the paper on screen
   const savedExamRef = useRef(null);                   // the examData object that copy was saved from
   const [savingChanges, setSavingChanges] = useState(false);
+  const [barMore, setBarMore] = useState(false);       // phone: the "More" sheet of the paper action bar
+  useEffect(() => {
+    if (!barMore) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setBarMore(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [barMore]);
   const [barHidden, setBarHidden] = useState(false);   // hide the bottom bar while typing so it never covers inputs/keyboard
   const showSaveToast = (type, msg) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -604,6 +609,7 @@ function QuestionsGeneratorInner() {
       if (wassceActive && beceProfile) result.examData = decorateWassceExam(result.examData, activeSections, beceProfile, examType);
       else if (beceActive && beceProfile) result.examData = decorateBeceExam(result.examData, activeSections, beceProfile, examType);
       setExamData(result.examData);
+      try { navigator.vibrate?.(14); } catch { /* no haptics here: nothing to do */ }   // a small "done" tap on phones
       setExamVersion("A");
       setExamHasMarkingScheme(result.includeMarkingScheme !== false);
       setShowAnswerKey(false);
@@ -979,10 +985,10 @@ function QuestionsGeneratorInner() {
   const effClass = sheetClass !== null ? sheetClass : className;
   const sameAsPaper = effClass === className;
   const sheetIsSHS = isSHSClass(effClass);
-  const effExamTypes = examTypesFor(effClass);
-  const effExamType = sheetExamType && effExamTypes.includes(sheetExamType) ? sheetExamType : (sameAsPaper ? examType : (effExamTypes[0] || examType));
-  const effTerms = termOptionsFor(effClass);
-  const effTerm = sheetTerm && effTerms.includes(sheetTerm) ? sheetTerm : (sameAsPaper && effTerms.includes(term) ? term : (effTerms[0] || term));
+  // Exam type and term are NOT printed or asked for on the sheets and booklet. They only feed the hidden scan code
+  // (the WASSCE sheet's QR reference), so a Term 1 sheet and a Term 2 sheet of the same subject stay distinguishable.
+  const effExamType = sameAsPaper ? examType : (examTypesFor(effClass)[0] || examType);
+  const effTerm = sameAsPaper && termOptionsFor(effClass).includes(term) ? term : (termOptionsFor(effClass)[0] || term);
   const shadeStyle = sheetStyle || defaultSheetStyle(sheetIsSHS);
   const shadeColourMode = sheetColourMode || SHEET_SPECS[shadeStyle].defaultColour;
   const autoShadeCount = !sameAsPaper ? 0 : (activeExamData ? objectiveCount(activeExamData.sections, { generated: true }) : objectiveCount(sections));
@@ -1105,27 +1111,13 @@ function QuestionsGeneratorInner() {
           {!sameAsPaper && className && (
             <div className="qa-note" style={{ fontFamily: F, marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <span>Different from your paper's class ({className}). Your Assessment form is not affected.</span>
-              <button type="button" style={S.sm} onClick={() => { setSheetClass(null); setSheetExamType(null); setSheetTerm(null); }}>Use paper's class</button>
+              <button type="button" style={S.sm} onClick={() => { setSheetClass(null); }}>Use paper's class</button>
             </div>
           )}
         </div>
         {effClass && (
           <>
-            <div style={{ marginBottom: 14 }}>
-              <label style={S.lbl}>Exam type</label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {effExamTypes.map(t => (
-                  <button key={t} type="button" className="qa-chip" aria-pressed={effExamType === t} onClick={() => setSheetExamType(t)}>{t}</button>
-                ))}
-              </div>
-            </div>
             <SchoolIdentityFields S={S} schoolName={schoolName} setSchoolName={setSchoolName} schoolLogo={schoolLogo} setSchoolLogo={setSchoolLogo} schoolMotto={schoolMotto} setSchoolMotto={setSchoolMotto} emblem={emblem} setEmblem={setEmblem} />
-            <div>
-              <label style={S.lbl}>{sheetIsSHS ? "Semester" : "Term"}</label>
-              <select value={effTerm} onChange={e => setSheetTerm(e.target.value)} style={S.sel}>
-                {effTerms.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
           </>
         )}
       </div>
@@ -1171,7 +1163,7 @@ function QuestionsGeneratorInner() {
       onOpenSaved={() => goTab("saved")}
     />
     <TopNav tab={view} setTab={goTab} savedCount={savedCount} F={F} />
-    <div className="qa-page" style={{ paddingBottom: examData && view === "generate" ? 110 : 60, fontFamily: F }}>
+    <div className={`qa-page${examData && view === "generate" ? " has-paper" : ""}`} style={{ paddingBottom: examData && view === "generate" ? 110 : 60, fontFamily: F }}>
       {view === "generate" && (
         <>
         <header className="qa-hero qa-rise">
@@ -1468,7 +1460,7 @@ function QuestionsGeneratorInner() {
       {loading && livePreview?.sections?.length > 0 && (
         <div style={{ ...S.out, marginTop: 8, padding: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontFamily: F }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0D9488", animation: "qgPulse 1.2s ease-in-out infinite" }} />
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", animation: "qgPulse 1.2s ease-in-out infinite" }} />
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>Live preview</span>
             <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
               {livePreview.sections.length} of {progress?.total || activeSections.length} sections written. More appear as they finish.
@@ -1496,6 +1488,7 @@ function QuestionsGeneratorInner() {
         </div>
       )}
       {/* ── Output ──────────────────────────────────────────────── */}
+      <div className="qa-split-out">
       {examData && (
         <div id="qa-paper-output" style={S.out}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
@@ -1639,6 +1632,7 @@ function QuestionsGeneratorInner() {
         </section>
       )}
       </div>
+      </div>
 
       {/* ── Shading Sheet tab: its own page, like the Lesson Planner's tabs. Two A5 answer sheets per A4 landscape page, to cut out. ── */}
       {view === "booklet" && (
@@ -1702,15 +1696,17 @@ function QuestionsGeneratorInner() {
 
     {/* ── Sticky action bar: the things you do with a finished paper, always one tap away ── */}
     {view === "generate" && examData && !loading && !barHidden && (
+      <>
+      {barMore && <div className="qa-bar-scrim" onClick={() => setBarMore(false)} aria-hidden="true" />}
       <div className={`eduq-bar${navHidden ? " nav-hidden" : ""}`} style={{
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 120,
         background: "var(--card-bg)", borderTop: "1px solid var(--border)",
         padding: "10px 12px max(10px, env(safe-area-inset-bottom, 10px))",
         boxShadow: "none",
       }}>
-        <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", gap: 8, alignItems: "center", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div className="qa-bar-in" style={{ maxWidth: 760, margin: "0 auto", display: "flex", gap: 8, alignItems: "center", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           {examHasMarkingScheme && (
-            <div role="group" aria-label="What to show" style={{ display: "flex", flexShrink: 0, border: "1.5px solid var(--border-strong)", borderRadius: 99, overflow: "hidden" }}>
+            <div role="group" aria-label="What to show" className="qa-bar-seg" style={{ display: "flex", flexShrink: 0, border: "1.5px solid var(--border-strong)", borderRadius: 99, overflow: "hidden" }}>
               {[{ k: false, l: "Paper" }, { k: true, l: "Answers" }].map(o => (
                 <button key={o.l} type="button" aria-pressed={showAnswerKey === o.k} onClick={() => setShowAnswerKey(o.k)} style={{
                   height: 38, padding: "0 14px", border: "none", cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600,
@@ -1721,6 +1717,10 @@ function QuestionsGeneratorInner() {
             </div>
           )}
           <div style={{ flex: 1 }} />
+          <button type="button" className="qa-bar-morebtn" aria-expanded={barMore} aria-controls="qa-bar-more" onClick={() => setBarMore(o => !o)}>
+            More{savedId && hasUnsavedEdits && <span className="qa-bar-dot" role="img" aria-label="unsaved changes" />}
+          </button>
+          <div id="qa-bar-more" className={`qa-bar-sec${barMore ? " is-open" : ""}`} onClick={(e) => { if (e.target.closest?.("button")) setBarMore(false); }}>
           {savedId && (
             hasUnsavedEdits ? (
               <button type="button" disabled={savingChanges} onClick={handleSaveChanges} style={{ ...S.sm, height: 40, flexShrink: 0, borderColor: "var(--accent)", color: "var(--accent)", fontWeight: 700 }}>
@@ -1740,11 +1740,13 @@ function QuestionsGeneratorInner() {
           {autoBookletCount > 0 && (
             <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} onClick={openAnswerBooklet} title="Cover, examiner's table and ruled pages for the written questions">Answer booklet</button>
           )}
-          <button type="button" style={{ ...S.btn, height: 40, padding: "0 20px", fontSize: 15, flexShrink: 0 }} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>
+          </div>
+          <button type="button" className="qa-bar-print" style={{ ...S.btn, height: 40, padding: "0 20px", fontSize: 15, flexShrink: 0 }} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>
             Print / PDF
           </button>
         </div>
       </div>
+      </>
     )}
     <BottomNav tab={view} setTab={goTab} savedCount={savedCount} hidden={navHidden} F={F} />
     </>
