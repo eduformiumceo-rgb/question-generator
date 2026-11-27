@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderAnswerBookletHTML, renderShadingSheetHTML } from "../src/shadingSheet.js";
-import { a3Imposition, a3Pages, bookletPageCount, bookletSheetCount, clampBookletPaper, examinerGrid, bookletLineCount, BOOKLET_SHEET, BOOKLET_PAPERS } from "../src/bookletSheet.js";
+import { a3Imposition, a3Pages, bookletPageCount, bookletSheetCount, clampBookletPaper, examinerGrid, bookletLineCount, BOOKLET_SHEET, BOOKLET_PAPERS, suggestBookletPages, theoryProfile } from "../src/bookletSheet.js";
 import { parseSheetPayload } from "../src/sheetCode.js";
 import { wassceSheetCode, wassceTopMarks, wassceSheetModel } from "../src/wassceSheet.js";
 
@@ -48,7 +48,9 @@ describe("A4 booklet", () => {
     expect(h).toMatch(/\.page\.rt\{--L:16mm/); expect(h).toMatch(/\.page\.vs\{--L:12mm/);
   });
   it("clamps the page count and an unknown paper falls back to A4", () => {
-    expect(bk({ pages: 2 })).toContain('data-pages="4"');
+    expect(bk({ pages: 1 })).toContain('data-pages="2"');
+    expect(bk({ pages: 3 })).toContain('data-pages="3"');                       // a custom odd count is allowed on A4
+    expect(bk({ pages: 3, paper: "a3" })).toContain('data-pages="4"');          // A3 still folds from whole sheets of 4
     expect(bk({ pages: 400 })).toContain('data-pages="40"');
     expect(clampBookletPaper("a5")).toBe("a4"); expect(clampBookletPaper("a3")).toBe("a3");
     expect(BOOKLET_PAPERS.map(p => p.id)).toEqual(["a4", "a3"]);
@@ -90,8 +92,9 @@ describe("A3 landscape booklet", () => {
 describe("booklet cover", () => {
   const h = bk();
   it("carries everything the question paper's cover carries", () => {
-    for (const t of ["Achimota Senior High School", "Ut Omnes Unum Sint", "DO NOT OPEN THIS BOOKLET", "ELECTIVE MATHEMATICS 2", "ESSAY", "2 HOURS 30 MINUTES", "Paper 1 and Paper 2", "SHS 3 - Science", "Term 2", "150 mins", "FOR EXAMINER'S USE ONLY", "Instructions to Candidates", "Candidate's Name:", "Index Number", "VERSION B"]) expect(h.toLowerCase()).toContain(t.toLowerCase());
+    for (const t of ["Achimota Senior High School", "Ut Omnes Unum Sint", "DO NOT OPEN THIS BOOKLET", "ESSAY", "2 HOURS 30 MINUTES", "Paper 1 and Paper 2", "Term 2", "150 mins", "FOR EXAMINER'S USE ONLY", "Instructions to Candidates", "Candidate's Name:", "Index Number", "VERSION B"]) expect(h.toLowerCase()).toContain(t.toLowerCase());
     expect(h).toContain('<div class="cb">2</div>');
+    expect(h).toContain('>SUBJECT<'); expect(h).toContain('>CLASS<');
     expect(h).toContain(">100<");                                  // total marks
   });
   it("has its own identity: a school-colour masthead with the logo on a white disc and a ruled title plate", () => {
@@ -177,5 +180,55 @@ describe("WASSCE sheet: scanning features", () => {
   it("black and white keeps the QR and marks in black", () => {
     const h = html({ colourMode: "mono" });
     expect(h).toContain('<svg class="qr"'); expect(h).not.toContain("#12285C");
+  });
+});
+
+describe("blank subject and class", () => {
+  const h = bk();
+  it("never prints the subject or the class: they are empty write-in fields", () => {
+    expect(h).not.toContain("Elective Mathematics"); expect(h.toUpperCase()).not.toContain("ELECTIVE MATHEMATICS");
+    expect(h).not.toContain("SHS 3"); expect(h).not.toContain("Science");
+    expect(h).toContain('<div class="wrow"><span>SUBJECT</span><i></i></div>');
+    expect(h).toContain('<div class="wrow"><span>CLASS</span><i></i></div>');
+  });
+  it("the shading sheets print an empty CLASS box and no class in the heading", () => {
+    for (const style of ["bece", "wassce"]) {
+      const sh = renderShadingSheetHTML({ style, questions: 40, optionCount: 4, colourMode: "school", colours: { main: "#12285C" }, meta });
+      expect(sh).toContain("CLASS"); expect(sh).toContain("SUBJECT");
+      expect(sh).not.toContain("SHS 3"); expect(sh).not.toContain("Elective Mathematics");
+    }
+  });
+});
+
+describe("custom pages, page numbers, graph paper, 40 questions", () => {
+  it("shows page numbers by default and hides every one when switched off", () => {
+    const on = bk({ pages: 6 }), off = bk({ pages: 6, pageNumbers: false });
+    expect(on).toContain("Page 1 of 6"); expect(count(on, /class="ipn"/g)).toBe(5);
+    expect(off).not.toContain("Page 1 of"); expect(count(off, /class="ipn"/g)).toBe(0);
+    expect(off).toContain("END OF BOOKLET");
+  });
+  it("graph paper draws a 5 mm grid on every answer page", () => {
+    const g = bk({ pages: 4, ruling: "graph" });
+    expect(count(g, /<svg class="ruled graph"/g)).toBe(3);
+    expect(count(bk({ pages: 4, ruling: "lined" }), /<svg class="ruled graph"/g)).toBe(0);
+    expect(count(bk({ pages: 4, ruling: "plain" }), /class="ruled/g)).toBe(0);
+  });
+  it("the examiner's table holds 40 questions, four columns of ten", () => {
+    expect(examinerGrid(40)).toEqual({ cols: 4, rows: 10 });
+    const h = bk({ questions: 40 });
+    expect(count(h, /<table class="et">/g)).toBe(4); expect(count(h, /<td class="qq">/g)).toBe(40);
+    expect(h).toContain('<td class="qq">40</td>'); expect(bk({ questions: 99 })).toContain('data-questions="40"');
+  });
+  it("suggests a page count from the questions: even for A4, a multiple of 4 for A3", () => {
+    expect(suggestBookletPages({ structured: 5, essay: 0, paper: "a4" })).toBe(10);
+    expect(suggestBookletPages({ structured: 0, essay: 3, paper: "a4" })).toBe(10);
+    expect(suggestBookletPages({ structured: 5, essay: 0, paper: "a3" })).toBe(12);
+    expect(suggestBookletPages({})).toBe(4 - 2);
+    expect(theoryProfile([{ type: "objective", questionCount: 40 }, { type: "structured", questionCount: 5, enabled: true }, { type: "essay", questionCount: 2, enabled: true }])).toEqual({ structured: 5, essay: 2 });
+  });
+  it("fold marks, fold-line ticks and staple circles are drawn above the page with a white halo", () => {
+    const a3 = bk({ pages: 8, paper: "a3" });
+    expect(count(a3, /<i class="fold t">/g)).toBe(4); expect(count(a3, /<i class="fold m">/g)).toBe(4); expect(count(a3, /<i class="fold b">/g)).toBe(4);
+    expect(a3).toMatch(/\.fold\{[^}]*z-index:5[^}]*box-shadow:[^}]*#fff/);
   });
 });

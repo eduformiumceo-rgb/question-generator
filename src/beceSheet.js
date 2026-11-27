@@ -101,8 +101,8 @@ export function renderBeceSheet(h) {
   const name = String(meta.schoolName || "").trim();
   const sheetsTotal = Math.max(1, Math.ceil(n / BECE_PER_SHEET));
   const digits = Math.max(4, Math.min(10, Math.round(Number(meta.idDigits) || 10)));
-  const examLine = [meta.className, formalExamType(meta.examType), meta.term && String(meta.term).toUpperCase()].filter(Boolean).join("   |   ");
-  // SUBJECT is left blank for the candidate to write (like the name); it is only printed when meta.prefillSubject is set.
+  const examLine = [formalExamType(meta.examType), meta.term && String(meta.term).toUpperCase()].filter(Boolean).join("   |   ");
+  // SUBJECT and CLASS are left blank for the candidate to write (like the name); the class is never printed in the heading either.
   const subject = [meta.subject, meta.programme].filter(Boolean).join(" - ");
   const sideSpace = g.head.logo + 3.5;   // reserved on BOTH sides so the text is centred on the sheet
   const fit = fitSchoolName(name, g.CW - 2 * sideSpace);
@@ -127,7 +127,8 @@ export function renderBeceSheet(h) {
   const nameBox = `
     <div class="nm">
       <div class="nc a"><div class="nl">CANDIDATE NAME:</div></div>
-      <div class="nc b"><div class="nl">SUBJECT:</div>${meta.prefillSubject && subject ? `<div class="nv">${esc(subject)}</div>` : ""}</div>
+      <div class="nc b"><div class="nl">SUBJECT:</div></div>
+      <div class="nc c"><div class="nl">CLASS:</div></div>
     </div>
     <svg class="dash" viewBox="0 0 ${g.CW} 0.9" preserveAspectRatio="none"><line x1="0" y1="0.45" x2="${g.CW}" y2="0.45" stroke="${ink}" stroke-width="0.9" stroke-dasharray="4.2 2.4"/></svg>`;
 
@@ -247,8 +248,9 @@ export function renderBeceSheet(h) {
   /* name / subject */
   .nm{position:absolute;left:${mm(g.L)};top:${mm(g.name.top)};width:${mm(g.CW)};height:${mm(g.name.h)};display:flex;border:${mm(LINE)} solid ${ink};background:#fff}
   .nc{padding:${mm(0.9)} ${mm(2)}}
-  .nc.a{flex:1.85;border-right:${mm(MID)} solid ${ink}}
-  .nc.b{flex:1;min-width:0}
+  .nc.a{flex:1.7;border-right:${mm(MID)} solid ${ink}}
+  .nc.b{flex:1;min-width:0;border-right:${mm(MID)} solid ${ink}}
+  .nc.c{flex:.62;min-width:0}
   .nl{font-size:${mm(2.15)};font-weight:700;letter-spacing:.05em;color:${ink}}
   .nv{margin-top:${mm(0.7)};font-size:${mm(3.1)};font-weight:700;color:${ink};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dash{position:absolute;left:${mm(g.L)};top:${mm(g.dashY)};width:${mm(g.CW)};height:${mm(0.9)};display:block;overflow:visible}

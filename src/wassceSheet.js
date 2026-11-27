@@ -36,7 +36,7 @@ export const WASSCE_GEOM = {
   info: { top: 40, gap: 3 },
   id: { head: 6, box: 6.4, row: 5, pad: 0.7, maxPitch: 6.4, maxW: 78 },
   ins: { h: 29, gap: 3.2 },
-  ans: { titleH: 5.6, colGap: 2.4, cols: 5, groupGap: 1.7, pad: 0.8, minPitch: 5.4, maxPitch: 8.2, numW: 7.2,
+  ans: { titleH: 5.6, colGap: 2.4, cols: 5, groupGap: 1.7, pad: 0.8, minPitch: 5.4, maxPitch: 11.5, numW: 7.2,
          bub: { w: 4.6, h: 3.7 }, maxOptPitch: 6.6, bottom: 276.5 },
   foot: { top: 281, h: 6.5 },
   qr: { size: 21, top: 9.5 },                  // sheet-ID QR code (quiet zone included), top right of the letterhead
@@ -155,7 +155,7 @@ export function renderWassceSheet(h) {
   const name = String(meta.schoolName || "").trim();
   const sideSpace = g.head.logo + 4;
   const fit = fitSchoolName(name, g.CW - 2 * sideSpace);
-  const examLine = [meta.className, formalExamType(meta.examType), meta.term && String(meta.term).toUpperCase()].filter(Boolean).join("   |   ");
+  const examLine = [formalExamType(meta.examType), meta.term && String(meta.term).toUpperCase()].filter(Boolean).join("   |   ");
   const subject = [meta.subject, meta.programme].filter(Boolean).join(" - ");
   const version = String(meta.examVersion || "").toUpperCase();
 
@@ -201,7 +201,10 @@ export function renderWassceSheet(h) {
         <div class="nrow"><span class="nl">OTHER NAMES</span></div>
       </div>
       <div class="two" ${rowStyle(1)}>
-        <div class="box" style="width:${mm(L.c1W)}"><span class="nl">SUBJECT</span>${meta.prefillSubject && subject ? `<span class="nv">${esc(subject)}</span>` : ""}</div>
+        <div class="two" style="width:${mm(L.c1W)}">
+          <div class="box" style="flex:1.55;min-width:0"><span class="nl">SUBJECT</span></div>
+          <div class="box" style="flex:1;min-width:0"><span class="nl">CLASS</span></div>
+        </div>
         <div class="box" style="width:${mm(L.c2W)}"><span class="nl">DATE</span></div>
       </div>
       <div class="two" ${rowStyle(2)}>
@@ -229,7 +232,7 @@ export function renderWassceSheet(h) {
       <div class="ins-tab">INSTRUCTIONS TO CANDIDATES</div>
       <div class="ins-col l">
         <div class="it"><b>1.</b><span>Use an <u>HB pencil</u> only. Do not use a pen.</span></div>
-        <div class="it"><b>2.</b><span>Write your name and subject in the spaces provided. Write your index number in the boxes, then shade the matching digit under each box.</span></div>
+        <div class="it"><b>2.</b><span>Write your name, subject and class in the spaces provided. Write your index number in the boxes, then shade the matching digit under each box.</span></div>
         <div class="it"><b>3.</b><span>${fourOnly ? "Each question has four options, A to D." : "Each question has five options, A to E."} Choose <u>one</u> answer and shade through the letter, like this: <span class="ex">${LETTERS.slice(0, optionCount).map(l => o(l)).join("")}</span></span></div>
       </div>
       <div class="ins-col r">

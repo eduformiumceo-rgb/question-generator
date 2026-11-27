@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "sync:diagrams": "node scripts/sync-diagram-guide.mjs",
-    "sync:curriculum": "node scripts/gen-curriculum-manifest.mjs"
+    "sync:curriculum": "node scripts/gen-curriculum-manifest.mjs",
+    "e2e": "bash e2e/run.sh"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",

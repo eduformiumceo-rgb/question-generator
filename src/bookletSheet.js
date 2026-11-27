@@ -26,9 +26,11 @@ export const BOOKLET_PAPERS = [
   { id: "a4", label: "A4 portrait", desc: "One A4 page per printed page. Staple at the left." },
   { id: "a3", label: "A3 landscape", desc: "Each A3 sheet folds in half: every half is one A4 page." },
 ];
-export const BOOKLET_PAGE_OPTIONS = [8, 12, 16, 20, 24, 32];
+export const BOOKLET_PAGE_OPTIONS = [4, 8, 12, 16, 20, 24, 32];
+export const BOOKLET_MIN_PAGES = 2;
+export const BOOKLET_MAX_PAGES = 40;
 export const BOOKLET_DEFAULT_PAGES = 12;
-export const BOOKLET_MAX_QUESTIONS = 30;
+export const BOOKLET_MAX_QUESTIONS = 40;
 
 export const BOOKLET_GEOM = {
   W: 210, H: 297, L: 12, CW: 186, gutter: 4,     // gutter: extra inner margin on the stapled side
@@ -41,7 +43,7 @@ const LINE = 3 * PX, MID = 2 * PX, THIN = 1 * PX;
 
 export const clampBookletPages = (n) => {
   const v = Math.round(Number(n) || BOOKLET_DEFAULT_PAGES);
-  return Math.max(4, Math.min(40, v));
+  return Math.max(BOOKLET_MIN_PAGES, Math.min(BOOKLET_MAX_PAGES, v));
 };
 export const clampBookletQuestions = (n) => Math.max(1, Math.min(BOOKLET_MAX_QUESTIONS, Math.round(Number(n) || 0)));
 export const clampBookletPaper = (p) => (p === "a3" ? "a3" : "a4");
@@ -78,6 +80,30 @@ export function theoryCount(sections = [], { generated = false } = {}) {
   return n;
 }
 
+/**
+ * Suggested page count for the answer booklet. A cover, then room for the answers: about 1.25 pages for each
+ * structured question and 2.5 for each essay, plus one spare page. Kept even (a double-sided sheet carries two pages),
+ * and a multiple of 4 for an A3 booklet.
+ */
+export function suggestBookletPages({ structured = 0, essay = 0, paper = "a4" } = {}) {
+  const inner = Math.ceil(Math.max(0, structured) * 1.25 + Math.max(0, essay) * 2.5) + 1;
+  const raw = Math.max(BOOKLET_MIN_PAGES, 1 + inner);
+  const even = raw % 2 ? raw + 1 : raw;
+  return clampBookletPaper(paper) === "a3" ? a3Pages(even) : clampBookletPages(even);
+}
+
+/** Hand-written questions split into structured and essay (real counts from a generated paper, or the section set-up). */
+export function theoryProfile(sections = [], { generated = false } = {}) {
+  const out = { structured: 0, essay: 0 };
+  for (const s of sections || []) {
+    if (!s || s.type === "objective") continue;
+    if (!generated && s.enabled === false) continue;
+    const n = generated && Array.isArray(s.questions) ? s.questions.length : Math.max(0, Number(s.questionCount) || 0);
+    if (s.type === "essay") out.essay += n; else out.structured += n;
+  }
+  return out;
+}
+
 /** Number of ruled lines on an inner page (so tests and the UI can read it). */
 export function bookletLineCount() {
   const i = BOOKLET_GEOM.inner;
@@ -99,16 +125,16 @@ export function renderBookletHTML(h) {
   const paper = clampBookletPaper(h.paper);
   const pages = bookletPageCount(h.pages, paper);
   const nq = clampBookletQuestions(h.questions || 8);
-  const ruling = h.ruling === "plain" ? "plain" : "lined";
+  const ruling = h.ruling === "plain" ? "plain" : h.ruling === "graph" ? "graph" : "lined";
+  const showPN = h.pageNumbers !== false;                  // page numbers can be switched off
   const ink = pal.ink;
   const rule2 = pal.ink;
   const lineCol = h.softInk || "#8a8f98";
   const name = String(meta.schoolName || "").trim();
   const digits = Math.max(4, Math.min(12, Math.round(Number(meta.idDigits) || 10)));
   const idMode = ["line", "boxes", "none"].includes(meta.idMode) ? meta.idMode : "boxes";
-  const examLine = [meta.className, formalExamType(meta.examType), meta.term && String(meta.term).toUpperCase()].filter(Boolean).join("   |   ");
-  const classTerm = [[meta.className, meta.programme].filter(Boolean).join(" - "), meta.term].filter(Boolean).join("  |  ");
-  const subject = [meta.subject, meta.programme].filter(Boolean).join(" - ");
+  // SUBJECT and CLASS are never printed: they are blank write-in fields, so one printed booklet serves any subject or class.
+  const termLine = formalExamType(meta.examType) || "";
   const version = String(meta.examVersion || "").toUpperCase();
   const mastSide = 28 + 4;                                   // logo disc on the left, balanced by empty space on the right
   const fit = fitSchoolName(name, g.CW - 2 * mastSide);
@@ -158,36 +184,46 @@ export function renderBookletHTML(h) {
     <div class="mast-line"></div>
     <div class="etitle"><i class="er"></i><span class="ttl">ANSWER BOOKLET</span><i class="er"></i>${version ? `<span class="ver">VERSION ${esc(version)}</span>` : ""}</div>
     ${noticeText ? `<div class="notice">${esc(noticeText)}</div>` : ""}
-    ${cc ? `<div class="codebox"><div class="cl"><div>${esc(cc.subject)} ${esc(cc.code)}</div><div>${esc(cc.kind)}</div><div>${esc(cc.duration)}</div></div><div class="cb">${esc(cc.code)}</div></div>` : ""}
+    ${cc ? `<div class="codebox"><div class="cl"><div>${esc(cc.kind)}</div><div>${esc(cc.duration)}</div></div><div class="cb">${esc(cc.code)}</div></div>` : ""}
     <div class="csub">
       <div class="crule"></div>
-      <div class="cname">${esc(meta.subject || "")}</div>
-      ${classTerm ? `<div class="cline">${esc(classTerm)}</div>` : ""}
+      <div class="wrow"><span>SUBJECT</span><i></i></div>
+      <div class="wrow"><span>CLASS</span><i></i></div>
+      ${termLine ? `<div class="cline">${esc(termLine)}</div>` : ""}
       ${meta.paperNames ? `<div class="cpap">${esc(meta.paperNames)}</div>` : ""}
       <div class="crule"></div>
     </div>
-    <table class="meta">
-      <tr>${metaCell("Subject", meta.subject || "")}${metaCell("Class", [meta.className, meta.programme].filter(Boolean).join(" - "))}${metaCell("Term", meta.term || "")}${meta.durationMinutes ? metaCell("Duration", `${meta.durationMinutes} mins`) : ""}${meta.totalMarks ? metaCell("Total Marks", meta.totalMarks) : ""}</tr>
-    </table>
+    ${(meta.term || meta.durationMinutes || meta.totalMarks) ? `<table class="meta">
+      <tr>${meta.term ? metaCell("Term", meta.term) : ""}${meta.durationMinutes ? metaCell("Duration", `${meta.durationMinutes} mins`) : ""}${meta.totalMarks ? metaCell("Total Marks", meta.totalMarks) : ""}</tr>
+    </table>` : ""}
     ${candidate}
     ${examiner}
     <div class="ins">
       <div class="ins-t">Instructions to Candidates</div>
       <ol>
-        <li>Write your name, subject and index number in the spaces above, and your index number at the top of every page.</li>
+        <li>Write your name, subject, class and index number in the spaces above, and your index number at the top of every page.</li>
         <li>Write with a blue or black pen. Write the number of each question in the left margin. ${instrAnswer}</li>
         <li>Do not write in the margin. Rule off neatly after each question, and cross out rough work with a single line.</li>
         <li>Do not tear out any page. For more paper ask the supervisor for an extra sheet, write your index number on it and tie it inside this booklet.</li>
         <li>Hand in this booklet, with all extra sheets, before you leave the examination room.</li>
       </ol>
     </div>
-    <div class="pg">Page 1 of ${pages}</div>
+    ${showPN ? `<div class="pg">Page 1 of ${pages}</div>` : ""}
   </section>`;
 
   /* ---------- inner pages ---------- */
   const lineN = bookletLineCount();
+  const GRID = 5;                                          // graph paper: 5 mm squares, a heavier line every 25 mm
+  const gridW = Math.floor((g.CW - g.gutter - I.marginW) / GRID) * GRID, gridH = Math.floor((I.linesBottom - I.linesTop) / GRID) * GRID;
+  const graphSVG = () => {
+    let v = "", hz = "";
+    for (let x = 0; x <= gridW; x += GRID) v += `<line x1="${x}" x2="${x}" y1="0" y2="${gridH}"${x % (GRID * 5) === 0 ? ' stroke-width="0.32"' : ""}/>`;
+    for (let y = 0; y <= gridH; y += GRID) hz += `<line x1="0" x2="${gridW}" y1="${y}" y2="${y}"${y % (GRID * 5) === 0 ? ' stroke-width="0.32"' : ""}/>`;
+    return `<svg class="ruled graph" style="left:calc(var(--L) + ${mm(I.marginW)});top:${mm(I.linesTop)};width:${mm(gridW)};height:${mm(gridH)}" viewBox="0 0 ${gridW} ${gridH}"><g stroke="${lineCol}" stroke-width="0.16" fill="none">${v}${hz}</g></svg>`;
+  };
   const linesSVG = () => {
     if (ruling === "plain") return "";
+    if (ruling === "graph") return graphSVG();
     let out = "";
     for (let k = 0; k < lineN; k++) out += `<line x1="0" x2="${g.CW}" y1="${k * I.pitch}" y2="${k * I.pitch}"/>`;
     return `<svg class="ruled" style="left:var(--L);top:${mm(I.linesTop)};width:var(--CW);height:${mm((lineN - 1) * I.pitch + 0.4)}" viewBox="0 0 ${g.CW} ${(lineN - 1) * I.pitch + 0.4}" preserveAspectRatio="none"><g stroke="${lineCol}" stroke-width="0.22" fill="none">${out}</g></svg>`;
@@ -197,7 +233,7 @@ export function renderBookletHTML(h) {
   const innerPage = (p) => `<section class="page inner">
     <div class="ih">
       <span class="ih-l">${esc(shortName)}</span>
-      <span class="ih-c"><b>ANSWER BOOKLET</b>${meta.subject ? `<small>${esc(meta.subject)}</small>` : ""}</span>
+      <span class="ih-c"><b>ANSWER BOOKLET</b></span>
       <span class="ih-r">Index No. <span class="ibs mini">${miniId}</span></span>
     </div>
     <div class="irule1"></div><div class="irule2"></div>
@@ -205,7 +241,7 @@ export function renderBookletHTML(h) {
     <div class="mg" style="left:var(--L);top:${mm(I.linesTop - 6)};height:${mm(I.linesBottom - I.linesTop + 6 + 0.2)};width:${mm(I.marginW)}"></div>
     <div class="mg-note" style="top:${mm(I.linesTop - 5.4)}">Do not write in the margin</div>
     ${linesSVG()}
-    <div class="ifoot"><span class="ifm">${p === pages ? "END OF BOOKLET" : "Turn over"}</span><span class="ipn">${p}</span></div>
+    <div class="ifoot"><span class="ifm">${p === pages ? "END OF BOOKLET" : "Turn over"}</span>${showPN ? `<span class="ipn">${p}</span>` : ""}</div>
   </section>`;
 
   const pageHTML = (p) => (p === 1 ? cover : innerPage(p));
@@ -220,7 +256,7 @@ export function renderBookletHTML(h) {
       body += `<section class="sheet" data-sheet="${f.sheet}" data-side="${f.side}">
         <div class="slot l" data-page="${lp}">${pageHTML(lp).replace('class="page ', `class="page ${parity(lp)} `)}</div>
         <div class="slot r" data-page="${rp}">${pageHTML(rp).replace('class="page ', `class="page ${parity(rp)} `)}</div>
-        <i class="fold t"></i><i class="fold b"></i><i class="stp s1"></i><i class="stp s2"></i>
+        <i class="fold t"></i><i class="fold m"></i><i class="fold b"></i><i class="stp s1"></i><i class="stp s2"></i>
         <div class="flabel">Sheet ${f.sheet} of ${pages / 4} &middot; ${f.side === "front" ? "FRONT" : "BACK"}</div>
       </section>`;
     }
@@ -243,11 +279,11 @@ export function renderBookletHTML(h) {
     ? `.sheet{position:relative;width:${mm(sh.w)};height:${mm(sh.h)};overflow:hidden;background:#fff;page-break-after:always;break-after:page}
   .sheet:last-child{page-break-after:auto;break-after:auto}
   .slot{position:absolute;top:0;width:${mm(g.W)};height:${mm(g.H)}}.slot.l{left:0}.slot.r{left:${mm(g.W)}}
-  .fold{position:absolute;left:${mm(g.W - 0.2)};width:${mm(0.4)};height:${mm(3.5)};background:${ink};display:block}
-  .fold.t{top:${mm(5)}}.fold.b{bottom:${mm(5)}}
-  .stp{position:absolute;left:${mm(g.W - 1.2)};width:${mm(2.4)};height:${mm(2.4)};border:${mm(THIN)} solid ${ink};border-radius:50%;display:block}
+  .fold{position:absolute;left:${mm(g.W - 0.25)};width:${mm(0.5)};height:${mm(7)};background:#000;display:block;z-index:5;box-shadow:0 0 0 ${mm(0.45)} #fff}
+  .fold.t{top:${mm(2)}}.fold.b{bottom:${mm(2)}}.fold.m{top:${mm(g.H / 2 - 3.5)}}
+  .stp{position:absolute;left:${mm(g.W - 1.2)};width:${mm(2.4)};height:${mm(2.4)};border:${mm(MID)} solid #000;background:#fff;border-radius:50%;display:block;z-index:5}
   .stp.s1{top:${mm(g.H * 0.28)}}.stp.s2{top:${mm(g.H * 0.72 - 2.4)}}
-  .flabel{position:absolute;left:${mm(g.W - 30)};width:${mm(60)};bottom:${mm(1.6)};text-align:center;font-size:${mm(1.9)};font-weight:700;letter-spacing:.08em;color:${ink};opacity:.7}`
+  .flabel{position:absolute;left:${mm(g.W - 30)};width:${mm(60)};bottom:${mm(10.5)};background:#fff;padding:${mm(0.4)} 0;text-align:center;font-size:${mm(1.9)};font-weight:700;letter-spacing:.08em;color:${ink};opacity:.7}`
     : `.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}`}
 
   /* ---- cover: the same parts and look as the question paper's cover page (flowing column, so it adapts) ---- */
@@ -271,6 +307,8 @@ export function renderBookletHTML(h) {
   .cb{font-size:${mm(9)};font-weight:800;font-family:Georgia,"Times New Roman",serif;color:${ink}}
   .csub{flex:1;min-height:${mm(30)};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:${mm(2.2)};padding:${mm(2)} 0}
   .crule{width:55%;height:${mm(1.4)};border-top:${mm(MID)} solid ${ink};border-bottom:${mm(THIN)} solid ${rule2}}
+  .wrow{width:78%;display:flex;align-items:flex-end;gap:${mm(3)};font-size:${mm(5.2)};font-weight:800;letter-spacing:.1em}
+  .wrow span{white-space:nowrap;width:${mm(32)};text-align:left}.wrow i{flex:1;display:block;height:${mm(7)};border-bottom:${mm(MID)} solid ${ink}}
   .cname{font-size:${mm(8)};font-weight:800;text-transform:uppercase;letter-spacing:.07em;line-height:1.15}
   .cline{font-size:${mm(3.6)};letter-spacing:.06em;text-transform:uppercase;font-weight:600}
   .cpap{font-size:${mm(3.2)};font-style:italic}

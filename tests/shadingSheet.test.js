@@ -377,9 +377,9 @@ describe("answer booklet", () => {
     expect(bk({ pages: 8, questions: 5, colourMode: "mono", colours: { main: "#0F5C32", accent: "#C99A2E" } })).not.toContain("#0F5C32");
   });
   it("clamps the page and question counts and escapes the school name", () => {
-    expect(bk({ pages: 1, questions: 5 })).toContain('data-pages="4"');
+    expect(bk({ pages: 1, questions: 5 })).toContain('data-pages="2"');
     expect(bk({ pages: 999, questions: 5 })).toContain('data-pages="40"');
-    expect(bk({ pages: 8, questions: 99 })).toContain('data-questions="30"');
+    expect(bk({ pages: 8, questions: 99 })).toContain('data-questions="40"');
     expect(bk({ pages: 8, questions: 5, meta: { ...meta, schoolName: "<script>alert(1)</script> SHS" } })).not.toContain("<script>alert(1)");
   });
   it("counts only hand-written questions for the examiner's table", () => {
