@@ -32,7 +32,7 @@ export function Toggle({ checked, onChange, label }) {
 export function Segmented({ label, value, onChange, options, ariaLabel }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--text-secondary)", fontFamily: F }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: "none", color: "var(--text-secondary)", fontFamily: F }}>{label}</span>
       <div role="group" aria-label={ariaLabel || label} style={{ display: "inline-flex", border: "1px solid var(--border-strong)", borderRadius: 9, overflow: "hidden", background: "var(--card-bg)" }}>
         {options.map((o, i) => {
           const on = value === o.id;
@@ -72,7 +72,7 @@ export function GenerationProgress({ progress, elapsed }) {
           );
         })}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--text-muted)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
         <span>{progress?.sectionLabel ? `Writing ${progress.sectionLabel} (${current} of ${total})` : "Starting…"}</span>
         <span>{mm}:{ss}</span>
       </div>

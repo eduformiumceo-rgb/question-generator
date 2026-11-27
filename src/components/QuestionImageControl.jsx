@@ -225,8 +225,8 @@ export default function QuestionImageControl({ question, onImage, onDiagram, oth
           onApply={(src) => { if (accept(src, { size: imageSizeKey(image), caption: image.caption || "", align: imageAlign(image), autoNumber: !!image.autoNumber, ...(Number.isInteger(image.afterPart) ? { afterPart: image.afterPart } : {}) })) setEditing(false); }} />
       )}
 
-      {notice && <div role="status" style={{ marginTop: 8, fontSize: 12.5, color: "var(--ok-text, #166534)", fontFamily: F }}>{notice}</div>}
-      {error && <div role="alert" style={{ marginTop: 8, fontSize: 12.5, color: "var(--err-text)", fontFamily: F, lineHeight: 1.45 }}>{error}</div>}
+      {notice && <div role="status" style={{ marginTop: 8, fontSize: 12, color: "var(--ok-text, #166534)", fontFamily: F }}>{notice}</div>}
+      {error && <div role="alert" style={{ marginTop: 8, fontSize: 12, color: "var(--err-text)", fontFamily: F, lineHeight: 1.45 }}>{error}</div>}
     </div>
   );
 }

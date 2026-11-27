@@ -56,14 +56,14 @@ export default function ExamEditor({ examData, setExamData, S, F, onReplace }) {
 
   return (
     <div style={S.card}>
-      <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Edit Exam</h3>
-      <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
+      <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Edit Exam</h3>
+      <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>
         Edit wording, marks, or options directly, and add a picture to any question. Every change here updates the print, PDF, Word, and share output immediately.
       </p>
 
       {examData.sections.map((section, sIdx) => (
         <div key={section.id} style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", fontFamily: F, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", fontFamily: F, marginBottom: 10, textTransform: "none", letterSpacing: 0 }}>
             {section.label}
           </div>
 
@@ -121,7 +121,7 @@ export default function ExamEditor({ examData, setExamData, S, F, onReplace }) {
                 <div style={{ marginTop: 10, marginLeft: 18 }}>
                   {q.parts.map((p, pIdx) => (
                     <div key={pIdx} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, paddingTop: 8 }}>({p.label})</span>
+                      <span style={{ fontWeight: 700, fontSize: 12, color: "var(--text-muted)", fontFamily: F, paddingTop: 8 }}>({p.label})</span>
                       <MathField
                         value={p.text} rows={1} F={F} ariaLabel={`Question ${q.number} part ${p.label} text`}
                         onChange={e => updatePart(sIdx, qIdx, pIdx, { text: e.target.value })}
@@ -160,7 +160,7 @@ export default function ExamEditor({ examData, setExamData, S, F, onReplace }) {
                   <MathField
                     value={q.markingGuide} rows={2} F={F} ariaLabel={`Question ${q.number} marking guide`}
                     onChange={e => updateQuestion(sIdx, qIdx, { markingGuide: e.target.value })}
-                    style={{ ...S.inp, fontSize: 12.5, resize: "vertical", fontFamily: F, lineHeight: 1.5 }}
+                    style={{ ...S.inp, fontSize: 12, resize: "vertical", fontFamily: F, lineHeight: 1.5 }}
                   />
                 </div>
               )}

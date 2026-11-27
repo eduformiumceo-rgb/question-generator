@@ -75,7 +75,7 @@ export default function DiagramBuilder({ initial, onUse, onCancel, S, F }) {
       <div key={f.key} style={{ marginBottom: 10 }}>
         <label style={lbl}>{f.label}</label>
         {control}
-        {f.help && <div style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, marginTop: 3, lineHeight: 1.4 }}>{f.help}</div>}
+        {f.help && <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 3, lineHeight: 1.4 }}>{f.help}</div>}
       </div>
     );
   };

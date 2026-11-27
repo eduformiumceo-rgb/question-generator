@@ -102,7 +102,7 @@ function PasswordStrengthBar({ password }) {
           }} />
         ))}
       </div>
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".02em", color: STRENGTH_COLORS[s], marginBottom: 4 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".02em", color: STRENGTH_COLORS[s], marginBottom: 4 }}>
         {STRENGTH_LABELS[s]}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -111,7 +111,7 @@ function PasswordStrengthBar({ password }) {
           return (
             <div key={key} style={{
               display: "flex", alignItems: "center", gap: 5,
-              fontSize: 11, fontWeight: 400,
+              fontSize: 12, fontWeight: 400,
               color: "var(--text-muted)",
               maxHeight: met ? 0 : 20,
               overflow: "hidden",
@@ -132,12 +132,12 @@ function Field({ label, htmlFor, error, children, optional }) {
   return (
     <div style={{ marginBottom: error ? 4 : 12 }}>
       <label htmlFor={htmlFor} style={{
-        fontSize: 11.5, letterSpacing: "0.06em", textTransform: "uppercase",
+        fontSize: 12, letterSpacing: 0, textTransform: "none",
         color: "var(--text-muted)", fontFamily: F, display: "flex", alignItems: "center",
         gap: 4, marginBottom: 7, fontWeight: 600,
       }}>
         {label}
-        {optional && <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>(optional)</span>}
+        {optional && <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>(optional)</span>}
       </label>
       {children}
       {error && (
@@ -159,7 +159,7 @@ function Field({ label, htmlFor, error, children, optional }) {
 /* ─── Input base style ───────────────────────────────────────────────────── */
 const INP = {
   background: "var(--input-bg)", border: "1.5px solid var(--border-strong)",
-  borderRadius: 10, padding: "11px 14px", color: "var(--text)", fontSize: 14,
+  borderRadius: 10, padding: "11px 14px", color: "var(--text)", fontSize: 15,
   fontFamily: F, outline: "none", width: "100%", boxSizing: "border-box", height: 46,
 };
 const INP_ERR = { ...INP, borderColor: "var(--err-border)" };
@@ -231,7 +231,7 @@ export function OtpBoxes({ value, onChange, disabled }) {
     background: filled ? "rgba(13,148,136,.12)" : "var(--input-bg)",
     border: `2px solid ${filled ? "#0D9488" : "var(--border-strong)"}`,
     borderRadius: 10, color: "var(--text)",
-    fontSize: 22, fontWeight: 700,
+    fontSize: 24, fontWeight: 700,
     fontFamily: "'Courier New',monospace",
     textAlign: "center", outline: "none", cursor: "text",
     transition: "border-color .15s, background .15s",
@@ -260,10 +260,10 @@ export function OtpBoxes({ value, onChange, disabled }) {
 export function AuthBrand({ titleId }) {
   return (
     <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid var(--border)" }}>
-      <div id={titleId} style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display',serif", lineHeight: 1, marginBottom: 2 }}>
+      <div id={titleId} style={{ fontSize: 24, fontWeight: 700, fontFamily: "'Playfair Display',serif", lineHeight: 1, marginBottom: 2 }}>
         <span style={{ color: "var(--logo-edu)" }}>Edu</span><span style={{ color: "var(--logo-formium)" }}>formium</span>
       </div>
-      <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: ".03em", fontWeight: 500, marginTop: 5, fontFamily: F }}>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", letterSpacing: ".03em", fontWeight: 500, marginTop: 5, fontFamily: F }}>
         AI-powered lesson planning for modern educators
       </div>
     </div>
@@ -279,7 +279,7 @@ function GoogleBtn({ onClick, loading }) {
       style={{
         display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
         width: "100%", height: 44, borderRadius: 10, border: "1.5px solid var(--border-strong)",
-        background: "var(--input-bg)", color: "var(--text)", fontSize: 14,
+        background: "var(--input-bg)", color: "var(--text)", fontSize: 15,
         fontFamily: F, fontWeight: 500, cursor: "pointer",
         transition: "border-color .15s, background .15s", marginBottom: 16,
         opacity: loading ? 0.5 : 1,
@@ -297,7 +297,7 @@ function Divider() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 16px" }}>
       <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-      <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: F, letterSpacing: ".04em" }}>OR</span>
+      <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, letterSpacing: ".04em" }}>OR</span>
       <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
     </div>
   );
@@ -417,7 +417,7 @@ function RoleSearchDropdown({ value, onChange, error }) {
           cursor: "pointer", textAlign: "left",
         }}
       >
-        <span style={{ color: selectedLabel ? "var(--text)" : "var(--text-muted)", fontSize: 14 }}>
+        <span style={{ color: selectedLabel ? "var(--text)" : "var(--text-muted)", fontSize: 15 }}>
           {selectedLabel || "Select your role…"}
         </span>
       </button>
@@ -464,7 +464,7 @@ function RoleSearchDropdown({ value, onChange, error }) {
                 aria-selected={value === item.value}
                 onClick={() => handleSelect(item.value)}
                 style={{
-                  padding: "9px 14px", fontSize: 13.5, fontFamily: F,
+                  padding: "9px 14px", fontSize: 13, fontFamily: F,
                   cursor: "pointer", color: "var(--text)",
                   background: value === item.value ? "rgba(13,148,136,.12)" : "transparent",
                   fontWeight: value === item.value ? 600 : 400,
@@ -742,7 +742,7 @@ export function AuthModal({ onClose, onAuth }) {
               position: "absolute", top: 16, right: 16,
               background: "transparent", border: "1px solid var(--border)",
               borderRadius: 8, color: "var(--text-muted)", cursor: "pointer",
-              fontSize: 18, width: 32, height: 32,
+              fontSize: 20, width: 32, height: 32,
               display: "flex", alignItems: "center", justifyContent: "center",
               lineHeight: 1, transition: "background .15s",
             }}
@@ -803,7 +803,7 @@ export function AuthModal({ onClose, onAuth }) {
                 <button style={linkBtn} onClick={() => reset("signup")}>Create one free</button>
               </div>
 
-              <p style={{ textAlign: "center", marginTop: 16, fontSize: 11, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.6 }}>
+              <p style={{ textAlign: "center", marginTop: 16, fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.6 }}>
                 By clicking Continue or Sign in, you agree to Eduformium's{" "}
                 <a href="https://eduformium.com/terms.html" target="_blank" rel="noopener noreferrer"
                   style={{ color: "#0D9488", textDecoration: "underline", fontWeight: 500 }}>
@@ -877,7 +877,7 @@ export function AuthModal({ onClose, onAuth }) {
                 autoComplete="new-password"
               />
 
-              <p style={{ textAlign: "center", marginBottom: 14, fontSize: 11, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.6 }}>
+              <p style={{ textAlign: "center", marginBottom: 14, fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.6 }}>
                 By clicking Continue, you agree to Eduformium's{" "}
                 <a href="https://eduformium.com/terms.html" target="_blank" rel="noopener noreferrer"
                   style={{ color: "#0D9488", textDecoration: "underline", fontWeight: 500 }}>
@@ -921,13 +921,13 @@ export function AuthModal({ onClose, onAuth }) {
                   <rect x="2" y="4" width="16" height="12" rx="2" stroke="#0D9488" strokeWidth="1.5" />
                 </svg>
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Code sent to</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Code sent to</div>
                   <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{email}</div>
                 </div>
               </div>
 
               <div id={descId} style={{ textAlign: "center", marginBottom: 20 }}>
-                <div style={{ fontSize: 19, fontWeight: 700, color: "var(--text)", letterSpacing: "-.02em", marginBottom: 4 }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", letterSpacing: "-.02em", marginBottom: 4 }}>
                   {mode === "signup" ? "Verify your email" : "Enter reset code"}
                 </div>
                 <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.55 }}>

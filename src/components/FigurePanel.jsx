@@ -52,15 +52,15 @@ export default function FigurePanel({ examData, setExamData, draw, S, F }) {
     if (ownerImageOk(o)) return <div style={box}><img src={o.image.src} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /></div>;
     const svg = o?.diagram?.svg;
     if (svg && isSafeGeneratedSVG(svg)) return <div style={{ ...box, padding: 2 }} dangerouslySetInnerHTML={{ __html: svg.replace("<svg ", '<svg style="width:100%;height:100%;display:block" ') }} />;
-    return <div style={{ ...box, borderStyle: "dashed", fontSize: 10, color: "var(--text-muted)", fontFamily: F }}>{draw?.state?.[slot.key] === "drawing" ? "…" : "No image"}</div>;
+    return <div style={{ ...box, borderStyle: "dashed", fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>{draw?.state?.[slot.key] === "drawing" ? "…" : "No image"}</div>;
   };
 
   return (
     <div style={{ ...S.card, padding: "18px 22px", marginBottom: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Figures &amp; diagrams</div>
-          <div role="status" style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>{summary}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Figures &amp; diagrams</div>
+          <div role="status" style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>{summary}</div>
         </div>
         <button type="button" style={S.sm} aria-expanded={open} onClick={() => setOpen(o => !o)}>{open ? "Hide figures" : "Review figures"}</button>
       </div>
@@ -80,7 +80,7 @@ export default function FigurePanel({ examData, setExamData, draw, S, F }) {
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", fontFamily: F }}>{slot.label}</span>
                       {failed ? chip("empty") : chip(st)}
-                      {failed && <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F }}>AI couldn&apos;t draw this one</span>}
+                      {failed && <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>AI couldn&apos;t draw this one</span>}
                     </div>
                     <div style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.4, marginTop: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                       {slot.description || "Figure"}

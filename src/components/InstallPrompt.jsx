@@ -87,7 +87,7 @@ export default function InstallPrompt({ onClose, deferredPromptRef }) {
               position: "absolute", top: 12, right: 12,
               width: 26, height: 26, borderRadius: "50%",
               background: "rgba(255,255,255,.18)", border: "none",
-              color: "#fff", fontSize: 14, cursor: "pointer",
+              color: "#fff", fontSize: 15, cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontFamily: F, lineHeight: 1,
             }}>×</button>
@@ -99,10 +99,10 @@ export default function InstallPrompt({ onClose, deferredPromptRef }) {
                 style={{ width: 46, height: 46, borderRadius: 12, flexShrink: 0, objectFit: "contain" }}
               />
               <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", fontFamily: F, lineHeight: 1.1 }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", fontFamily: F, lineHeight: 1.1 }}>
                   {done ? "App Installed" : "Assessment Studio"}
                 </div>
-                <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.72)", fontFamily: F, fontWeight: 500, marginTop: 3 }}>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,.72)", fontFamily: F, fontWeight: 500, marginTop: 3 }}>
                   {done ? "" : "Tests, quizzes and exams"}
                 </div>
               </div>
@@ -121,13 +121,13 @@ export default function InstallPrompt({ onClose, deferredPromptRef }) {
                 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </div>
-                <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)", fontFamily: F, lineHeight: 1.6 }}>
+                <p style={{ margin: 0, fontSize: 15, color: "var(--text-secondary)", fontFamily: F, lineHeight: 1.6 }}>
                   Eduformium Assessment Studio has been added to your home screen.
                 </p>
               </div>
             ) : (
               <>
-                <p style={{ margin: "0 0 18px", fontSize: 14, color: "var(--text-secondary)", fontFamily: F, lineHeight: 1.6 }}>
+                <p style={{ margin: "0 0 18px", fontSize: 15, color: "var(--text-secondary)", fontFamily: F, lineHeight: 1.6 }}>
                   Get the full Eduformium experience, faster and always at your fingertips.
                 </p>
 

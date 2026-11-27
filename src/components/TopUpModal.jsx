@@ -72,7 +72,7 @@ export default function TopUpModal({ onClose, onPurchased, S, F }) {
         role="dialog" aria-modal="true" aria-labelledby="topup-modal-title"
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <h3 id="topup-modal-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Top Up Exam Credits</h3>
+          <h3 id="topup-modal-title" style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Top Up Exam Credits</h3>
           <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--text-muted)", lineHeight: 1 }}>×</button>
         </div>
 
@@ -92,8 +92,8 @@ export default function TopUpModal({ onClose, onPurchased, S, F }) {
               opacity: loadingPkg && loadingPkg !== pkg.id ? 0.5 : 1,
             }}
           >
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{toDisplayCredits(pkg.credits)} Credits</span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{toDisplayCredits(pkg.credits)} Credits</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "var(--accent)" }}>
               {loadingPkg === pkg.id ? "Redirecting…" : `GH₵${(pkg.ghs / 100).toFixed(2)}`}
             </span>
           </button>

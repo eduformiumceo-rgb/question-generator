@@ -26,7 +26,7 @@ export default function ReplaceQuestion({ question, onReplace, onApply, S, F }) 
     } finally { setBusy(false); }
   };
 
-  const small = { ...S.sm, height: 32, fontSize: 12.5, padding: "0 14px" };
+  const small = { ...S.sm, height: 32, fontSize: 12, padding: "0 14px" };
   return (
     <div style={{ marginTop: 10 }}>
       {!open ? (
@@ -47,9 +47,9 @@ export default function ReplaceQuestion({ question, onReplace, onApply, S, F }) 
               {busy ? "Writing..." : "Write new question"}
             </button>
             <button type="button" style={small} disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
-            <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F }}>Costs 0.1 credit (free in Free mode). You can undo.</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>Costs 0.1 credit (free in Free mode). You can undo.</span>
           </div>
-          {error && <div role="alert" style={{ marginTop: 8, fontSize: 12.5, color: "var(--err-text, #B91C1C)", fontFamily: F }}>{error}</div>}
+          {error && <div role="alert" style={{ marginTop: 8, fontSize: 12, color: "var(--err-text, #B91C1C)", fontFamily: F }}>{error}</div>}
         </div>
       )}
     </div>

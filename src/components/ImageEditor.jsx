@@ -66,8 +66,8 @@ export default function ImageEditor({ src, onApply, onCancel, S, F }) {
   return (
     <div role="dialog" aria-modal="true" aria-label="Edit picture" style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
       <div style={{ background: "var(--card, #fff)", borderRadius: 14, padding: 16, width: "min(720px, 100%)", maxHeight: "96vh", overflow: "auto" }}>
-        <div style={{ fontFamily: F, fontWeight: 700, fontSize: 16, marginBottom: 4, color: "var(--text)" }}>Edit picture</div>
-        <div style={{ fontFamily: F, fontSize: 12.5, color: "var(--text-muted)", marginBottom: 10 }}>Drag on the picture to choose the part to keep.</div>
+        <div style={{ fontFamily: F, fontWeight: 700, fontSize: 17, marginBottom: 4, color: "var(--text)" }}>Edit picture</div>
+        <div style={{ fontFamily: F, fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>Drag on the picture to choose the part to keep.</div>
 
         <div style={{ display: "flex", justifyContent: "center", background: "#e9e9ec", borderRadius: 10, padding: 8 }}>
           <div ref={boxRef} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
@@ -84,7 +84,7 @@ export default function ImageEditor({ src, onApply, onCancel, S, F }) {
           {crop && <button type="button" style={btn} onClick={() => setCrop(null)}>Clear crop</button>}
           <button type="button" style={btn} disabled={!ready} onClick={reset}>Start over</button>
         </div>
-        {error && <div role="alert" style={{ marginTop: 8, fontSize: 12.5, color: "var(--err-text)", fontFamily: F }}>{error}</div>}
+        {error && <div role="alert" style={{ marginTop: 8, fontSize: 12, color: "var(--err-text)", fontFamily: F }}>{error}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
           <button type="button" style={btn} onClick={onCancel}>Cancel</button>
           <button type="button" style={{ ...btn, background: "var(--accent)", borderColor: "var(--accent)", color: "#fff", fontWeight: 700 }} disabled={!ready || busy} onClick={apply}>{busy ? "Working…" : "Apply"}</button>

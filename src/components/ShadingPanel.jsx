@@ -21,7 +21,7 @@ import { sheetSizeSummary, printNote } from "../shadingSheet.js";
 export default function ShadingPanel({ S, F, colourGroup, style: shadeStyle, onStyle, options: sheetOptions, onOptions, questions: sheetQuestions, onQuestions, count: shadeCount, autoCount: autoShadeCount, maxQuestions, onPreview }) {
   return (
             <div style={S.card} data-testid="shading-card">
-        <CardTitle F={F} mb={14} desc="Choose the look of the answer sheet. BECE prints two per A4 to cut; WASSCE prints one full A4 sheet per candidate.">Sheet Layout</CardTitle>
+        <CardTitle F={F} mb={14} desc="BECE prints two per A4 to cut; WASSCE prints one full A4 sheet per candidate.">Sheet layout</CardTitle>
 
         <div className="qa-group">
           <label style={S.lbl}>Sheet style</label>
@@ -36,6 +36,7 @@ export default function ShadingPanel({ S, F, colourGroup, style: shadeStyle, onS
               </button>
             ))}
           </div>
+          <p className="qa-choice-sel" style={{ fontFamily: F }}>{shadeStyle === "wassce" ? "Full A4 sheet like the real WASSCE answer sheet: index-number grid, paper version and oval bubbles." : "Same layout as the Ghana Education Service answer sheet, with your school's name and logo."}</p>
         </div>
 
         {colourGroup}
@@ -45,7 +46,7 @@ export default function ShadingPanel({ S, F, colourGroup, style: shadeStyle, onS
             <div>
               <label style={S.lbl}>Answer options</label>
               {shadeStyle === "bece" ? (
-                <div style={{ minHeight: 44, display: "flex", alignItems: "center", fontFamily: F, fontSize: 14, color: "var(--text)" }}>
+                <div style={{ minHeight: 44, display: "flex", alignItems: "center", fontFamily: F, fontSize: 15, color: "var(--text)" }}>
                   <span><b>A to E</b> <span style={{ color: "var(--text-muted)" }}>on every question, as on the BECE sheet</span></span>
                 </div>
               ) : (
@@ -59,7 +60,7 @@ export default function ShadingPanel({ S, F, colourGroup, style: shadeStyle, onS
             <div>
               <label style={S.lbl}>Questions on the sheet</label>
               {sheetQuestions == null && shadeCount > 0 ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontFamily: F, fontSize: 14, color: "var(--text)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontFamily: F, fontSize: 15, color: "var(--text)" }}>
                   <span><b>{shadeCount}</b> <span style={{ color: "var(--text-muted)" }}>from your objective section</span></span>
                   <button type="button" style={S.sm} onClick={() => onQuestions(shadeCount)}>Change</button>
                 </div>
@@ -73,13 +74,13 @@ export default function ShadingPanel({ S, F, colourGroup, style: shadeStyle, onS
           </div>
         </div>
 
-        <div className="qa-note" style={{ fontFamily: F, marginTop: 14, lineHeight: 1.6 }}>
+        <div className="qa-note" style={{ fontFamily: F, marginTop: 14 }}>
           {shadeCount
             ? sheetSizeSummary(shadeStyle, shadeCount, sheetOptions) + ". " + printNote(shadeStyle)
             : "No objective section in your paper yet. Type the number of questions above, or add an objective section on the Assessment tab."}
         </div>
         <div style={{ marginTop: 14 }}>
-          <button type="button" style={{ ...S.btn, height: 44, padding: "0 20px" }} disabled={!shadeCount} onClick={onPreview}>Preview &amp; print shading sheet</button>
+          <button type="button" className="qa-wide-btn" style={{ ...S.btn, height: 48, padding: "0 20px" }} disabled={!shadeCount} onClick={onPreview}>Preview &amp; print shading sheet</button>
         </div>
       </div>
   );

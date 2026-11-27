@@ -28,7 +28,7 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
   const chip = (label, active, onClick) => (
     <button type="button" onClick={onClick} aria-pressed={active} style={{
       border: `1.5px solid ${active ? "#0D9488" : "var(--border-strong)"}`, background: active ? "rgba(13,148,136,.1)" : "transparent",
-      color: active ? "#0D9488" : "var(--text-secondary)", borderRadius: 99, padding: "5px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: F,
+      color: active ? "#0D9488" : "var(--text-secondary)", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: F,
     }}>{label}</button>
   );
 
@@ -38,17 +38,17 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
         style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, width: "100%" }}>
         <span aria-label={`Paper quality score ${score} out of 100`} style={{
           minWidth: 46, height: 46, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
-          fontWeight: 800, fontSize: 17, color: tone.fg, background: tone.bg, fontFamily: F,
+          fontWeight: 700, fontSize: 17, color: tone.fg, background: tone.bg, fontFamily: F,
         }}>{score}</span>
         <span style={{ flex: 1 }}>
-          <span style={{ display: "block", fontSize: 14.5, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Paper check</span>
-          <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F }}>
+          <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Paper check</span>
+          <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>
             {errors || warnings || tips
               ? [errors && `${errors} to fix`, warnings && `${warnings} to check`, tips && `${tips} tip${tips === 1 ? "" : "s"}`].filter(Boolean).join(" · ")
               : "No problems found. Answer key, marks and wording all check out."}
           </span>
         </span>
-        <span aria-hidden style={{ color: "var(--text-muted)", fontSize: 18 }}>{open ? "\u2212" : "+"}</span>
+        <span aria-hidden style={{ color: "var(--text-muted)", fontSize: 20 }}>{open ? "\u2212" : "+"}</span>
       </button>
 
       {open && (
@@ -72,8 +72,8 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
                 {findings.map((f, i) => {
                   const c = COLORS[f.level];
                   return (
-                    <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 10px", borderRadius: 10, background: c.bg, fontFamily: F, fontSize: 12.5, color: "var(--text)", lineHeight: 1.45 }}>
-                      <b style={{ color: c.fg, minWidth: 40, textTransform: "uppercase", fontSize: 11.5, letterSpacing: ".05em", paddingTop: 2 }}>{c.label}</b>
+                    <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 10px", borderRadius: 10, background: c.bg, fontFamily: F, fontSize: 12, color: "var(--text)", lineHeight: 1.45 }}>
+                      <b style={{ color: c.fg, minWidth: 40, textTransform: "none", fontSize: 12, letterSpacing: 0, paddingTop: 2 }}>{c.label}</b>
                       <span>{f.message}</span>
                     </li>
                   );
@@ -85,11 +85,11 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
           {tab === "spec" && (
             <>
               <div style={{ overflowX: "auto" }}>
-                <table style={{ borderCollapse: "collapse", width: "100%", fontFamily: F, fontSize: 12.5, color: "var(--text)" }}>
+                <table style={{ borderCollapse: "collapse", width: "100%", fontFamily: F, fontSize: 12, color: "var(--text)" }}>
                   <thead>
                     <tr>
                       {["Topic", ...spec.levels, "Total", "%"].map(h => (
-                        <th key={h} style={{ textAlign: h === "Topic" ? "left" : "center", padding: "7px 8px", borderBottom: "2px solid var(--border-strong)", fontSize: 12, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--text-muted)" }}>{h}</th>
+                        <th key={h} style={{ textAlign: h === "Topic" ? "left" : "center", padding: "7px 8px", borderBottom: "2px solid var(--border-strong)", fontSize: 12, textTransform: "none", letterSpacing: 0, color: "var(--text-muted)" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -105,7 +105,7 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
                     <tr>
                       <td style={{ padding: "8px", fontWeight: 700 }}>Total</td>
                       {spec.levels.map(l => <td key={l} style={{ textAlign: "center", padding: "8px", fontWeight: 700 }}>{spec.totals[l].marks} ({spec.totals[l].n})</td>)}
-                      <td style={{ textAlign: "center", padding: "8px", fontWeight: 800 }}>{spec.totalMarks}</td>
+                      <td style={{ textAlign: "center", padding: "8px", fontWeight: 700 }}>{spec.totalMarks}</td>
                       <td style={{ textAlign: "center", padding: "8px" }}>100%</td>
                     </tr>
                     <tr>
@@ -116,9 +116,9 @@ export default function PaperAudit({ examData, setExamData, targetLevels = [], S
                   </tbody>
                 </table>
               </div>
-              <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F }}>Each cell shows marks, with the number of questions in brackets.</p>
+              <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>Each cell shows marks, with the number of questions in brackets.</p>
               {spec.advice.length > 0 && (
-                <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F, lineHeight: 1.6 }}>
+                <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 12, color: "var(--text-secondary)", fontFamily: F, lineHeight: 1.6 }}>
                   {spec.advice.map((a, i) => <li key={i}>{a}</li>)}
                 </ul>
               )}

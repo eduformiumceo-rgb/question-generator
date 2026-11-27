@@ -234,7 +234,7 @@ math mtext { font-family: "Times New Roman",Times,serif; }
 .qa-exams-tile > svg { color: var(--text-muted); flex-shrink: 0; }
 .qa-hero-row { display: block; margin-bottom: 22px; }
 .qa-hero-eyebrow { margin: 0 0 7px; font-size: 11px; font-weight: 700; line-height: 1.2; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.64); }
-.qa-hero h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.2; color: #fff; letter-spacing: -.01em; }
+.qa-hero h1 { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.2; color: #fff; letter-spacing: -.01em; }
 .qa-hero p { margin: 5px 0 0; font-size: 13.5px; line-height: 1.5; color: rgba(255,255,255,.76); max-width: 62ch; }
 .qa-hero-btn { flex-shrink: 0; height: 38px; padding: 0 16px; border-radius: 99px; background: transparent; color: #fff; font-size: 13px; font-weight: 600;
   border: 1px solid rgba(255,255,255,.38); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
@@ -415,3 +415,120 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent) !importa
   .qa-toast.has-bar { bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important; }
 }
 @media (prefers-reduced-motion: reduce) { .qa-pill-thumb, .qa-bnav-icon-wrap svg, .qa-bottom-nav, .eduq-bar { transition: none !important; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLEAN UI LAYER: one type scale, calm spacing, folded long text.
+   Type scale (the only sizes the app uses):  12 caption · 13 secondary · 15 body · 17 card title · 20 page title
+   Hierarchy comes from weight and colour: titles 700 deep blue, body 400 / 600 dark, help text 400 muted.
+   Same performance rules as the block above (cheap transitions only, no shadows).
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root, [data-theme] { --card-py: 22px; --card-px: 22px; }
+body { font-size: 15px; line-height: 1.5; color: var(--text); }
+.qa-page { max-width: 760px; margin: 0 auto; padding: 20px 16px 0; }
+
+/* Help text: small and quiet */
+.qa-desc { font-size: 13px; line-height: 1.5; color: var(--text-muted); max-width: 70ch; }
+.qa-note { font-size: 13px; line-height: 1.5; padding: 10px 12px; border-radius: 10px; }
+.qa-opt-t { font-size: 15px; font-weight: 600; }
+.qa-opt-d { font-size: 13px; line-height: 1.5; margin-top: 2px; }
+.qa-opt { padding: 14px 0; gap: 16px; }
+.qa-tag { font-size: 12px; font-weight: 600; letter-spacing: 0; }
+.qa-stat { font-size: 13px; font-weight: 600; padding: 5px 12px; }
+
+/* Controls */
+.qa-chip { font-size: 13px; min-height: 38px; padding: 0 14px; border-width: 1px; }
+.qa-chip[aria-pressed="true"], .qa-chip.is-on { font-weight: 600; }
+.qa-choice { padding: 12px 14px; min-height: 0; border-width: 1px; }
+.qa-choice-t { font-size: 15px; font-weight: 600; }
+.qa-choice-d { font-size: 13px; }
+.qa-choice[aria-pressed="true"] { border-width: 1px; }
+.qa-choice-sel { display: none; margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+.qa-group + .qa-group { margin-top: 18px; }
+.qa-divider { margin: 20px 0; }
+.qa-inset { padding: 14px 16px; border-radius: 12px; }
+
+/* Folded long text: always visible on desktop; on a phone it opens from a small button */
+.qa-info, .qa-hint-btn { display: none; }
+.qa-info { flex-shrink: 0; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--border-strong); background: transparent; color: var(--text-muted); font: italic 700 12px/1 Georgia, serif; cursor: pointer; align-items: center; justify-content: center; }
+.qa-info[aria-expanded="true"] { background: var(--brand-soft); color: var(--brand); border-color: var(--brand); }
+.qa-hint-btn { margin: 4px 0 0; padding: 0; border: 0; background: none; color: var(--nav-ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+/* Foldable card (settings that already have good defaults) */
+.qa-fold-h { margin: 0; }
+.qa-fold-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 0; margin: 0; background: none; border: 0; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.qa-fold-head:not(:disabled):active { transform: none !important; opacity: 1 !important; }
+.qa-fold-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.qa-fold-title { font-size: 17px; font-weight: 700; line-height: 1.3; letter-spacing: -.01em; color: var(--brand); }
+.qa-fold-sum { font-size: 13px; font-weight: 400; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qa-fold-chev { display: flex; flex-shrink: 0; color: var(--text-muted); transition: transform .2s; }
+.qa-fold-chev.is-open { transform: rotate(180deg); }
+.qa-fold-body { margin-top: 16px; }
+
+/* Exam structure rows */
+.qa-sec-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qa-sec-name { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1 1 220px; min-width: 0; }
+.qa-sec-marks { font-size: 13px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.qa-sec-rm { height: 30px; padding: 0 12px; border-radius: 99px; background: transparent; border: 1px solid var(--border-strong); color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.qa-pair > * { min-width: 0; }
+.qa-pair-keep { align-items: end; }
+.qa-addsec { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+
+/* School identity: logo row and colour swatches */
+.qa-field { margin-bottom: 14px; }
+.qa-opt-lbl { font-weight: 400; color: var(--text-muted); }
+.qa-logo-row { display: flex; align-items: center; gap: 12px; }
+.qa-logo-thumb { width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--border); background: #fff; object-fit: contain; }
+.qa-logo-empty { width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; border: 1px dashed var(--border-strong); background: var(--surface-2); }
+.qa-logo-hint { flex: 1; min-width: 0; font-size: 13px; color: var(--text-muted); }
+.qa-swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.qa-swatch { position: relative; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 2px solid var(--card-bg); outline: 1px solid var(--border-strong); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: #fff; }
+.qa-swatch[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.qa-swatch svg { display: none; }
+.qa-swatch[aria-pressed="true"] svg { display: block; }
+.qa-colour-name { font-size: 13px; color: var(--text-muted); margin: 8px 0 0; }
+
+/* Hero: calmer */
+.qa-hero { padding: 18px 22px 16px; border-radius: 16px; }
+.qa-hero h1 { font-size: 22px; }
+.qa-hero p { font-size: 13px; line-height: 1.5; }
+
+/* Generate panel */
+.qa-gen { padding: 20px 22px 16px; border-radius: 14px; }
+.qa-gen-title { font-size: 17px; }
+.qa-gen-meta { font-size: 13px; }
+.qa-gen-foot { font-size: 12px; }
+.qa-gen-btn b { font-size: 15px; font-weight: 600; }
+.qa-gen-btn span { font-size: 12px; }
+
+/* ── Phone ── */
+@media (max-width: 640px) {
+  :root, [data-theme] { --card-py: 16px; --card-px: 16px; }
+  .qa-page { padding: 12px 12px 0; }
+  .qa-hero { padding: 16px 16px 14px; border-radius: 14px; margin-bottom: 10px; }
+  .qa-hero h1 { font-size: 20px; }
+  .qa-hero-row { margin-bottom: 16px; }
+  .qa-ct { gap: 8px; }
+  /* iOS zooms the page when a field under 16px is focused */
+  input:not([type="checkbox"]):not([type="color"]):not([type="file"]), select, textarea { font-size: 16px !important; }
+  /* long text folds */
+  .qa-info { display: inline-flex; }
+  .qa-hint-btn { display: block; }
+  .qa-collapsible:not(.is-open) { display: none; }
+  .qa-collapsible.is-open { margin-top: 6px; }
+  /* exam style: titles side by side, the chosen option explained once underneath */
+  .qa-choices { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .qa-choice-d { display: none; }
+  .qa-choice-sel { display: block; }
+  .qa-sec-name { flex-basis: 100%; }
+  .qa-sec-marks { margin-left: 28px; flex: 1; }
+  .qa-opt { padding: 12px 0; gap: 12px; }
+  .qa-gen { padding: 16px 16px 14px; }
+  .qa-gen-actions { gap: 8px; }
+  .qa-inset { padding: 12px; }
+}
+@media (max-width: 640px) { .qa-wide-btn { width: 100%; } }
+@media (max-width: 640px) { .qa-ct.is-closed { margin-bottom: var(--qa-mb, 12px) !important; } }
+@media (max-width: 640px) { .qa-swatches { gap: 8px; } .qa-swatch { width: 34px; height: 34px; } }
+button, input, select, textarea { font-family: inherit; }
+.qa-hero-eyebrow, .qa-how-eyebrow { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; }
+.qa-stack > * + * { margin-top: 18px; }

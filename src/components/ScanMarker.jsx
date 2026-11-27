@@ -81,12 +81,12 @@ export default function ScanMarker({ S, F, keyFor, expectedN, optionCount = 4, d
   const dup = (r) => r.read && r.read.indexOk && scored.filter(x => x.read && x.read.indexNumber === r.read.indexNumber && !x.read.absent).length > 1;
   const editIndex = (id, v) => setEdits(prev => ({ ...prev, [id]: String(v).replace(/\D/g, "").slice(0, 20) }));
 
-  const th = { textAlign: "left", padding: "8px 10px", fontSize: 12, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--text-muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-  const td = { padding: "9px 10px", fontSize: 14, borderBottom: "1px solid var(--border)", verticalAlign: "top" };
+  const th = { textAlign: "left", padding: "8px 10px", fontSize: 12, textTransform: "none", letterSpacing: 0, color: "var(--text-muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+  const td = { padding: "9px 10px", fontSize: 15, borderBottom: "1px solid var(--border)", verticalAlign: "top" };
 
   return (
     <div style={S.card} data-testid="scan-card">
-      <div style={{ fontFamily: F, fontWeight: 800, fontSize: 18, marginBottom: 4 }}>Scan &amp; mark</div>
+      <div style={{ fontFamily: F, fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Scan &amp; mark</div>
       <div className="qa-note" style={{ fontFamily: F, lineHeight: 1.6, marginBottom: 14 }}>
         Scan or photograph the filled WASSCE-type answer sheets (flat, all four corners in the picture) and add them here. The index number, paper version and every answer are read from the sheet and marked against your answer key. Nothing leaves your device.
       </div>
@@ -136,7 +136,7 @@ export default function ScanMarker({ S, F, keyFor, expectedN, optionCount = 4, d
                     {dup(r) ? <div style={{ fontFamily: F, fontSize: 12, color: "var(--danger, #b3261e)" }}>Duplicate index number</div> : null}
                   </td>
                   <td style={td}>{r.read.version || "-"}</td>
-                  <td style={{ ...td, fontWeight: 800 }}>{r.score ? `${r.score.score} / ${r.score.total}` : "-"}{r.score ? <div style={{ fontWeight: 400, fontSize: 12, color: "var(--text-muted)" }}>{r.score.wrong} wrong · {r.score.blank} blank{r.score.multiple ? ` · ${r.score.multiple} double` : ""}</div> : null}</td>
+                  <td style={{ ...td, fontWeight: 700 }}>{r.score ? `${r.score.score} / ${r.score.total}` : "-"}{r.score ? <div style={{ fontWeight: 400, fontSize: 12, color: "var(--text-muted)" }}>{r.score.wrong} wrong · {r.score.blank} blank{r.score.multiple ? ` · ${r.score.multiple} double` : ""}</div> : null}</td>
                   <td style={td}>{r.read.review.length || !r.read.indexOk || !r.read.qr ? (
                     <span style={{ fontSize: 13 }}>
                       {!r.read.indexOk ? "Index number needs correcting. " : ""}{!r.read.qr ? "Sheet ID not read. " : ""}{r.read.review.length ? `Look at question${r.read.review.length > 1 ? "s" : ""} ${r.read.review.slice(0, 12).join(", ")}${r.read.review.length > 12 ? "…" : ""}.` : ""}

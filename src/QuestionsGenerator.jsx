@@ -38,6 +38,8 @@ import PaperAudit from "./components/PaperAudit.jsx";
 import CardTitle from "./components/CardTitle.jsx";
 import Welcome from "./components/Welcome.jsx";
 import WizardProgress from "./components/WizardProgress.jsx";
+import FoldCard from "./components/FoldCard.jsx";
+import Hint from "./components/Hint.jsx";
 import { requestQuestionReplacement } from "./regenerateQuestion.js";
 import { screenExamInput } from "./moderation.js";
 import { FREE_TIER_MAX_SECTIONS, FREE_TIER_MAX_TOTAL_QUESTIONS, FREE_TIER_ALLOWED_TYPES, FREE_TIER_DAILY_LIMIT } from "./freeTierLimits.js";
@@ -1089,9 +1091,9 @@ function QuestionsGeneratorInner() {
 
   const schoolExamCard = (
       <div style={S.card}>
-        <CardTitle F={F} mb={20} desc="Printed in the header of the sheet. Shared with the Assessment tab, so you only enter it once.">School &amp; Exam Details</CardTitle>
+        <CardTitle F={F} mb={16} desc="Printed on the sheet. Shared with the Assessment tab, so you only enter it once.">School details</CardTitle>
         <div style={{ marginBottom: 14 }}>
-          <label style={S.lbl}>Class *</label>
+          <label style={S.lbl}>Class</label>
           <select value={effClass} onChange={e => setSheetClass(e.target.value)} style={S.sel}>
             <option value="">- Select Class -</option>
             {CLASS_GROUPS.map(group => (
@@ -1138,17 +1140,17 @@ function QuestionsGeneratorInner() {
       </div>
       {shadeColourMode === "school" && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          <div className="qa-swatches" role="group" aria-label="School colour presets">
             {SCHOOL_COLOUR_PRESETS.map(c => (
-              <button key={c.id} type="button" className="qa-chip" aria-pressed={sheetColours.main === c.main} title={c.label} onClick={() => setSheetColours({ main: c.main, accent: c.main })} style={{ gap: 8 }}>
-                <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: 999, background: c.main, border: "1px solid var(--border-strong)" }} />
-                {c.label}
+              <button key={c.id} type="button" className="qa-swatch" aria-pressed={sheetColours.main === c.main} aria-label={c.label} title={c.label} onClick={() => setSheetColours({ main: c.main, accent: c.main })} style={{ background: c.main }}>
+                <svg width="16" height="16" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2.5 6.5l2.2 2.2L9.5 3.6" /></svg>
               </button>
             ))}
           </div>
-          <label style={S.lbl}>Or pick your own colour</label>
-          <input type="color" value={sheetColours.main} onChange={e => { const v = e.target.value.toUpperCase(); setSheetColours({ main: v, accent: v }); }} aria-label="School colour" style={{ ...S.inp, padding: 4, height: 44, width: 96, cursor: "pointer" }} />
-          <div className="qa-note" style={{ fontFamily: F, marginTop: 8 }}>One colour prints the title bars, rules, boxes and bubbles, on the shading sheet and the answer booklet.</div>
+          <p className="qa-colour-name" style={{ fontFamily: F }}>{(SCHOOL_COLOUR_PRESETS.find(c => c.main === sheetColours.main) || {}).label || "Custom colour"}</p>
+          <label style={{ ...S.lbl, marginTop: 12 }}>Or pick your own colour</label>
+          <input type="color" value={sheetColours.main} onChange={e => { const v = e.target.value.toUpperCase(); setSheetColours({ main: v, accent: v }); }} aria-label="School colour" style={{ ...S.inp, padding: 3, height: 40, width: 64, minHeight: 40, cursor: "pointer" }} />
+          <Hint className="qa-desc" label="Where it prints" style={{ fontFamily: F, marginTop: 8 }}>One colour prints the title bars, rules, boxes and bubbles, on the shading sheet and the answer booklet.</Hint>
         </div>
       )}
     </div>
@@ -1169,7 +1171,7 @@ function QuestionsGeneratorInner() {
       onOpenSaved={() => goTab("saved")}
     />
     <TopNav tab={view} setTab={goTab} savedCount={savedCount} F={F} />
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: `24px 16px ${examData && view === "generate" ? 110 : 60}px`, fontFamily: F }}>
+    <div className="qa-page" style={{ paddingBottom: examData && view === "generate" ? 110 : 60, fontFamily: F }}>
       {view === "generate" && (
         <>
         <header className="qa-hero qa-rise">
@@ -1272,7 +1274,7 @@ function QuestionsGeneratorInner() {
            actually drives everything else. ── */}
       {className && (
       <div style={S.card}>
-        <CardTitle F={F} mb={14} desc="What kind of assessment is this?">Exam Type</CardTitle>
+        <CardTitle F={F} mb={14} desc="What kind of assessment is this?">Exam type</CardTitle>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {examTypesFor(className).map(t => (
             <button key={t} type="button" className="qa-chip" aria-pressed={examType === t} onClick={() => setExamType(t)}>{t}</button>
@@ -1282,7 +1284,7 @@ function QuestionsGeneratorInner() {
         {publicAvailable && (
           <div className="qa-group">
             <hr className="qa-divider" style={{ marginTop: 22 }} />
-            <CardTitle F={F} level={2} mb={14} desc="Choose how the paper is laid out and structured.">Exam Style</CardTitle>
+            <CardTitle F={F} level={2} mb={14} desc="Choose how the paper is laid out and structured.">Exam style</CardTitle>
             <div className="qa-choices" role="group" aria-label="Exam style">
               {[
                 { id: "school", label: "School exam", desc: "Everyday class-test layout. You choose the sections, questions and marks." },
@@ -1299,6 +1301,9 @@ function QuestionsGeneratorInner() {
                 );
               })}
             </div>
+            <p className="qa-choice-sel" style={{ fontFamily: F }}>
+              {examStyle === "public" ? `The real ${isSHS ? "WASSCE" : "BECE"} paper format. Sections, marks, time and marking scheme are set for you.` : "Everyday class-test layout. You choose the sections, questions and marks."}
+            </p>
             {(isMock || examStyle === "public") && !(publicActive && beceProfile && subject) && (
               <div className="qa-note" style={{ fontFamily: F, marginTop: 12 }}>
                 {examStyle === "public" && (publicActive
@@ -1328,17 +1333,17 @@ function QuestionsGeneratorInner() {
 
       {className && (
       <div style={S.card}>
-        <CardTitle F={F} mb={20} desc="Printed in the header of the paper.">Paper Details</CardTitle>
+        <CardTitle F={F} mb={16} desc="Printed in the header of the paper.">Paper details</CardTitle>
         <SchoolIdentityFields S={S} schoolName={schoolName} setSchoolName={setSchoolName} schoolLogo={schoolLogo} setSchoolLogo={setSchoolLogo} schoolMotto={schoolMotto} setSchoolMotto={setSchoolMotto} emblem={emblem} setEmblem={setEmblem} />
-        <div className="eduq-grid-2">
+        <div className="eduq-grid-2 is-pair">
           <div>
-            <label style={S.lbl}>{isSHS ? "Semester" : "Term"} *</label>
+            <label style={S.lbl}>{isSHS ? "Semester" : "Term"}</label>
             <select value={term} onChange={e => setTerm(e.target.value)} style={S.sel}>
               {termOptionsFor(className).map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label style={S.lbl}>Duration (minutes) *</label>
+            <label style={S.lbl}>Duration (minutes)</label>
             <NumberField
               min={10} max={300} value={durationMinutes}
               onChange={setDurationMinutes}
@@ -1354,8 +1359,8 @@ function QuestionsGeneratorInner() {
            a class AND subject chosen, so the form doesn't dump every
            option on screen before there's anything to configure it for. ── */}
       {className && subject && (
-      <div style={S.card}>
-        <CardTitle F={F} mb={20} desc="Shapes how hard the questions are and how they are worded.">Difficulty &amp; Language Control</CardTitle>
+      <FoldCard S={S} F={F} title="Difficulty &amp; language"
+        summary={[difficulty, (LANGUAGE_STYLES.find(o => o.value === languageStyle) || {}).label, cognitiveLevels.length ? cognitiveLevels.join(", ") : null].filter(Boolean).join(" · ")}>
 
         <div className="qa-group">
           <label style={S.lbl}>Difficulty</label>
@@ -1383,7 +1388,7 @@ function QuestionsGeneratorInner() {
             ))}
           </div>
         </div>
-      </div>
+      </FoldCard>
       )}
 
       {/* ── Exam Structure Builder - always full-capability here; a
@@ -1397,13 +1402,13 @@ function QuestionsGeneratorInner() {
       {/* ── Output mode + diagrams - consolidated into one compact card
            instead of two, to cut down on card count. ── */}
       {className && subject && (
-      <div style={S.card}>
-        <CardTitle F={F} mb={10} desc="Choose what the generated paper includes.">Marking Scheme &amp; Diagrams</CardTitle>
+      <FoldCard S={S} F={F} title="Marking scheme &amp; diagrams"
+        summary={`Marking scheme ${includeMarkingScheme ? "on" : "off"} · Diagrams ${allowDiagrams ? "on" : "off"}`}>
 
         <div className="qa-opt">
           <div>
             <div className="qa-opt-t" style={{ fontFamily: F }}>Marking scheme</div>
-            <div className="qa-opt-d" style={{ fontFamily: F }}>Adds the answer key and a point-by-point marking guide. Turn it off for a faster, cheaper question paper only. Premium AI only.</div>
+            <Hint>Adds the answer key and a point-by-point marking guide. Turn it off for a faster, cheaper question paper only. Premium AI only.</Hint>
           </div>
           <Toggle checked={includeMarkingScheme} onChange={setIncludeMarkingScheme} label="Include marking scheme" />
         </div>
@@ -1411,11 +1416,11 @@ function QuestionsGeneratorInner() {
         <div className="qa-opt">
           <div>
             <div className="qa-opt-t" style={{ fontFamily: F }}>AI-drawn diagrams</div>
-            <div className="qa-opt-d" style={{ fontFamily: F }}>Where a question needs a figure, graph or map, the AI draws it for you. You can replace any figure afterwards.</div>
+            <Hint>Where a question needs a figure, graph or map, the AI draws it for you. You can replace any figure afterwards.</Hint>
           </div>
           <Toggle checked={allowDiagrams} onChange={setAllowDiagrams} label="Allow AI-suggested diagrams" />
         </div>
-      </div>
+      </FoldCard>
       )}
 
       {error && <div style={S.err}><span>{error}</span></div>}
@@ -1465,21 +1470,21 @@ function QuestionsGeneratorInner() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontFamily: F }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0D9488", animation: "qgPulse 1.2s ease-in-out infinite" }} />
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>Live preview</span>
-            <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
               {livePreview.sections.length} of {progress?.total || activeSections.length} sections written. More appear as they finish.
             </span>
           </div>
           <div style={{ maxHeight: 420, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 12, background: "var(--card-bg)", padding: "6px 14px" }}>
-            {livePreview.title && <div style={{ fontFamily: F, fontSize: 14, fontWeight: 800, color: "var(--text)", padding: "8px 0 2px" }}>{livePreview.title}</div>}
+            {livePreview.title && <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: "var(--text)", padding: "8px 0 2px" }}>{livePreview.title}</div>}
             {livePreview.sections.map((sec) => (
               <div key={sec.id || sec.label} className="eduq-live-sec" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-                <div style={{ fontFamily: F, fontSize: 13, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--accent)" }}>{sec.label}</div>
+                <div style={{ fontFamily: F, fontSize: 13, fontWeight: 700, letterSpacing: 0, textTransform: "none", color: "var(--accent)" }}>{sec.label}</div>
                 {sec.instructions && <div style={{ fontFamily: F, fontSize: 13, color: "var(--text-muted)", margin: "2px 0 6px", fontStyle: "italic" }}>{sec.instructions}</div>}
                 {(sec.questions || []).map((q) => (
                   <div key={q.number} style={{ fontFamily: F, fontSize: 13, color: "var(--text)", lineHeight: 1.5, margin: "6px 0" }}>
                     <b>{q.number}.</b> <MathText text={q.text} />
                     {Array.isArray(q.options) && q.options.length > 0 && (
-                      <div style={{ color: "var(--text-secondary)", fontSize: 12.5, marginLeft: 16 }}>
+                      <div style={{ color: "var(--text-secondary)", fontSize: 12, marginLeft: 16 }}>
                         {q.options.map((o, i) => <div key={i}>{String.fromCharCode(65 + i)}. <MathText text={o} /></div>)}
                       </div>
                     )}
@@ -1494,7 +1499,7 @@ function QuestionsGeneratorInner() {
       {examData && (
         <div id="qa-paper-output" style={S.out}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--brand)", fontFamily: F }}>
+            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--brand)", fontFamily: F }}>
               {(examData.style === "bece" ? cleanBeceTitle(examData.title, examType) : examData.title) || examType}: Ready
               {!examHasMarkingScheme && (
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginLeft: 8 }}>(Questions Only)</span>
@@ -1544,7 +1549,7 @@ function QuestionsGeneratorInner() {
             {/* One clear switch for the index number; style/boxes/label only appear while it's on. */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", fontFamily: F }}>Include candidate index number</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", fontFamily: F }}>Include candidate index number</div>
                 <div style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: F, marginTop: 2 }}>
                   {idMode === "none" ? "Off: no index number on the paper." : "On: candidates write their index number at the top."}
                 </div>
@@ -1588,18 +1593,18 @@ function QuestionsGeneratorInner() {
           {/* ── Paper format: live preview below updates as these change ── */}
           <div className="qa-inset" style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)", fontFamily: F, marginRight: 4 }}>Paper format</span>
-              <span style={{ fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", fontFamily: F, marginRight: 4 }}>Paper format</span>
+              <span style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: F }}>
                 {examStyle === "public" ? (isSHS ? "WASSCE style" : "BECE style") : "School exam"}
               </span>
-              {paperPreset === "custom" && <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F }}>Custom</span>}
+              {paperPreset === "custom" && <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>Custom</span>}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 22px", marginTop: 12 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F, cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", fontFamily: F, cursor: "pointer" }}>
                 <input type="checkbox" checked={turnOver} onChange={e => customise(setTurnOver)(e.target.checked)} style={{ accentColor: "#0D9488" }} />
                 "Turn over" on every page except the last
               </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)", fontFamily: F, cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", fontFamily: F, cursor: "pointer" }}>
                 <input type="checkbox" checked={notice} onChange={e => customise(setNotice)(e.target.checked)} style={{ accentColor: "#0D9488" }} />
                 "Do not open until told to" notice
               </label>
@@ -1641,7 +1646,7 @@ function QuestionsGeneratorInner() {
           <header className="qa-hero qa-rise">
             <div className="qa-hero-row" style={{ marginBottom: 4 }}>
               <h1 style={{ fontFamily: F }}>Answer Booklet</h1>
-              <p style={{ fontFamily: F }}>A booklet for your structured and essay questions: a cover with your school's masthead, the examiner's marks table and ruled answer pages. Print it on A4 pages, or on A3 sheets that fold in half.</p>
+              <p style={{ fontFamily: F }}>A cover, examiner's table and ruled answer pages for your structured and essay questions.</p>
             </div>
           </header>
           {schoolExamCard}
@@ -1663,7 +1668,7 @@ function QuestionsGeneratorInner() {
           <header className="qa-hero qa-rise">
             <div className="qa-hero-row" style={{ marginBottom: 4 }}>
               <h1 style={{ fontFamily: F }}>Shading Sheet</h1>
-              <p style={{ fontFamily: F }}>An answer sheet for your objective questions in BECE or WASSCE style. The WASSCE sheet can be scanned and marked automatically.</p>
+              <p style={{ fontFamily: F }}>An answer sheet for your objective questions, in BECE or WASSCE style.</p>
             </div>
           </header>
       {schoolExamCard}
@@ -1735,7 +1740,7 @@ function QuestionsGeneratorInner() {
           {autoBookletCount > 0 && (
             <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} onClick={openAnswerBooklet} title="Cover, examiner's table and ruled pages for the written questions">Answer booklet</button>
           )}
-          <button type="button" style={{ ...S.btn, height: 40, padding: "0 20px", fontSize: 14, flexShrink: 0 }} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>
+          <button type="button" style={{ ...S.btn, height: 40, padding: "0 20px", fontSize: 15, flexShrink: 0 }} onClick={() => openPrintWindow(showAnswerKey ? "answerKey" : "paper")}>
             Print / PDF
           </button>
         </div>
@@ -1769,8 +1774,9 @@ const RESPONSIVE_CSS = `
   .eduq-live-sec { animation: eduq-in .3s ease-out both; }
   @media (prefers-reduced-motion: reduce) { .eduq-bar, .eduq-live-sec { animation: none; } }
   .eduq-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .eduq-grid-2 > * { min-width: 0; }
   @media (max-width: 480px) {
-    .eduq-grid-2 { grid-template-columns: 1fr; }
+    .eduq-grid-2:not(.is-pair) { grid-template-columns: 1fr; }
   }
 `;
 

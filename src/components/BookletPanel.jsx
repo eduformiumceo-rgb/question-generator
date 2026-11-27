@@ -16,6 +16,7 @@
  */
 import React, { useState } from "react";
 import CardTitle from "./CardTitle.jsx";
+import Hint from "./Hint.jsx";
 import NumberField from "./NumberField.jsx";
 import { BOOKLET_PAPERS, BOOKLET_PAGE_OPTIONS, BOOKLET_MIN_PAGES, BOOKLET_MAX_PAGES, BOOKLET_MAX_QUESTIONS } from "../bookletSheet.js";
 
@@ -30,7 +31,7 @@ export default function BookletPanel({ S, F, colourGroup, cfg, set, autoQuestion
 
   return (
     <div style={S.card} data-testid="booklet-card">
-      <CardTitle F={F} mb={14} desc="For your structured and essay questions: a cover with your school's masthead, the examiner's marks table and answer pages with a question-number margin and an empty Page No. box for the candidate. Subject and class are left blank for the candidate to write. Choose A4 pages, or A3 sheets that fold in half.">Answer Booklet</CardTitle>
+      <CardTitle F={F} mb={14} desc="Pick the paper size, page count and ruling.">Booklet layout</CardTitle>
       {colourGroup}
       <div className="qa-group">
         <label style={S.lbl}>Paper size</label>
@@ -39,10 +40,10 @@ export default function BookletPanel({ S, F, colourGroup, cfg, set, autoQuestion
             <button key={o.id} type="button" className="qa-chip" aria-pressed={cfg.paper === o.id} onClick={() => set({ paper: o.id })}>{o.label}</button>
           ))}
         </div>
-        <div className="qa-note" style={{ fontFamily: F, marginTop: 8 }}>{BOOKLET_PAPERS.find(o => o.id === cfg.paper).desc}</div>
+        <p className="qa-desc" style={{ fontFamily: F, marginTop: 8 }}>{BOOKLET_PAPERS.find(o => o.id === cfg.paper).desc}</p>
       </div>
       <div className="qa-group">
-        <div className="eduq-grid-2">
+        <div className="qa-stack">
           <div>
             <label style={S.lbl} id="bk-pages-label">Pages in the booklet</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }} role="group" aria-labelledby="bk-pages-label">
@@ -78,7 +79,7 @@ export default function BookletPanel({ S, F, colourGroup, cfg, set, autoQuestion
       <div className="qa-group">
         <label style={S.lbl}>Questions in the examiner's table</label>
         {cfg.questions == null && autoQuestions > 0 ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontFamily: F, fontSize: 14, color: "var(--text)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontFamily: F, fontSize: 15, color: "var(--text)" }}>
             <span><b>{questionCount}</b> <span style={{ color: "var(--text-muted)" }}>from your structured / essay sections</span></span>
             <button type="button" style={S.sm} onClick={() => set({ questions: questionCount })}>Change</button>
           </div>
@@ -89,13 +90,13 @@ export default function BookletPanel({ S, F, colourGroup, cfg, set, autoQuestion
           </div>
         )}
       </div>
-      <div className="qa-note" style={{ fontFamily: F, marginTop: 14, lineHeight: 1.6 }}>
+      <Hint className="qa-note" label="Printing tips" style={{ fontFamily: F, marginTop: 14 }}>
         Uses the school name, logo, colours and cover details of your question paper. Subject and class are left empty for candidates to fill in. {a3
           ? `${printed} pages on ${sheets} A3 landscape sheets (imposed so they fold into a booklet). Print on A3 at 100%, double-sided, flip on the short edge, fold in half and staple on the fold.`
           : `${printed} A4 pages (cover + ${printed - 1} answer pages). Print on A4 portrait at 100%, double-sided, and staple at the left.`}
-      </div>
-      <div style={{ marginTop: 14 }}>
-        <button type="button" style={{ ...S.btn, height: 44, padding: "0 20px" }} onClick={onPreview}>Preview &amp; print answer booklet</button>
+      </Hint>
+      <div style={{ marginTop: 16 }}>
+        <button type="button" className="qa-wide-btn" style={{ ...S.btn, height: 48, padding: "0 20px" }} onClick={onPreview}>Preview &amp; print answer booklet</button>
       </div>
     </div>
   );

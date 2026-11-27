@@ -25,14 +25,14 @@ export default function DiagramManager({ items, examData, setExamData, S, F }) {
   };
   const needing = items.filter(({ q }) => status(q) === "needs").length;
   const tag = (txt, tone) => (
-    <span style={{ fontSize: 11, fontWeight: 700, fontFamily: F, padding: "2px 8px", borderRadius: 999, marginLeft: 8,
+    <span style={{ fontSize: 12, fontWeight: 700, fontFamily: F, padding: "2px 8px", borderRadius: 999, marginLeft: 8,
       background: tone === "warn" ? "var(--warn-bg, #fff4d6)" : "var(--accent-soft)", color: tone === "warn" ? "var(--warn-text, #8a5a00)" : "var(--accent)" }}>{txt}</span>
   );
 
   return (
     <div style={S.card}>
-      <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Diagrams &amp; Images</h3>
-      <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.55 }}>
+      <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 700, color: "var(--text)", fontFamily: F }}>Diagrams &amp; Images</h3>
+      <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.55 }}>
         {needing
           ? `${needing} figure${needing === 1 ? "" : "s"} still need${needing === 1 ? "s" : ""} a picture. `
           : "Every figure is covered. "}
@@ -50,7 +50,7 @@ export default function DiagramManager({ items, examData, setExamData, S, F }) {
               {st === "picture" && tag("Using your picture", "info")}
               {st === "textbox" && tag("Text box", "info")}
             </div>
-            <div style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, marginBottom: 8 }}>
               <strong style={{ color: "var(--text)" }}>Question:</strong> {q.text}
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5 }}>{q.diagram?.description || "Diagram required"}</div>

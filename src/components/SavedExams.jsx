@@ -13,7 +13,7 @@ const Center = ({ F, icon, title, children, tone }) => (
   <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text-muted)", fontFamily: F }}>
     <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>{icon}</div>
     <p style={{ margin: "0 0 8px", fontWeight: 600, color: tone === "err" ? "var(--red-text)" : "var(--text)" }}>{title}</p>
-    <div style={{ fontSize: 12.5, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>{children}</div>
+    <div style={{ fontSize: 12, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>{children}</div>
   </div>
 );
 const SKELETON_CSS = `@keyframes sx-shimmer{0%{background-position:-300px 0}100%{background-position:300px 0}}
@@ -171,7 +171,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 auto" }}>
         {exams.length > 0 && <img src={folderPapers} alt="" aria-hidden="true" style={{ width: 52, height: "auto", flexShrink: 0 }} />}
       <div>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text)", fontFamily: F }}>My Assessments</h1>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--brand)", fontFamily: F }}>My Assessments</h1>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)", fontFamily: F }}>Your saved tests, quizzes and exams, on any device.</p>
       </div>
       </div>
@@ -231,14 +231,14 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
       {undoBar}
       <div style={{ marginBottom: 16, padding: "11px 14px", background: "var(--input-bg)", border: "1px solid var(--border)", borderRadius: 10, fontFamily: F }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Storage</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", letterSpacing: 0, textTransform: "none" }}>Storage</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: isFull ? "var(--red-text)" : isNearFull ? "var(--orange-text)" : "var(--text-secondary)" }}>{used} / {total}</span>
         </div>
         <div style={{ height: 5, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${pct}%`, borderRadius: 99, background: barColor, transition: "width .4s ease" }} />
         </div>
         {isNearFull && (
-          <div style={{ marginTop: 7, fontSize: 12.5, color: barColor, lineHeight: 1.5 }}>
+          <div style={{ marginTop: 7, fontSize: 12, color: barColor, lineHeight: 1.5 }}>
             {isFull ? "Storage full: saving a new one will remove your oldest." : "1 slot remaining: next save will remove your oldest one."}
           </div>
         )}
@@ -264,7 +264,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
 
       <style>{ROW_CSS}</style>
       {!filtered.length && (
-        <div style={{ textAlign: "center", padding: "40px 16px", color: "var(--text-muted)", fontFamily: F, fontSize: 13.5 }}>
+        <div style={{ textAlign: "center", padding: "40px 16px", color: "var(--text-muted)", fontFamily: F, fontSize: 13 }}>
           No exams match “{q}”. Try a different word.
         </div>
       )}
@@ -281,7 +281,7 @@ export default function SavedExams({ user, refreshKey = 0, onOpen, onBack, onSig
                     onChange={(ev) => setRenameVal(ev.target.value)}
                     onBlur={() => saveRename(e)}
                     onKeyDown={(ev) => { if (ev.key === "Enter") ev.currentTarget.blur(); if (ev.key === "Escape") { setRenamingId(null); } }}
-                    style={{ ...S.inp, minHeight: 36, padding: "4px 10px", fontSize: 14, fontWeight: 700, width: "100%", boxSizing: "border-box" }} />
+                    style={{ ...S.inp, minHeight: 36, padding: "4px 10px", fontSize: 15, fontWeight: 700, width: "100%", boxSizing: "border-box" }} />
                 ) : (
                   <div className="sx-title" title={title} style={{ fontFamily: F }}>{title}</div>
                 )}

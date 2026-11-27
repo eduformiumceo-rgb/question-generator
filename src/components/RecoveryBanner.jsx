@@ -26,7 +26,7 @@ export default function RecoveryBanner({ tone = "info", title, children, actions
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.35, color: warn ? "var(--err-text)" : "var(--text)" }}>{title}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.35, color: warn ? "var(--err-text)" : "var(--text)" }}>{title}</div>
         {children ? <div style={{ fontSize: 13, lineHeight: 1.55, marginTop: 3 }}>{children}</div> : null}
         {actions.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
@@ -34,7 +34,7 @@ export default function RecoveryBanner({ tone = "info", title, children, actions
               <button
                 key={a.label} type="button" onClick={a.onClick} disabled={a.busy}
                 style={a.primary
-                  ? { ...S.btn, height: 36, padding: "0 16px", fontSize: 13.5, opacity: a.busy ? 0.7 : 1 }
+                  ? { ...S.btn, height: 36, padding: "0 16px", fontSize: 13, opacity: a.busy ? 0.7 : 1 }
                   : { ...S.sm, height: 36, opacity: a.busy ? 0.7 : 1 }}
               >{a.busy ? "Please wait…" : a.label}</button>
             ))}

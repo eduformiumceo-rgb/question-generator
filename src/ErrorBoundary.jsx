@@ -23,7 +23,7 @@ export default class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div style={{ maxWidth: 420, margin: "80px auto", padding: "0 16px", textAlign: "center", fontFamily: "'DM Sans',system-ui,-apple-system,sans-serif" }}>
-          <p style={{ fontSize: 14, color: "var(--text, #0D1117)", marginBottom: 16 }}>
+          <p style={{ fontSize: 15, color: "var(--text, #0D1117)", marginBottom: 16 }}>
             Something went wrong displaying this page. Your exam credits are safe. Nothing is charged just from this.
           </p>
           <button

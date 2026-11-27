@@ -75,7 +75,7 @@ function finish(before, tex, after, inside, sel) {
 const barStyle = { display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 };
 const btn = {
   minWidth: 34, height: 30, padding: "0 8px", borderRadius: 8, border: "1px solid var(--border-strong)",
-  background: "var(--card-bg)", color: "var(--text)", fontSize: 14, cursor: "pointer", fontFamily: "'Times New Roman',Times,serif",
+  background: "var(--card-bg)", color: "var(--text)", fontSize: 15, cursor: "pointer", fontFamily: "'Times New Roman',Times,serif",
 };
 
 export default function MathField({
@@ -134,17 +134,17 @@ export default function MathField({
 
       {pieces.length > 0 && (
         <div className="mf-preview" aria-label="Preview of the formula as it will print" style={compact ? {
-          marginTop: 2, padding: "2px 8px", fontFamily: "'Times New Roman',Times,serif", fontSize: 14.5, lineHeight: 1.6, color: "var(--text)", overflowX: "auto",
+          marginTop: 2, padding: "2px 8px", fontFamily: "'Times New Roman',Times,serif", fontSize: 15, lineHeight: 1.6, color: "var(--text)", overflowX: "auto",
         } : {
           marginTop: 6, padding: "8px 12px", borderRadius: 10, border: "1px dashed var(--border-strong)", background: "var(--input-bg)",
           fontFamily: "'Times New Roman',Times,serif", fontSize: 15, lineHeight: 1.7, color: "var(--text)", overflowX: "auto",
         }}>
-          {!compact && <span style={{ display: "block", fontFamily: F, fontSize: 10.5, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 2 }}>Preview</span>}
+          {!compact && <span style={{ display: "block", fontFamily: F, fontSize: 12, letterSpacing: 0, textTransform: "none", color: "var(--text-muted)", marginBottom: 2 }}>Preview</span>}
           <span dangerouslySetInnerHTML={{ __html: html }} />
         </div>
       )}
       {bad.length > 0 && (
-        <div role="alert" style={{ marginTop: 4, fontSize: 11.5, color: "var(--err-text, #B45309)", fontFamily: F }}>
+        <div role="alert" style={{ marginTop: 4, fontSize: 12, color: "var(--err-text, #B45309)", fontFamily: F }}>
           Check this formula for a typo (a missing bracket or an unknown symbol): <code>{bad[0].math}</code>
         </div>
       )}

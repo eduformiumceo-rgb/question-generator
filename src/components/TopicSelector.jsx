@@ -65,7 +65,7 @@ function saveLastMethod(v) { try { localStorage.setItem(METHOD_KEY, v); } catch 
 const bigBtn = (F, variant, disabled) => ({
   width: "100%", height: 52, padding: "0 20px", borderRadius: 12, boxSizing: "border-box",
   display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center",
-  fontFamily: F, fontSize: 15, fontWeight: 800, letterSpacing: ".02em", lineHeight: 1.2,
+  fontFamily: F, fontSize: 15, fontWeight: 700, letterSpacing: ".02em", lineHeight: 1.2,
   cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.65 : 1,
   WebkitTapHighlightColor: "transparent", touchAction: "manipulation", boxShadow: "none",
   ...(variant === "solid"
@@ -252,7 +252,7 @@ export default function TopicSelector({
     <div style={S.card}>
       <style>{TS_CSS}</style>
       <CardTitle F={F} mb={20} desc="Choose the class first. The subject list is filtered to what's actually taught at that level.">
-        Curriculum <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", letterSpacing: 0 }}>(GES / NaCCA)</span>
+        Curriculum <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", letterSpacing: 0 }}>(GES / NaCCA)</span>
       </CardTitle>
 
       {/* -- STEP 1: Class - always shown first -- */}
@@ -323,7 +323,7 @@ export default function TopicSelector({
       {subjectReady && (
         <div style={{ marginTop: 24, paddingTop: 22, borderTop: "1px solid var(--border)" }}>
           <StepLabel F={F} S={S} n={isSHS ? 4 : 3}>Choose your topics</StepLabel>
-          <div style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, margin: "-2px 0 12px 0" }}>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, margin: "-2px 0 12px 0" }}>
             Pick whichever way is quickest for you.
           </div>
           <input
@@ -340,7 +340,7 @@ export default function TopicSelector({
               onDrop={e => { e.preventDefault(); setDragging(false); if (!schemeBusy) handleSchemeFile(e.dataTransfer.files?.[0]); }}
             >
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                <span className="qa-tag" style={{ fontFamily: F, textTransform: "uppercase", letterSpacing: ".08em" }}>Recommended · fastest</span>
+                <span className="qa-tag" style={{ fontFamily: F, textTransform: "none", letterSpacing: 0 }}>Recommended · fastest</span>
               </div>
               <button
                 type="button" aria-busy={schemeBusy} disabled={schemeBusy}
@@ -361,8 +361,8 @@ export default function TopicSelector({
           {scheme && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", border: "1.5px solid var(--tag-border)", background: "var(--accent-soft)", borderRadius: 12, padding: "10px 14px", fontFamily: F }}>
               <div style={{ flex: "1 1 180px", minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--accent)", overflowWrap: "anywhere" }}>{scheme.name}</div>
-                <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", overflowWrap: "anywhere" }}>{scheme.name}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
                   {scheme.originalLength.toLocaleString()} characters read{scheme.pages ? ` from ${scheme.pages} page${scheme.pages === 1 ? "" : "s"}` : ""}
                 </div>
               </div>
@@ -375,7 +375,7 @@ export default function TopicSelector({
             {schemeError && <div style={{ ...S.err, marginTop: 10, marginBottom: 0 }}><span>{schemeError}</span></div>}
 
             {scheme && !schemeError && (
-              <div style={{ fontSize: 12.5, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, marginTop: 8 }}>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1.5, marginTop: 8 }}>
                 {schemeMatch?.topics.length > 0 ? (
                   <>
                     <b style={{ color: "var(--accent)" }}>Found {schemeMatch.topics.length} topic{schemeMatch.topics.length === 1 ? "" : "s"}</b> in {schemeMatch.strands.length} strand{schemeMatch.strands.length === 1 ? "" : "s"} and selected {schemeMatch.topics.length === 1 ? "it" : "them"}. <button type="button" className="ts-link" onClick={() => setOpenStrands(true)}>Review selection</button>
@@ -450,7 +450,7 @@ export default function TopicSelector({
                     </div>
                     {selectedStrands.map(strandName => (
                       <div key={strandName} style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", fontFamily: F, marginBottom: 4 }}>{strandName}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", fontFamily: F, marginBottom: 4 }}>{strandName}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                           {(subStrandsByStrand[strandName] || []).map(name => {
                             const active = selectedTopics.includes(name);
@@ -483,7 +483,7 @@ export default function TopicSelector({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
               <label style={S.lbl}>{scheme ? "Scheme text (edit to focus the paper on certain weeks)" : "List the topics to be examined"}</label>
               {pastedSyllabus.length > MAX_SYLLABUS_CHARS * 0.8 && (
-                <span style={{ fontSize: 12.5, fontFamily: F, fontWeight: 600, flexShrink: 0, marginBottom: 7, color: pastedSyllabus.length > MAX_SYLLABUS_CHARS ? "var(--err-text)" : "var(--text-muted)" }}>
+                <span style={{ fontSize: 12, fontFamily: F, fontWeight: 600, flexShrink: 0, marginBottom: 7, color: pastedSyllabus.length > MAX_SYLLABUS_CHARS ? "var(--err-text)" : "var(--text-muted)" }}>
                   {pastedSyllabus.length.toLocaleString()} / {MAX_SYLLABUS_CHARS.toLocaleString()}
                 </span>
               )}
@@ -544,7 +544,7 @@ function Accordion({ F, id, open, onToggle, title, sub, badge, children }) {
         }}
       >
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 14.5, fontWeight: 700, lineHeight: 1.3 }}>{title}</span>
+          <span style={{ display: "block", fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>{title}</span>
           {sub && <span style={{ display: "block", fontSize: 13, fontWeight: 400, color: "var(--text-muted)", marginTop: 2, lineHeight: 1.4 }}>{sub}</span>}
         </span>
         {badge && (

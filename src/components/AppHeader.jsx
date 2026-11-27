@@ -128,7 +128,7 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
             <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display',serif", letterSpacing: 0, lineHeight: 1, display: "flex", alignItems: "baseline" }}>
               <span style={{ color: "var(--logo-edu)" }}>Edu</span><span style={{ color: "var(--logo-formium)" }}>formium</span>
             </div>
-            <div className="qh-brand-sub" style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: F, lineHeight: 1, letterSpacing: ".02em", marginTop: 3, whiteSpace: "nowrap" }}>
+            <div className="qh-brand-sub" style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, lineHeight: 1, letterSpacing: ".02em", marginTop: 3, whiteSpace: "nowrap" }}>
               Assessment Studio
             </div>
           </div>
@@ -150,7 +150,7 @@ export default function AppHeader({ user, creditBalance, toDisplayCredits, onSig
 
               <button className={`qh-hbg${menuOpen ? " is-open" : ""}`} onClick={() => setMenuOpen((o) => !o)} aria-label="Menu" aria-expanded={menuOpen}>
                 <span className="qh-avatar">
-                  <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: F, userSelect: "none" }}>
+                  <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: F, userSelect: "none" }}>
                     {user ? getInitials(user) : "G"}
                   </span>
                   {isUsableAvatarURL(user?.avatar_url) && (

@@ -115,7 +115,7 @@ export default function AuthCallback() {
         boxShadow: "none",
       }}>
         {/* Brand */}
-        <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display',serif", marginBottom: 32 }}>
+        <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'Playfair Display',serif", marginBottom: 32 }}>
           <span style={{ color: "var(--logo-edu)" }}>Edu</span>
           <span style={{ color: "var(--logo-formium)" }}>formium</span>
         </div>
@@ -129,7 +129,7 @@ export default function AuthCallback() {
                   strokeDasharray="31" strokeDashoffset="10" strokeLinecap="round"/>
               </svg>
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text, #0D1117)", marginBottom: 6 }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text, #0D1117)", marginBottom: 6 }}>
               Signing you in…
             </div>
             <div style={{ fontSize: 13, color: "var(--text-muted, #5A6478)" }}>
@@ -146,7 +146,7 @@ export default function AuthCallback() {
                 <path d="M7.5 12.5l3 3 6-6" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text, #0D1117)", marginBottom: 6 }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text, #0D1117)", marginBottom: 6 }}>
               You're in!
             </div>
             <div style={{ fontSize: 13, color: "var(--text-muted, #5A6478)" }}>
@@ -163,7 +163,7 @@ export default function AuthCallback() {
                 <path d="M12 7v5M12 16h.01" stroke="#B91C1C" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text, #0D1117)", marginBottom: 8 }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text, #0D1117)", marginBottom: 8 }}>
               Sign-in failed
             </div>
             <div style={{ fontSize: 13, color: "var(--err-text, #B91C1C)", marginBottom: 24, lineHeight: 1.6 }}>
@@ -174,7 +174,7 @@ export default function AuthCallback() {
               style={{
                 background: "linear-gradient(135deg,#0D9488,#0F766E)",
                 color: "#fff", border: "none", borderRadius: 10,
-                padding: "12px 28px", fontSize: 14, fontWeight: 600,
+                padding: "12px 28px", fontSize: 15, fontWeight: 600,
                 fontFamily: F, cursor: "pointer",
               }}>
               Back to home

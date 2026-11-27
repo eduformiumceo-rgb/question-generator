@@ -72,7 +72,7 @@ describe("Shading sheet option in the generator screen", () => {
     await u.selectOptions(selectFor("Subject"), "Biology (GS)");
     await openShadingTab(u);
     const card = await screen.findByTestId("shading-card");
-    expect(card.textContent).toMatch(/Sheet Layout/);
+    expect(card.textContent).toMatch(/Sheet layout/);
     expect(screen.getByRole("button", { name: /WASSCE-type sheet/i }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: /^School colour$/i }).getAttribute("aria-pressed")).toBe("true");
     expect(card.textContent).toMatch(/210 × 297 mm/);
@@ -109,8 +109,8 @@ describe("Shading sheet option in the generator screen", () => {
     expect(window.location.hash).toBe("#booklet");
     expect(screen.queryByTestId("shading-card")).toBeNull();                    // not on the Shading Sheet tab any more
     const card = await screen.findByTestId("booklet-card");
-    expect(card.textContent).toMatch(/Answer Booklet/);
-    expect(screen.getByText("School & Exam Details")).toBeTruthy();             // the same school details are on this tab
+    expect(card.textContent).toMatch(/Booklet layout/);
+    expect(screen.getByText("School details")).toBeTruthy();             // the same school details are on this tab
     // one colour only: a single picker, no "accent" colour
     expect(screen.getByLabelText("School colour")).toBeTruthy();
     expect(screen.queryByLabelText(/accent/i)).toBeNull();
