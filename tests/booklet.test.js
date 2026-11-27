@@ -39,7 +39,7 @@ describe("A4 booklet", () => {
     expect(h).toContain('data-paper="a4"'); expect(h).toContain('data-pages="8"');
     expect(count(h, /<section class="page /g)).toBe(8);
     expect(count(h, /<section class="page rt cover">/g)).toBe(1);
-    expect(h).toContain("Page 1 of 8");
+    expect(h).not.toContain("Page 1 of");
     expect(h).toContain("END OF BOOKLET"); expect(count(h, /Turn over/g)).toBe(6);
   });
   it("mirrors the binding gutter: odd pages are right-hand, even pages left-hand", () => {
@@ -92,9 +92,10 @@ describe("A3 landscape booklet", () => {
 describe("booklet cover", () => {
   const h = bk();
   it("carries everything the question paper's cover carries", () => {
-    for (const t of ["Achimota Senior High School", "Ut Omnes Unum Sint", "DO NOT OPEN THIS BOOKLET", "ESSAY", "2 HOURS 30 MINUTES", "Paper 1 and Paper 2", "Term 2", "150 mins", "FOR EXAMINER'S USE ONLY", "Instructions to Candidates", "Candidate's Name:", "Index Number", "VERSION B"]) expect(h.toLowerCase()).toContain(t.toLowerCase());
-    expect(h).toContain('<div class="cb">2</div>');
-    expect(h).toContain('>SUBJECT<'); expect(h).toContain('>CLASS<');
+    for (const t of ["Achimota Senior High School", "Ut Omnes Unum Sint", "DO NOT OPEN THIS BOOKLET", "Term 2", "150 mins", "FOR EXAMINER'S USE ONLY", "Instructions to Candidates", "Candidate's Name", "Index Number", "VERSION B"]) expect(h.toLowerCase()).toContain(t.toLowerCase());
+    expect(h).toContain('<b class="cb">2</b>');
+    expect(h).toContain(">Subject<"); expect(h).toContain(">Class<");
+    for (const t of ["ESSAY", "OBJECTIVE", "2 HOURS 30 MINUTES", "Paper 1 and Paper 2", "crule", "wrow"]) expect(h).not.toContain(t);
     expect(h).toContain(">100<");                                  // total marks
   });
   it("has its own identity: a school-colour masthead with the logo on a white disc and a ruled title plate", () => {
@@ -106,8 +107,8 @@ describe("booklet cover", () => {
   it("boxes mode prints the index boxes; line mode prints a line; none prints neither", () => {
     expect(count(bk({ meta: { ...meta, idMode: "boxes", idDigits: 8 } }), /<span class="idc">(<i><\/i>){8}<\/span>/g)).toBe(1);
     const line = bk({ meta: { ...meta, idMode: "line" } });
-    expect(line).not.toContain('class="idc"'); expect(line).toContain("Index No.:");
-    expect(bk({ meta: { ...meta, idMode: "none" } })).not.toContain("Index No.:");
+    expect(line).not.toContain('class="idc"'); expect(line).toContain('<span class="fl">Index No.</span>');
+    expect(bk({ meta: { ...meta, idMode: "none" } })).not.toContain('<span class="fl">Index No.');
   });
   it("leaves out the notice and code boxes when the paper has none", () => {
     const x = bk({ meta: { ...meta, notice: false, coverCode: null } });
@@ -188,8 +189,7 @@ describe("blank subject and class", () => {
   it("never prints the subject or the class: they are empty write-in fields", () => {
     expect(h).not.toContain("Elective Mathematics"); expect(h.toUpperCase()).not.toContain("ELECTIVE MATHEMATICS");
     expect(h).not.toContain("SHS 3"); expect(h).not.toContain("Science");
-    expect(h).toContain('<div class="wrow"><span>SUBJECT</span><i></i></div>');
-    expect(h).toContain('<div class="wrow"><span>CLASS</span><i></i></div>');
+    expect(h).toContain('<span class="fl">Subject</span>'); expect(h).toContain('<span class="fl">Class</span>');
   });
   it("the shading sheets print an empty CLASS box and no class in the heading", () => {
     for (const style of ["bece", "wassce"]) {
@@ -201,11 +201,11 @@ describe("blank subject and class", () => {
 });
 
 describe("custom pages, page numbers, graph paper, 40 questions", () => {
-  it("shows page numbers by default and hides every one when switched off", () => {
-    const on = bk({ pages: 6 }), off = bk({ pages: 6, pageNumbers: false });
-    expect(on).toContain("Page 1 of 6"); expect(count(on, /class="ipn"/g)).toBe(5);
-    expect(off).not.toContain("Page 1 of"); expect(count(off, /class="ipn"/g)).toBe(0);
-    expect(off).toContain("END OF BOOKLET");
+  it("prints no page numbers: each answer page has an empty Page No. box at the top right", () => {
+    const h6 = bk({ pages: 6 });
+    expect(h6).not.toContain("Page 1 of"); expect(count(h6, /class="ipn"/g)).toBe(0);
+    expect(count(h6, /class="pgno"/g)).toBe(5);                  // every page except the cover
+    expect(h6).toContain("END OF BOOKLET");
   });
   it("graph paper draws a 5 mm grid on every answer page", () => {
     const g = bk({ pages: 4, ruling: "graph" });

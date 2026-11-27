@@ -145,7 +145,6 @@ function QuestionsGeneratorInner() {
   const [bookletPages, setBookletPages] = useState(BOOKLET_DEFAULT_PAGES);
   const [bookletPaper, setBookletPaper] = useState(clampBookletPaper(savedPrefs.bookletPaper));   // "a4" portrait pages, or "a3" landscape sheets folded in half
   const [bookletRuling, setBookletRuling] = useState("lined");   // "lined" | "graph" | "plain"
-  const [bookletPageNumbers, setBookletPageNumbers] = useState(savedPrefs.bookletPageNumbers !== false);   // page numbers on the booklet: shown unless switched off
   const [bookletQuestions, setBookletQuestions] = useState(null); // null = count from the paper's theory questions
   // The sheet's own class / exam type / term. null = follow the paper. Setting them here never changes the Assessment form.
   const [sheetClass, setSheetClass] = useState(null);
@@ -281,9 +280,9 @@ function QuestionsGeneratorInner() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ schoolName, schoolMotto, emblem, optionsLayout, paperPreset: presetChosenByUser.current ? paperPreset : undefined, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver, bookletPaper, bookletPageNumbers }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ schoolName, schoolMotto, emblem, optionsLayout, paperPreset: presetChosenByUser.current ? paperPreset : undefined, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver, bookletPaper }));
     } catch { /* storage unavailable: nothing to remember, nothing breaks */ }
-  }, [schoolName, schoolMotto, emblem, optionsLayout, paperPreset, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver, bookletPaper, bookletPageNumbers]);
+  }, [schoolName, schoolMotto, emblem, optionsLayout, paperPreset, sheetStyle, sheetColourMode, sheetColours, sheetOptions, idMode, idDigits, idLabel, notice, turnOver, bookletPaper]);
   useEffect(() => {
     try {
       if (schoolLogo && schoolLogo.length < 900000) localStorage.setItem(LOGO_KEY, schoolLogo);
@@ -1019,10 +1018,9 @@ function QuestionsGeneratorInner() {
     if ("pages" in patch) setBookletPages(clampBookletPages(patch.pages));
     if ("ruling" in patch) setBookletRuling(patch.ruling);
     if ("questions" in patch) setBookletQuestions(patch.questions);
-    if ("pageNumbers" in patch) setBookletPageNumbers(!!patch.pageNumbers);
   };
   const bookletHtml = showBookletPreview ? renderAnswerBookletHTML({
-    pages: bookletPages, paper: bookletPaper, questions: bookletCount, ruling: bookletRuling, pageNumbers: bookletPageNumbers, colourMode: shadeColourMode, colours: sheetColours,
+    pages: bookletPages, paper: bookletPaper, questions: bookletCount, ruling: bookletRuling, colourMode: shadeColourMode, colours: sheetColours,
     meta: { ...meta, className: effClass, term: effTerm, examType: effExamType, ...(sameAsPaper ? { durationMinutes, totalMarks: bookletTotalMarks, ...bookletCover } : { subject: "", programme: "" }) },
     crestSVG: !schoolLogo && emblem !== "none" ? schoolCrestSVG(schoolName) : "", preview: true,
   }) : "";
@@ -1650,7 +1648,7 @@ function QuestionsGeneratorInner() {
           {effClass ? (
             <div>
             <BookletPanel S={S} F={F} colourGroup={colourGroup}
-              cfg={{ paper: bookletPaper, pages: bookletPages, ruling: bookletRuling, questions: bookletQuestions, pageNumbers: bookletPageNumbers }}
+              cfg={{ paper: bookletPaper, pages: bookletPages, ruling: bookletRuling, questions: bookletQuestions }}
               set={setBookletCfg} autoQuestions={autoBookletCount} questionCount={bookletCount}
               suggested={bookletSuggested} printed={bookletPrinted} sheets={bookletSheetCount(bookletPages, "a3")} onPreview={openAnswerBooklet} />
             </div>

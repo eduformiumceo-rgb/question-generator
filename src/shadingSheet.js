@@ -188,13 +188,13 @@ export function renderShadingSheetHTML(o = {}) {
 
 /**
  * The ANSWER BOOKLET for hand-written (structured / essay) questions. See bookletSheet.js.
- * @param {object} o  { pages, paper "a4" | "a3", questions (rows in the examiner's table), ruling "lined" | "graph" | "plain", pageNumbers (default true), colourMode, colours, meta, crestSVG, preview }
+ * @param {object} o  { pages, paper "a4" | "a3", questions (rows in the examiner's table), ruling "lined" | "graph" | "plain", colourMode, colours, meta, crestSVG, preview }
  */
 export function renderAnswerBookletHTML(o = {}) {
   const meta = o.meta || {};
   const pal = sheetPalette({ colourMode: o.colourMode || "school", ...(o.colours || {}) });
   return renderBookletHTML({
-    pal, esc, mm, logoMarkup: crestFor(meta, o.crestSVG), meta, mix, pages: o.pages, questions: o.questions, ruling: o.ruling, paper: o.paper, pageNumbers: o.pageNumbers,
+    pal, esc, mm, logoMarkup: crestFor(meta, o.crestSVG), meta, mix, pages: o.pages, questions: o.questions, ruling: o.ruling, paper: o.paper,
     preview: !!o.preview, softInk: pal.mono ? "#8a8a8a" : mix(pal.ink, "#FFFFFF", 0.55),
   });
 }

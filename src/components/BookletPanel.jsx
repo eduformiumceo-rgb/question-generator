@@ -5,7 +5,7 @@
  * Props
  *   S, F                 shared styles and font
  *   colourGroup          the colour picker node (shared with the Shading Sheet tab)
- *   cfg                  { paper, pages, ruling, questions, pageNumbers }   (questions = null means "count from the paper")
+ *   cfg                  { paper, pages, ruling, questions }   (questions = null means "count from the paper")
  *   set                  (patch) => void   merge a change into cfg
  *   autoQuestions        number of hand-written questions in the paper (0 when unknown)
  *   questionCount        the count actually used for the examiner's table
@@ -30,7 +30,7 @@ export default function BookletPanel({ S, F, colourGroup, cfg, set, autoQuestion
 
   return (
     <div style={S.card} data-testid="booklet-card">
-      <CardTitle F={F} mb={14} desc="For your structured and essay questions: a cover with your school's masthead, the examiner's marks table and answer pages with a question-number margin. Subject and class are left blank for the candidate to write. Choose A4 pages, or A3 sheets that fold in half.">Answer Booklet</CardTitle>
+      <CardTitle F={F} mb={14} desc="For your structured and essay questions: a cover with your school's masthead, the examiner's marks table and answer pages with a question-number margin and an empty Page No. box for the candidate. Subject and class are left blank for the candidate to write. Choose A4 pages, or A3 sheets that fold in half.">Answer Booklet</CardTitle>
       {colourGroup}
       <div className="qa-group">
         <label style={S.lbl}>Paper size</label>
@@ -73,13 +73,6 @@ export default function BookletPanel({ S, F, colourGroup, cfg, set, autoQuestion
               ))}
             </div>
           </div>
-        </div>
-      </div>
-      <div className="qa-group">
-        <label style={S.lbl}>Page numbers</label>
-        <div style={{ display: "flex", gap: 8 }} role="group" aria-label="Page numbers">
-          <button type="button" className="qa-chip" aria-pressed={cfg.pageNumbers} onClick={() => set({ pageNumbers: true })}>Show</button>
-          <button type="button" className="qa-chip" aria-pressed={!cfg.pageNumbers} onClick={() => set({ pageNumbers: false })}>Hide</button>
         </div>
       </div>
       <div className="qa-group">

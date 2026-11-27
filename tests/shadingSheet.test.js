@@ -338,14 +338,14 @@ describe("answer booklet", () => {
     expect(count(h, /<section class="page rt cover">/g)).toBe(1);
     expect(h).toContain('data-pages="12"');
     expect(h).toContain("ANSWER BOOKLET");
-    expect(h).toContain("Page 1 of 12");
+    expect(h).not.toContain("Page 1 of");
     expect(h).toContain("Turn over");
     expect(h).toContain("END OF BOOKLET");
     expect(count(h, /END OF BOOKLET/g)).toBe(1);
   });
   it("cover has the candidate fields, the instructions and the examiner's table with one row per question", () => {
     const h = bk({ pages: 8, questions: 12 });
-    for (const t of ["Candidate's Name:", "Index Number", "Instructions to Candidates", "FOR EXAMINER'S USE ONLY", "TOTAL"]) expect(h).toContain(t);
+    for (const t of ["Candidate's Name", "Index Number", "Instructions to Candidates", "FOR EXAMINER'S USE ONLY", "TOTAL"]) expect(h).toContain(t);
     for (let q = 1; q <= 12; q++) expect(count(h, new RegExp(`<td class="qq">${q}</td>`, "g"))).toBe(1);
     expect(h).not.toContain('<td class="qq">13</td>');
     expect(count(h, /<table class="et">/g)).toBe(2);                       // 12 questions: two tables of ten rows
@@ -355,7 +355,7 @@ describe("answer booklet", () => {
     const h = bk({ pages: 8, questions: 5 });
     expect(count(h, /class="mg-note"/g)).toBe(7);
     expect(count(h, /<span class="ih-r">/g)).toBe(7);
-    for (let p = 2; p <= 8; p++) expect(h).toContain(`<span class="ipn">${p}</span>`);
+    expect(count(h, /class="pgno"/g)).toBe(7); expect(h).not.toContain('class="ipn"');
     expect(count(h, /<svg class="ruled"/g)).toBe(7);
     expect(count(h, /<line /g)).toBe(7 * bookletLineCount());
   });

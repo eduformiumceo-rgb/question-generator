@@ -126,7 +126,6 @@ export function renderBookletHTML(h) {
   const pages = bookletPageCount(h.pages, paper);
   const nq = clampBookletQuestions(h.questions || 8);
   const ruling = h.ruling === "plain" ? "plain" : h.ruling === "graph" ? "graph" : "lined";
-  const showPN = h.pageNumbers !== false;                  // page numbers can be switched off
   const ink = pal.ink;
   const rule2 = pal.ink;
   const lineCol = h.softInk || "#8a8f98";
@@ -134,7 +133,7 @@ export function renderBookletHTML(h) {
   const digits = Math.max(4, Math.min(12, Math.round(Number(meta.idDigits) || 10)));
   const idMode = ["line", "boxes", "none"].includes(meta.idMode) ? meta.idMode : "boxes";
   // SUBJECT and CLASS are never printed: they are blank write-in fields, so one printed booklet serves any subject or class.
-  const termLine = formalExamType(meta.examType) || "";
+  const termLine = [formalExamType(meta.examType), String(meta.term || "").trim()].filter(Boolean).join("  \u00B7  ");
   const version = String(meta.examVersion || "").toUpperCase();
   const mastSide = 28 + 4;                                   // logo disc on the left, balanced by empty space on the right
   const fit = fitSchoolName(name, g.CW - 2 * mastSide);
@@ -144,13 +143,17 @@ export function renderBookletHTML(h) {
   /* ---------- cover (mirrors the question paper's cover page) ---------- */
   const idLabel = String(meta.idLabel || "").trim() || (idMode === "boxes" ? "Index Number" : "Index No.");
   const metaCell = (label, value) => `<td><div class="ml">${esc(label)}</div><div class="mv">${esc(value) || "&nbsp;"}</div></td>`;
-  const candidate = idMode === "boxes" ? `
+  // One boxed form for the candidate: labelled write-in cells (small caps label, blank space to write in).
+  // Subject and class are never printed, so one printed booklet serves any subject or class.
+  const fcell = (label, cls = "") => `<div class="fc ${cls}"><span class="fl">${esc(label)}</span></div>`;
+  const idCell = idMode === "boxes"
+    ? `<div class="fc fidb"><span class="fl">${esc(idLabel)}</span><span class="idc">${"<i></i>".repeat(digits)}</span></div>`
+    : idMode === "line" ? fcell(idLabel, "fid") : "";
+  const candidate = `
       <div class="cand">
-        <div class="cr"><div class="cf grow"><span>Candidate's Name:</span><i></i></div><div class="cf wd"><span>Date:</span><i></i></div></div>
-        <div class="cr idr"><span class="idl">${esc(idLabel)}</span><span class="idc">${"<i></i>".repeat(digits)}</span></div>
-      </div>` : `
-      <div class="cand">
-        <div class="cr"><div class="cf grow"><span>Name:</span><i></i></div>${idMode === "line" ? `<div class="cf wi"><span>${esc(idLabel)}:</span><i></i></div>` : ""}<div class="cf wd"><span>Date:</span><i></i></div></div>
+        <div class="fr">${fcell("Candidate's Name", "w1")}</div>
+        <div class="fr">${fcell("Subject", "w2")}${fcell("Class", "w3")}</div>
+        <div class="fr">${idCell}${fcell("Date", idMode === "boxes" ? "fdate" : "w3")}</div>
       </div>`;
 
   const { cols: exCols, rows: exRows } = examinerGrid(nq);
@@ -184,17 +187,10 @@ export function renderBookletHTML(h) {
     <div class="mast-line"></div>
     <div class="etitle"><i class="er"></i><span class="ttl">ANSWER BOOKLET</span><i class="er"></i>${version ? `<span class="ver">VERSION ${esc(version)}</span>` : ""}</div>
     ${noticeText ? `<div class="notice">${esc(noticeText)}</div>` : ""}
-    ${cc ? `<div class="codebox"><div class="cl"><div>${esc(cc.kind)}</div><div>${esc(cc.duration)}</div></div><div class="cb">${esc(cc.code)}</div></div>` : ""}
-    <div class="csub">
-      <div class="crule"></div>
-      <div class="wrow"><span>SUBJECT</span><i></i></div>
-      <div class="wrow"><span>CLASS</span><i></i></div>
-      ${termLine ? `<div class="cline">${esc(termLine)}</div>` : ""}
-      ${meta.paperNames ? `<div class="cpap">${esc(meta.paperNames)}</div>` : ""}
-      <div class="crule"></div>
-    </div>
-    ${(meta.term || meta.durationMinutes || meta.totalMarks) ? `<table class="meta">
-      <tr>${meta.term ? metaCell("Term", meta.term) : ""}${meta.durationMinutes ? metaCell("Duration", `${meta.durationMinutes} mins`) : ""}${meta.totalMarks ? metaCell("Total Marks", meta.totalMarks) : ""}</tr>
+    ${cc && cc.code ? `<div class="codebox"><span>Paper</span><b class="cb">${esc(cc.code)}</b></div>` : ""}
+    ${termLine ? `<div class="cline">${esc(termLine)}</div>` : ""}
+    ${(meta.durationMinutes || meta.totalMarks) ? `<table class="meta">
+      <tr>${meta.durationMinutes ? metaCell("Duration", `${meta.durationMinutes} mins`) : ""}${meta.totalMarks ? metaCell("Total Marks", meta.totalMarks) : ""}</tr>
     </table>` : ""}
     ${candidate}
     ${examiner}
@@ -208,7 +204,6 @@ export function renderBookletHTML(h) {
         <li>Hand in this booklet, with all extra sheets, before you leave the examination room.</li>
       </ol>
     </div>
-    ${showPN ? `<div class="pg">Page 1 of ${pages}</div>` : ""}
   </section>`;
 
   /* ---------- inner pages ---------- */
@@ -234,14 +229,15 @@ export function renderBookletHTML(h) {
     <div class="ih">
       <span class="ih-l">${esc(shortName)}</span>
       <span class="ih-c"><b>ANSWER BOOKLET</b></span>
-      <span class="ih-r">Index No. <span class="ibs mini">${miniId}</span></span>
+      <span class="ih-p"><span class="pgno"><span>Page No.</span><i></i></span></span>
     </div>
+    <div class="ih2"><span class="ih2-l">Candidate's Name</span><span class="ih-r">Index No. <span class="ibs mini">${miniId}</span></span></div>
     <div class="irule1"></div><div class="irule2"></div>
     <div class="mg-label">Question<br>No.</div>
     <div class="mg" style="left:var(--L);top:${mm(I.linesTop - 6)};height:${mm(I.linesBottom - I.linesTop + 6 + 0.2)};width:${mm(I.marginW)}"></div>
     <div class="mg-note" style="top:${mm(I.linesTop - 5.4)}">Do not write in the margin</div>
     ${linesSVG()}
-    <div class="ifoot"><span class="ifm">${p === pages ? "END OF BOOKLET" : "Turn over"}</span>${showPN ? `<span class="ipn">${p}</span>` : ""}</div>
+    <div class="ifoot"><span class="ifm">${p === pages ? "END OF BOOKLET" : "Turn over"}</span></div>
   </section>`;
 
   const pageHTML = (p) => (p === 1 ? cover : innerPage(p));
@@ -287,7 +283,7 @@ export function renderBookletHTML(h) {
     : `.page{page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}`}
 
   /* ---- cover: the same parts and look as the question paper's cover page (flowing column, so it adapts) ---- */
-  .cover{display:flex;flex-direction:column;padding:${mm(50)} calc(${mm(g.W)} - var(--L) - var(--CW)) ${mm(11)} var(--L)}
+  .cover{display:flex;flex-direction:column;row-gap:${mm(4)};padding:${mm(50)} calc(${mm(g.W)} - var(--L) - var(--CW)) ${mm(11)} var(--L)}
   .mast{position:absolute;left:0;top:0;width:${mm(g.W)};height:${mm(42)};background:${pal.band};color:${pal.onBand};display:flex;align-items:center;padding:0 calc(${mm(g.W)} - var(--L) - var(--CW)) 0 var(--L)}
   .mast-logo{width:${mm(28)};height:${mm(28)};border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
   .mast-logo .logo{max-width:${mm(23)};max-height:${mm(23)};object-fit:contain;display:block}
@@ -298,65 +294,64 @@ export function renderBookletHTML(h) {
   .school{font-weight:800;line-height:1.14;text-transform:uppercase;letter-spacing:.05em;color:${pal.onBand}}
   .motto{margin-top:${mm(1.2)};font-size:${mm(2.7)};font-style:italic;opacity:.88;color:${pal.onBand}}
   .mast-line{position:absolute;left:0;top:${mm(42)};width:${mm(g.W)};height:${mm(1.3)};background:${mixFn(pal.band, "#FFFFFF", 0.55)}}
-  .etitle{flex:none;display:flex;align-items:center;justify-content:center;gap:${mm(4)};margin:${mm(1)} 0 ${mm(3.4)}}
+  .etitle{flex:none;display:flex;align-items:center;justify-content:center;gap:${mm(4)};margin:${mm(1)} 0 0}
   .ttl{font-size:${mm(5.8)};font-weight:800;letter-spacing:.16em;white-space:nowrap}
-  .er{flex:1;display:block;height:${mm(1.4)};border-top:${mm(MID)} solid ${ink};border-bottom:${mm(THIN)} solid ${ink}}
+  .er{flex:1;display:block;height:0;border-top:${mm(MID)} solid ${ink}}
   .ver{font-size:${mm(3)};font-weight:700;letter-spacing:.06em;border:${mm(THIN)} solid ${ink};padding:${mm(0.3)} ${mm(2)};white-space:nowrap}
-  .notice{flex:none;margin-bottom:${mm(3)};border:${mm(MID)} solid ${ink};text-align:center;font-weight:800;text-transform:uppercase;letter-spacing:.09em;font-size:${mm(3.1)};padding:${mm(1.4)} ${mm(3)}}
-  .codebox{flex:none;width:${mm(76)};display:flex;align-items:center;justify-content:space-between;border:${mm(MID)} solid ${ink};padding:${mm(1.4)} ${mm(3.4)};font-size:${mm(2.5)};font-weight:700;line-height:1.35;text-transform:uppercase}
+  .notice{flex:none;border:${mm(MID)} solid ${ink};text-align:center;font-weight:800;text-transform:uppercase;letter-spacing:.09em;font-size:${mm(3.1)};padding:${mm(1.4)} ${mm(3)}}
+  .codebox{flex:none;align-self:center;display:flex;align-items:center;gap:${mm(3)};border:${mm(MID)} solid ${ink};padding:${mm(1)} ${mm(4)};font-size:${mm(2.6)};font-weight:700;letter-spacing:.14em;text-transform:uppercase}
   .cb{font-size:${mm(9)};font-weight:800;font-family:Georgia,"Times New Roman",serif;color:${ink}}
-  .csub{flex:1;min-height:${mm(30)};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:${mm(2.2)};padding:${mm(2)} 0}
-  .crule{width:55%;height:${mm(1.4)};border-top:${mm(MID)} solid ${ink};border-bottom:${mm(THIN)} solid ${rule2}}
-  .wrow{width:78%;display:flex;align-items:flex-end;gap:${mm(3)};font-size:${mm(5.2)};font-weight:800;letter-spacing:.1em}
-  .wrow span{white-space:nowrap;width:${mm(32)};text-align:left}.wrow i{flex:1;display:block;height:${mm(7)};border-bottom:${mm(MID)} solid ${ink}}
   .cname{font-size:${mm(8)};font-weight:800;text-transform:uppercase;letter-spacing:.07em;line-height:1.15}
-  .cline{font-size:${mm(3.6)};letter-spacing:.06em;text-transform:uppercase;font-weight:600}
-  .cpap{font-size:${mm(3.2)};font-style:italic}
+  .cline{flex:none;text-align:center;font-size:${mm(3.6)};letter-spacing:.08em;text-transform:uppercase;font-weight:600;margin:0}
   .meta{flex:none;width:100%;border-collapse:collapse;border:${mm(MID)} solid ${ink};table-layout:fixed}
   .meta td{border-right:${mm(THIN)} solid ${ink};padding:${mm(1)} ${mm(2.2)} ${mm(1.2)};vertical-align:top}
   .meta td:last-child{border-right:none}
-  .ml{font-size:${mm(2.1)};font-weight:700;text-transform:uppercase;letter-spacing:.1em;opacity:.8}
+  .ml{font-size:${mm(2.5)};font-weight:700;text-transform:uppercase;letter-spacing:.1em;opacity:.8}
   .mv{font-size:${mm(3.4)};font-weight:800;line-height:1.3}
-  .cand{flex:none;margin-top:${mm(5)};font-size:${mm(3.5)}}
-  .cr{display:flex;align-items:flex-end;gap:${mm(5)}}.cr + .cr{margin-top:${mm(4)}}
-  .cf{display:flex;align-items:flex-end;gap:${mm(1.6)}}.cf.grow{flex:1}.cf.wd{width:28%}.cf.wi{width:30%}
-  .cf span{white-space:nowrap;font-weight:700}.cf i{flex:1;border-bottom:${mm(THIN)} solid ${ink};height:${mm(4.4)}}
-  .idr{align-items:center;gap:${mm(3.4)}}.idl{font-weight:700;white-space:nowrap}
+  .cand{flex:none;margin-top:auto;border:${mm(MID)} solid ${ink}}
+  .fr{display:flex}.fr + .fr{border-top:${mm(THIN)} solid ${ink}}
+  .fc{position:relative;flex:1;height:${mm(17)};padding:${mm(1.4)} ${mm(2.6)}}
+  .fc + .fc{border-left:${mm(THIN)} solid ${ink}}
+  .fc.w2{flex:2.2}.fc.w3{flex:1}.fc.fdate{flex:1}.fc.fid{flex:1.2}.fc.fidb{flex:none;display:flex;align-items:center;gap:${mm(3)}}
+  .fl{font-size:${mm(2.6)};font-weight:800;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
   .idc{display:inline-flex}.idc i{display:block;width:${mm(8.4)};height:${mm(9.4)};border:${mm(MID)} solid ${ink};margin-left:${mm(-MID)};background:#fff}.idc i:first-child{margin-left:0}
-  .exam-box{flex:none;margin-top:${mm(5)};border:${mm(LINE)} solid ${ink};background:#fff}
-  .exam-t{background:${pal.band};color:${pal.onBand};font-size:${mm(2.7)};font-weight:800;letter-spacing:.14em;padding:${mm(1.1)} ${mm(3)}}
+  .exam-box{flex:none;margin-top:auto;border:${mm(LINE)} solid ${ink};background:#fff}
+  .exam-t{background:${pal.band};color:${pal.onBand};font-size:${mm(3)};font-weight:800;letter-spacing:.14em;padding:${mm(1.1)} ${mm(3)}}
   .ets{display:flex}
-  .et{flex:1;border-collapse:collapse;font-size:${mm(2.4)}}
+  .et{flex:1;border-collapse:collapse;font-size:${mm(2.9)}}
   .et + .et{border-left:${mm(THIN)} solid ${ink}}
-  .et th{font-weight:800;letter-spacing:.03em;padding:${mm(0.7)} ${mm(0.8)};border-bottom:${mm(THIN)} solid ${ink};border-right:${mm(THIN)} solid ${ink};font-size:${mm(2.2)}}
+  .et th{font-weight:800;letter-spacing:.03em;padding:${mm(0.7)} ${mm(0.8)};border-bottom:${mm(THIN)} solid ${ink};border-right:${mm(THIN)} solid ${ink};font-size:${mm(2.6)}}
   .et th:last-child,.et td:last-child{border-right:none}
-  .et td{height:${mm(4.7)};border-bottom:${mm(THIN)} solid ${ink};border-right:${mm(THIN)} solid ${ink};text-align:center;font-weight:700}
+  .et td{height:${mm(6.4)};border-bottom:${mm(THIN)} solid ${ink};border-right:${mm(THIN)} solid ${ink};text-align:center;font-weight:700}
   .et tr:last-child td{border-bottom:none}
   .et td.qq{width:${mm(14)}}
-  .total{display:flex;align-items:flex-end;gap:${mm(2)};padding:${mm(1.6)} ${mm(3)} ${mm(1.3)};border-top:${mm(LINE)} solid ${ink};font-size:${mm(2.6)};font-weight:800;letter-spacing:.06em}
+  .total{display:flex;align-items:flex-end;gap:${mm(2)};padding:${mm(1.8)} ${mm(3)} ${mm(1.5)};border-top:${mm(LINE)} solid ${ink};font-size:${mm(3)};font-weight:800;letter-spacing:.06em}
   .total i{display:block;width:${mm(26)};border-bottom:${mm(THIN)} solid ${ink};height:${mm(3.2)}}.total i.w{width:${mm(44)}}.total .chk{margin-left:auto}
-  .ins{flex:none;margin-top:${mm(5)};border:${mm(THIN)} solid ${ink};padding:${mm(1.6)} ${mm(3.4)} ${mm(1.4)};font-size:${mm(2.5)};line-height:1.32}
-  .ins-t{font-weight:800;text-transform:uppercase;letter-spacing:.1em;font-size:${mm(2.5)};border-bottom:${mm(THIN)} solid ${ink};padding-bottom:${mm(0.7)};margin-bottom:${mm(0.8)}}
+  .ins{flex:none;margin-top:auto;border:${mm(THIN)} solid ${ink};padding:${mm(2.2)} ${mm(3.8)} ${mm(2)};font-size:${mm(3)};line-height:1.38}
+  .ins-t{font-weight:800;text-transform:uppercase;letter-spacing:.1em;font-size:${mm(2.9)};border-bottom:${mm(THIN)} solid ${ink};padding-bottom:${mm(0.9)};margin-bottom:${mm(1)}}
   .ins ol{margin:0 0 0 ${mm(4)}}.ins li{margin:${mm(0.2)} 0}
-  .pg{position:absolute;left:0;right:0;bottom:${mm(5)};text-align:center;font-size:${mm(2.4)};font-weight:700}
 
   /* ---- inner pages ---- */
-  .ih{position:absolute;left:var(--L);top:${mm(I.headTop)};width:var(--CW);display:flex;align-items:center;justify-content:space-between;gap:${mm(4)};font-size:${mm(2.5)};font-weight:700}
+  .ih{position:absolute;left:var(--L);top:${mm(3.4)};width:var(--CW);display:flex;align-items:center;justify-content:space-between;gap:${mm(4)};font-size:${mm(2.8)};font-weight:700}
   .ih-l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;letter-spacing:.04em}
   .ih-c{flex:none;display:flex;flex-direction:column;align-items:center;line-height:1.25;letter-spacing:.08em}.ih-c b{font-weight:800}.ih-c small{font-size:${mm(2.1)};font-weight:700;opacity:.8;text-transform:uppercase;letter-spacing:.05em;max-width:${mm(70)};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ih-r{flex:1;text-align:right;white-space:nowrap}
+  .ih-r,.ih-p{flex:1;text-align:right;white-space:nowrap}
   .ibs{display:inline-flex;border:${mm(LINE)} solid ${ink};background:#fff}
   .ibs.mini{border-width:${mm(THIN)};vertical-align:middle}
   .ib{display:block;width:${mm(4.4)};height:${mm(4.8)};border-right:${mm(THIN)} solid ${ink}}.ib:last-child{border-right:none}
   .irule1{position:absolute;left:var(--L);top:${mm(I.ruleTop)};width:var(--CW);border-top:${mm(LINE)} solid ${ink}}
   .irule2{position:absolute;left:var(--L);top:${mm(I.ruleTop + 1.3)};width:var(--CW);border-top:${mm(THIN)} solid ${rule2}}
   .mg{position:absolute;border-left:${mm(MID)} solid ${ink};border-right:${mm(MID)} solid ${ink}}
-  .mg-label{position:absolute;left:var(--L);top:${mm(I.ruleTop + 2.2)};width:${mm(I.marginW)};text-align:center;font-size:${mm(2.2)};font-weight:700;line-height:1.2}
-  .mg-note{position:absolute;left:calc(var(--L) + ${mm(I.marginW + 1.5)});font-size:${mm(2.1)};font-style:italic;opacity:.8}
+  .mg-label{position:absolute;left:var(--L);top:${mm(I.ruleTop + 2.2)};width:${mm(I.marginW)};text-align:center;font-size:${mm(2.6)};font-weight:700;line-height:1.2}
+  .mg-note{position:absolute;left:calc(var(--L) + ${mm(I.marginW + 1.5)});font-size:${mm(2.6)};font-style:italic;opacity:.8}
   .ruled{position:absolute;display:block;overflow:visible}
-  .ifoot{position:absolute;left:var(--L);top:${mm(I.footTop)};width:var(--CW);display:flex;justify-content:space-between;align-items:center;font-size:${mm(2.5)}}
+  .ifoot{position:absolute;left:var(--L);top:${mm(I.footTop)};width:var(--CW);display:flex;justify-content:space-between;align-items:center;font-size:${mm(2.9)}}
   .ifm{font-style:italic;font-weight:700;letter-spacing:.04em}
-  .ipn{position:absolute;left:0;right:0;text-align:center;font-weight:800;font-size:${mm(3)}}
+  .pgno{display:inline-flex;align-items:center;gap:${mm(1.6)};font-size:${mm(2.7)};font-weight:700}
+  .pgno i{display:block;width:${mm(17)};height:${mm(5.6)};border:${mm(MID)} solid ${ink};background:#fff}
+  .ih2{position:absolute;left:var(--L);top:${mm(12.6)};width:var(--CW);display:flex;align-items:center;gap:${mm(4)};font-size:${mm(2.7)};font-weight:700}
+  .ih2-l{flex:1;display:flex;align-items:flex-end;gap:${mm(1.6)};white-space:nowrap}
+  .ih2-l::after{content:"";flex:1;max-width:${mm(70)};border-bottom:${mm(THIN)} solid ${ink};height:${mm(4)}}
   @media screen{
     body{background:#d9dce1;padding:${mm(preview ? 6 : 14)} 0}
     .${paper === "a3" ? "sheet" : "page"}{margin:0 auto ${mm(10)};box-shadow:0 1mm 4mm rgba(0,0,0,.25)}
