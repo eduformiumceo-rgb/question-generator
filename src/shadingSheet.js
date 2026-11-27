@@ -6,7 +6,7 @@
  *   "bece"   - BECE-type sheet. Follows the Ghana Education Service objective answer sheet (see beceSheet.js):
  *              60 questions as [A]-[E] boxes, candidate-number grid, timing marks. School name and logo, school colours.
  *   "wassce" - WASSCE-type sheet (see wassceSheet.js): ONE full A4 portrait sheet per candidate, with the index-number grid,
- *              paper version and sex, instructions, and exactly as many numbered oval-bubble questions as the paper has.
+ *              paper version and sex, instructions, and exactly as many numbered bracket-box questions as the paper has.
  *
  * PRINT LAYOUT
  * WASSCE-type: one full A4 PORTRAIT page per sheet (210 x 297 mm), up to 100 questions on the one page.
@@ -78,6 +78,10 @@ export const ALIGN_MARK = { size: 1.7, inset: 4.5 };
 
 export const MAX_QUESTIONS = 100;
 
+/** The ready-made size of each sheet: the BECE sheet holds 60 questions, the WASSCE-type sheet 100 (its maximum). */
+export const STANDARD_QUESTIONS = { bece: 60, wassce: 100 };
+export const standardQuestions = (style) => STANDARD_QUESTIONS[style] || STANDARD_QUESTIONS.bece;
+
 /** The style a level normally uses: BECE for Primary and JHS, WASSCE for SHS. */
 export const defaultSheetStyle = (isSHS) => (isSHS ? "wassce" : "bece");
 
@@ -85,7 +89,7 @@ export const defaultSheetStyle = (isSHS) => (isSHS ? "wassce" : "bece");
 export function sheetSizeSummary(style, questions = 40, optionCount = 4) {
   if (style === "bece") return `Each sheet is half of A4 (${BECE_GEOM.W} × ${BECE_GEOM.H} mm), two per A4 landscape, cut along the dashed line · ${BECE_PER_SHEET} questions per sheet in 3 columns, [A] to [E] boxes`;
   const p = wassceLayout(clampQuestions(questions), optionCount);
-  return `One full A4 portrait sheet (${WASSCE_PAGE.w} × ${WASSCE_PAGE.h} mm) per candidate · exactly ${clampQuestions(questions)} questions in ${p.cols} column${p.cols === 1 ? "" : "s"} of ${p.per}, oval bubbles A to ${optionCount === 5 ? "E" : "D"}`;
+  return `One full A4 portrait sheet (${WASSCE_PAGE.w} × ${WASSCE_PAGE.h} mm) per candidate · exactly ${clampQuestions(questions)} questions in ${p.cols} column${p.cols === 1 ? "" : "s"} of ${p.per}, bracket boxes [A] to [${optionCount === 5 ? "E" : "D"}]`;
 }
 
 /** What to choose in the print dialog for a style. */

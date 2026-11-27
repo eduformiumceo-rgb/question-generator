@@ -8,7 +8,7 @@
  *   - Top: school letterhead, then candidate's name, subject, date, paper version, sex, signature on the left and the
  *     INDEX NUMBER grid (write the digits in the boxes, shade the matching digit below each) on the right.
  *   - INSTRUCTIONS TO CANDIDATES with the correct / wrong shading examples.
- *   - ANSWERS: numbered oval bubbles  (A) (B) (C) (D) [(E)], grouped in fives so the eye never loses its row. The sheet
+ *   - ANSWERS: numbered bracket boxes  [A] [B] [C] [D] [E], grouped in fives so the eye never loses its row. The sheet
  *     prints EXACTLY the number of questions on the paper (1 up to MAX), laid out in columns of 10, 15 or 20.
  *   - Timing marks down the right edge (one per row), corner alignment marks, a "for official use" score box.
  *
@@ -218,7 +218,7 @@ export function renderWassceSheet(h) {
       <div class="box sg" ${rowStyle(3)}><span class="nl">CANDIDATE'S SIGNATURE</span></div>
       <div class="box sup" ${rowStyle(4)}>
         <span class="sup-t">FOR SUPERVISOR ONLY</span>
-        <span class="sup-b">If the candidate is absent, shade this oval</span>
+        <span class="sup-b">If the candidate is absent, shade this box</span>
         <span class="vb ab">${o("", "abs")}</span>
       </div>
     </div>`;
@@ -338,14 +338,21 @@ export function renderWassceSheet(h) {
   .eg{display:flex;align-items:center;gap:${mm(1)}}
   .eg-t{font-size:${mm(2.1)};font-weight:700;white-space:nowrap}
 
-  /* THE BUBBLE: a plain oval with the letter inside */
-  .o{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:${mm(a.bub.w)};height:${mm(a.bub.h)};border:${mm(THIN)} solid ${ink};border-radius:50%;background:#fff;overflow:hidden;font-style:normal;font-size:${mm(2.35)};font-weight:700;line-height:1;color:${faint}}
+  /* THE BOX: a square-bracket pair  [ A ]  drawn with two borders, letter between - the same box as the BECE sheet.
+     Each box keeps the footprint (width x height) and centre the scanner expects, so only its look changes. */
+  .o{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:${mm(a.bub.w)};height:${mm(a.bub.h)};background:#fff;font-style:normal;font-size:${mm(2.35)};font-weight:700;line-height:1;color:${faint}}
+  .o::before,.o::after{content:"";position:absolute;top:0;bottom:0;width:${mm(0.95)};border:${mm(THIN)} solid ${ink}}
+  .o::before{left:0;border-right:none}
+  .o::after{right:0;border-left:none}
   .o.dgt{width:${mm(3.7)};height:${mm(3.1)};font-size:${mm(2.0)}}
+  .o.dgt::before,.o.dgt::after{width:${mm(0.8)}}
   .o.vo{width:${mm(7)};height:${mm(4.8)};font-size:${mm(3)}}
   .o.abs{width:${mm(8)};height:${mm(4.8)}}
+  .o.vo::before,.o.vo::after,.o.abs::before,.o.abs::after{width:${mm(1.4)}}
   .o .pc{position:absolute;background:#222;display:block}
-  .o .pf{left:0;right:0;top:0;bottom:0}
-  .o .ph{left:0;top:0;bottom:0;width:50%}
+  .o .pf{left:${mm(0.9)};right:${mm(0.9)};top:22%;bottom:22%}
+  .o .ph{left:${mm(0.9)};width:calc(50% - ${mm(0.9)});top:22%;bottom:22%}
+  .o.vo .pf,.o.abs .pf{left:${mm(1.5)};right:${mm(1.5)}}
   .o .pd{left:calc(50% - ${mm(0.5)});top:calc(50% - ${mm(0.5)});width:${mm(1)};height:${mm(1)};border-radius:50%}
   .o.fill{color:#fff}
   .o.tick{background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path d='M1.2 3.2 L3.8 5.2 L8.8 0.8' fill='none' stroke='%23222' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/${mm(3.2)} ${mm(2)} no-repeat}

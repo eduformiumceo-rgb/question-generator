@@ -17,6 +17,7 @@ with sync_playwright() as p:
     pg.goto(f"{BASE}/#shading"); pg.wait_for_selector("[data-testid=shading-tab]")
     pg.locator("select:visible", has=pg.locator("option", has_text="SHS 3")).first.select_option(label="SHS 3")
     pg.get_by_role("button", name=re.compile("WASSCE-type sheet")).click()
+    pg.get_by_role("button", name="Custom", exact=True).click()
     pg.get_by_label("Number of questions on the shading sheet").fill("40")
     check("scan card appears for the WASSCE sheet", pg.locator("[data-testid=scan-card]").count() == 1)
 

@@ -24,10 +24,11 @@ import { diagramDrawing } from "./examFigures.js";
 import { ownerDrawing, ownerImageOk, setSlotDiagram, aiDiagram } from "./partFigures.js";
 import { autoDrawFigures, requestFigureSVG } from "./aiFigures.js";
 import { isSHSClass, termOptionsFor, mapTermForLevel, examTypesFor, mapExamTypeForLevel } from "./shsCourses.js";
+import { currentAcademicYear, cleanAcademicYear } from "./shsLevel.js";
 import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, isSafeGeneratedSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
 import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
 import { getWassceProfile, wassceSections, wassceTotalMinutes, decorateWassceExam, wassceCoverCode, wasscePaper2Code } from "./wassceStyle.js";
-import { renderShadingSheetHTML, renderAnswerBookletHTML, printNote, pageFor, SHEET_SPECS, SCHOOL_COLOUR_PRESETS, DEFAULT_SCHOOL_COLOURS, defaultSheetStyle, objectiveCount, clampQuestions, sheetSizeSummary, MAX_QUESTIONS } from "./shadingSheet.js";
+import { renderShadingSheetHTML, renderAnswerBookletHTML, printNote, pageFor, SHEET_SPECS, SCHOOL_COLOUR_PRESETS, DEFAULT_SCHOOL_COLOURS, defaultSheetStyle, objectiveCount, clampQuestions, sheetSizeSummary, standardQuestions, MAX_QUESTIONS } from "./shadingSheet.js";
 import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, answerableMarks, cleanBeceTitle, beceCoverCode } from "./beceStyle.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
@@ -142,7 +143,8 @@ function QuestionsGeneratorInner() {
   const [sheetColourMode, setSheetColourMode] = useState(savedPrefs.sheetColourMode === "mono" || savedPrefs.sheetColourMode === "school" ? savedPrefs.sheetColourMode : null);
   const [sheetColours, setSheetColours] = useState(savedPrefs.sheetColours && savedPrefs.sheetColours.main ? savedPrefs.sheetColours : DEFAULT_SCHOOL_COLOURS);
   const [sheetOptions, setSheetOptions] = useState(savedPrefs.sheetOptions === 5 ? 5 : 4); // A-D or A-E
-  const [sheetQuestions, setSheetQuestions] = useState(null); // null = count from the paper's objective questions
+  const [sheetQuestions, setSheetQuestions] = useState(null); // the typed count, used only in "custom" mode
+  const [sheetCountMode, setSheetCountMode] = useState("standard"); // "standard" (60 BECE / 100 WASSCE) | "paper" (the paper's objective count) | "custom"
   // Answer booklet (for the hand-written structured / essay questions)
   const [bookletPages, setBookletPages] = useState(BOOKLET_DEFAULT_PAGES);
   const [bookletPaper, setBookletPaper] = useState(clampBookletPaper(savedPrefs.bookletPaper));   // "a4" portrait pages, or "a3" landscape sheets folded in half
@@ -152,6 +154,7 @@ function QuestionsGeneratorInner() {
   const [sheetClass, setSheetClass] = useState(null);
   const [className, setClassName] = useState(D.className ?? "");
   const [term, setTerm] = useState(D.term ?? "Term 1");
+  const [academicYear, setAcademicYear] = useState(D.academicYear ?? currentAcademicYear());   // optional; printed beside the term on the paper
   const [examType, setExamType] = useState(D.examType ?? "Class Test");
   const [durationMinutes, setDurationMinutes] = useState(D.durationMinutes ?? 60);
   const isSHS = isSHSClass(className);
@@ -416,7 +419,7 @@ function QuestionsGeneratorInner() {
     setEditMode(false);
     setOpenedMeta({
       schoolName: m.schoolName, className: row.class || m.className, programme: m.programme, subject: row.subject || m.subject,
-      term: m.term, examType: row.exam_type || m.examType, durationMinutes: m.durationMinutes,
+      term: m.term, academicYear: m.academicYear, examType: row.exam_type || m.examType, durationMinutes: m.durationMinutes,
       idMode: m.idMode, idDigits: m.idDigits, idLabel: m.idLabel, notice: m.notice, turnOver: m.turnOver, schoolMotto: m.schoolMotto,
     });
     if (typeof m.landscape === "boolean") setLandscape(m.landscape);
@@ -724,7 +727,7 @@ function QuestionsGeneratorInner() {
 
   const openedOverride = openedMeta ? Object.fromEntries(Object.entries(openedMeta).filter(([, v]) => v !== undefined && v !== null && v !== "")) : {};
   const meta = {
-    schoolName, className, programme, subject, term, examType, durationMinutes, landscape, schoolLogo, optionsLayout,
+    schoolName, className, programme, subject, term, academicYear: cleanAcademicYear(academicYear), examType, durationMinutes, landscape, schoolLogo, optionsLayout,
     examVersion: examVersion === "A" ? "" : examVersion,
     schoolMotto: schoolMotto.trim(), emblem, idMode, idDigits: clampIdDigits(idDigits), idLabel: idLabel.trim(),
     notice, noticeText: DEFAULT_NOTICE, turnOver,
@@ -748,7 +751,7 @@ function QuestionsGeneratorInner() {
   /** Back to a blank wizard (also the "Start fresh" button and sign-out). paper:true clears the paper on screen too. */
   const resetWizard = ({ paper = false } = {}) => {
     stopFigureDrawing();
-    setClassName(""); setTerm("Term 1"); setExamType("Class Test"); setDurationMinutes(60);
+    setClassName(""); setTerm("Term 1"); setAcademicYear(currentAcademicYear()); setExamType("Class Test"); setDurationMinutes(60);
     setSubject(""); setShsCourse(""); setShsKey("");
     setSelectedTopics([]); setDraftStrands([]); setPastedSyllabus("");
     setDifficulty("Moderate"); setLanguageStyle("Balanced"); setCognitiveLevels(["Recall", "Application"]);
@@ -766,9 +769,9 @@ function QuestionsGeneratorInner() {
 
   // 1. The paper setup: written shortly after every change, and the moment the page is hidden or closed.
   const wizardFields = useMemo(() => ({
-    className, term, examType, durationMinutes, subject, shsCourse, shsKey, selectedTopics, strands: draftStrands, pastedSyllabus,
+    className, term, academicYear, examType, durationMinutes, subject, shsCourse, shsKey, selectedTopics, strands: draftStrands, pastedSyllabus,
     difficulty, languageStyle, cognitiveLevels, sections, allowDiagrams, includeMarkingScheme, examStyle, styleChosen: styleChosenByUser.current,
-  }), [className, term, examType, durationMinutes, subject, shsCourse, shsKey, selectedTopics, draftStrands, pastedSyllabus,
+  }), [className, term, academicYear, examType, durationMinutes, subject, shsCourse, shsKey, selectedTopics, draftStrands, pastedSyllabus,
     difficulty, languageStyle, cognitiveLevels, sections, allowDiagrams, includeMarkingScheme, examStyle]);
   useAutosave(wizardFields, (f) => saveWizardDraft(f, uidRef.current), { delay: 700 });
 
@@ -992,7 +995,11 @@ function QuestionsGeneratorInner() {
   const shadeStyle = sheetStyle || defaultSheetStyle(sheetIsSHS);
   const shadeColourMode = sheetColourMode || SHEET_SPECS[shadeStyle].defaultColour;
   const autoShadeCount = !sameAsPaper ? 0 : (activeExamData ? objectiveCount(activeExamData.sections, { generated: true }) : objectiveCount(sections));
-  const shadeCount = sheetQuestions != null ? clampQuestions(sheetQuestions) : (autoShadeCount > 0 ? clampQuestions(autoShadeCount) : 0);
+  const standardShadeCount = standardQuestions(shadeStyle);
+  const shadeMode = sheetCountMode === "paper" && autoShadeCount > 0 ? "paper" : sheetCountMode === "custom" ? "custom" : "standard";
+  // Never 0: the sheet always has a size, so the preview button is always available.
+  const shadeCount = shadeMode === "custom" ? clampQuestions(sheetQuestions ?? standardShadeCount)
+    : shadeMode === "paper" ? clampQuestions(autoShadeCount) : standardShadeCount;
   const [showShadePreview, setShowShadePreview] = useState(false);
   const [showBookletPreview, setShowBookletPreview] = useState(false);
   const autoBookletCount = !sameAsPaper ? 0 : (activeExamData ? theoryCount(activeExamData.sections, { generated: true }) : theoryCount(sections));
@@ -1006,7 +1013,6 @@ function QuestionsGeneratorInner() {
     setView(id);
   };
   const openShadingSheet = () => {
-    if (!shadeCount) { alert("Add an objective section (or enter the number of questions) to make a shading sheet."); return; }
     setShowShadePreview(true);   // preview first; printing happens from the preview window
   };
   const openAnswerBooklet = () => setShowBookletPreview(true);
@@ -1344,6 +1350,13 @@ function QuestionsGeneratorInner() {
             />
           </div>
         </div>
+        <div className="eduq-grid-2 is-pair" style={{ marginTop: 14 }}>
+          <div>
+            <label style={S.lbl}>Academic year <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span></label>
+            <input type="text" inputMode="numeric" value={academicYear} onChange={e => setAcademicYear(cleanAcademicYear(e.target.value))}
+              placeholder="e.g. 2026/2027" maxLength={9} aria-label="Academic year" style={S.inp} />
+          </div>
+        </div>
       </div>
       )}
 
@@ -1667,7 +1680,7 @@ function QuestionsGeneratorInner() {
           </header>
       {schoolExamCard}
 
-          {effClass && sameAsPaper && autoShadeCount > 0 && sheetQuestions == null && (
+          {effClass && sameAsPaper && autoShadeCount > 0 && shadeMode === "paper" && (
             <div className="qa-note" role="status" style={{ fontFamily: F, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <span><b>Linked to your paper:</b> {autoShadeCount} objective question{autoShadeCount === 1 ? "" : "s"}{subject ? ` · ${subject}` : ""}{examData ? "" : " (from your set-up, not generated yet)"}.</span>
               <button type="button" style={S.sm} onClick={() => goTab("generate")}>Open Assessment</button>
@@ -1676,7 +1689,9 @@ function QuestionsGeneratorInner() {
           {effClass ? (
             <div>
             <ShadingPanel S={S} F={F} colourGroup={colourGroup} style={shadeStyle} onStyle={(id) => { setSheetStyle(id); setSheetColourMode(null); }}
-              options={sheetOptions} onOptions={setSheetOptions} questions={sheetQuestions} onQuestions={setSheetQuestions}
+              options={sheetOptions} onOptions={setSheetOptions}
+              mode={shadeMode} onMode={(m) => { if (m === "custom" && sheetQuestions == null) setSheetQuestions(shadeCount); setSheetCountMode(m); }}
+              questions={sheetQuestions} onQuestions={setSheetQuestions} standardCount={standardShadeCount}
               count={shadeCount} autoCount={autoShadeCount} maxQuestions={MAX_QUESTIONS} onPreview={openShadingSheet} />
 
             {shadeStyle === "wassce" && (
@@ -1734,7 +1749,7 @@ function QuestionsGeneratorInner() {
             {downloadingWord ? "Preparing…" : "Word"}
           </button>
           <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} onClick={handleShare} title="Share as a file (WhatsApp, email, Drive…)">Share</button>
-          {shadeCount > 0 && (
+          {autoShadeCount > 0 && (
             <button type="button" style={{ ...S.sm, height: 40, flexShrink: 0 }} onClick={openShadingSheet} title="Answer sheet for the objective questions">Shading sheet</button>
           )}
           {autoBookletCount > 0 && (

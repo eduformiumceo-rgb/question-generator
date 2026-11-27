@@ -136,7 +136,25 @@ function makeSampler(gray, H) {
     let ring = 0; const out = [];
     for (let k = 0; k < 16; k++) { const t = (k / 16) * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t); ring += at(cx + c * bw / 2 * 0.93, cy + sn * bh / 2 * 0.93); out.push(at(cx + c * bw / 2 * 1.3, cy + sn * bh / 2 * 1.3)); }
     out.sort((x, y) => x - y);
-    return out[8] - ring / 16;                  // the MEDIAN outside, so a thick box border or a neighbouring ring on one side cannot fool it
+    const oval = out[8] - ring / 16;            // the MEDIAN outside, so a thick box border or a neighbouring ring on one side cannot fool it
+    // The sheet's boxes are square brackets [ A ]: two upright strokes joined to short ticks at the top and bottom. Their contrast is read
+    // along those strokes (the darkest of three pixels across each, so a 0.1 mm misalignment still finds the line). Oval sheets printed
+    // earlier still lock on through the ring above; the better of the two readings is used.
+    const hx = bw / 2, hy = bh / 2, edge = 0.13, away = 0.7, tick = Math.min(0.5, bw * 0.11), d = 0.1;
+    let inkSum = 0, count = 0; const outB = [];
+    for (const sx of [-1, 1]) {
+      for (const f of [-0.5, -0.17, 0.17, 0.5]) {
+        const x = cx + sx * (hx - edge), y = cy + f * bh;
+        inkSum += Math.min(at(x - d, y), at(x, y), at(x + d, y)); outB.push(at(cx + sx * (hx + away), y)); count++;
+      }
+      for (const sy of [-1, 1]) {
+        const x = cx + sx * (hx - tick), y = cy + sy * (hy - edge);
+        inkSum += Math.min(at(x, y - d), at(x, y), at(x, y + d)); outB.push(at(x, cy + sy * (hy + away))); count++;
+      }
+    }
+    outB.sort((x, y) => x - y);
+    const bracket = outB[outB.length >> 1] - inkSum / count;
+    return Math.max(oval, bracket);
   };
   // One shift for a whole row (or index column): the offset where the outlines of ALL its bubbles line up best. Judging the group, not one bubble,
   // means a neighbouring ring (bubbles in a five-option row nearly touch) cannot pull a bubble onto the wrong ring.

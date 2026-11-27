@@ -35,7 +35,7 @@ import { answerableMarks, getBeceProfile, minutesLabel, cleanBeceTitle, BECE_OBJ
 // Set per document by generateExamDocx (generation is synchronous up to Packer).
 let BX = { bece: false, wassce: false, profile: null, show: true, obj: false, ans: false };
 import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
-import { classWithProgramme, termCell } from "./shsLevel.js";
+import { classWithProgramme, termCell, yearCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
 
 const FONT = "Times New Roman";
@@ -399,8 +399,8 @@ function noticeBox(text, W) {
 }
 
 function headerBlock(examData, meta, totalMarks, W) {
-  const { className = "", programme = "", subject = "", term = "", examType = "Exam", durationMinutes = 60 } = meta;
-  const items = [["Subject", subject], ["Class", classWithProgramme(className, programme)], termCell(term), ["Duration", `${durationMinutes} mins`]];
+  const { className = "", programme = "", subject = "", term = "", academicYear = "", examType = "Exam", durationMinutes = 60 } = meta;
+  const items = [["Subject", subject], ["Class", classWithProgramme(className, programme)], termCell(term), ...(yearCell(academicYear) ? [yearCell(academicYear)] : []), ["Duration", `${durationMinutes} mins`]];
   if (totalMarks) items.push(["Total Marks", totalMarks]);
   const out = [
     ...letterhead(meta, (BX.bece ? cleanBeceTitle(examData.title, examType) : examData.title) || examType, W),
@@ -410,7 +410,7 @@ function headerBlock(examData, meta, totalMarks, W) {
     ...(BX.bece ? [
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: BX.wassce ? 120 : 1000, after: BX.wassce ? 60 : 120 }, border: { top: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: String(subject || "").toUpperCase(), bold: true, size: 56, characterSpacing: 40 })] }),
-      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: [classWithProgramme(className, programme), term].filter(Boolean).join("   |   ").toUpperCase(), size: 26, characterSpacing: 20 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: [classWithProgramme(className, programme), term, academicYear].filter(Boolean).join("   |   ").toUpperCase(), size: 26, characterSpacing: 20 })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: BX.wassce ? 120 : 1300 }, border: { bottom: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: INK, space: 10 } }, children: [] }),
     ] : []),
     metaGrid(items, W),
@@ -660,8 +660,8 @@ function sectionParagraphs(section, meta, layout, W, labels, idx = 0, all = [], 
 /* ── marking scheme ──────────────────────────────────────────── */
 
 function answerKeyParagraphs(examData, meta, totalMarks, W) {
-  const { className = "", programme = "", subject = "", term = "" } = meta;
-  const items = [["Subject", subject], ["Class", classWithProgramme(className, programme)], termCell(term)];
+  const { className = "", programme = "", subject = "", term = "", academicYear = "" } = meta;
+  const items = [["Subject", subject], ["Class", classWithProgramme(className, programme)], termCell(term), ...(yearCell(academicYear) ? [yearCell(academicYear)] : [])];
   if (totalMarks) items.push(["Total Marks", totalMarks]);
   const out = [
     ...letterhead(meta, "Marking Scheme", W).slice(0, -1),

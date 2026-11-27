@@ -19,6 +19,7 @@
  * Only the school's own name and logo are printed, never an examining body's name or crest.
  */
 import { fitSchoolName } from "./beceSheet.js";
+import { isSHSClass } from "./shsLevel.js";
 
 export const BOOKLET_PAGE = { w: 210, h: 297 };
 export const BOOKLET_SHEET = { a4: { w: 210, h: 297, orientation: "portrait" }, a3: { w: 420, h: 297, orientation: "landscape" } };
@@ -148,11 +149,14 @@ export function renderBookletHTML(h) {
   const idCell = idMode === "boxes"
     ? `<div class="fc fidb"><span class="fl">${esc(idLabel)}</span><span class="idc">${"<i></i>".repeat(digits)}</span></div>`
     : idMode === "line" ? fcell(idLabel, "fid") : "";
+  // Term / Semester and Academic Year are blank write-in cells too (the label follows the level), so one printed booklet serves any exam.
+  const termLabel = isSHSClass(meta.className) ? "Semester" : "Term";
   const candidate = `
       <div class="cand">
         <div class="fr">${fcell("Candidate's Name", "w1")}</div>
         <div class="fr">${fcell("Subject", "w2")}${fcell("Class", "w3")}</div>
         <div class="fr">${idCell}${fcell("Date", idMode === "boxes" ? "fdate" : "w3")}</div>
+        <div class="fr">${fcell(termLabel, "w2")}${fcell("Academic Year", "w3")}</div>
       </div>`;
 
   const { cols: exCols, rows: exRows } = examinerGrid(nq);
@@ -196,7 +200,7 @@ export function renderBookletHTML(h) {
       <div class="ins-t">Instructions to Candidates</div>
       <ol>
         <li>Write your name, subject, class and index number in the spaces above, and your index number at the top of every page.</li>
-        <li>Write with a blue or black pen. Write the number of each question in the left margin. ${instrAnswer}</li>
+        <li>Write with a blue or black pen. Write the number of each question in the Question No. space at the top of the page. ${instrAnswer}</li>
         <li>Do not write in the margin. Rule off neatly after each question, and cross out rough work with a single line.</li>
         <li>Do not tear out any page. For more paper ask the supervisor for an extra sheet, write your index number on it and tie it inside this booklet.</li>
         <li>Hand in this booklet, with all extra sheets, before you leave the examination room.</li>
@@ -229,11 +233,10 @@ export function renderBookletHTML(h) {
       <span class="ih-c"><b>ANSWER BOOKLET</b></span>
       <span class="ih-p"><span class="pgno"><span>Page No.</span><i></i></span></span>
     </div>
-    <div class="ih2"><span class="ih2-l">Candidate's Name</span><span class="ih-r">Index No. <span class="ibs mini">${miniId}</span></span></div>
+    <div class="ih2"><span class="ih2-l">Question No.</span><span class="ih-r">Index No. <span class="ibs mini">${miniId}</span></span></div>
     <div class="irule1"></div><div class="irule2"></div>
-    <div class="mg-label">Question<br>No.</div>
+    <div class="mg-label">Do not write<br>in the margin</div>
     <div class="mg" style="left:var(--L);top:${mm(I.linesTop - 6)};height:${mm(I.linesBottom - I.linesTop + 6 + 0.2)};width:${mm(I.marginW)}"></div>
-    <div class="mg-note" style="top:${mm(I.linesTop - 5.4)}">Do not write in the margin</div>
     ${linesSVG()}
     <div class="ifoot"><span class="ifm">${p === pages ? "END OF BOOKLET" : "Turn over"}</span></div>
   </section>`;
@@ -339,8 +342,7 @@ export function renderBookletHTML(h) {
   .irule1{position:absolute;left:var(--L);top:${mm(I.ruleTop)};width:var(--CW);border-top:${mm(LINE)} solid ${ink}}
   .irule2{position:absolute;left:var(--L);top:${mm(I.ruleTop + 1.3)};width:var(--CW);border-top:${mm(THIN)} solid ${rule2}}
   .mg{position:absolute;border-left:${mm(MID)} solid ${ink};border-right:${mm(MID)} solid ${ink}}
-  .mg-label{position:absolute;left:var(--L);top:${mm(I.ruleTop + 2.2)};width:${mm(I.marginW)};text-align:center;font-size:${mm(2.6)};font-weight:700;line-height:1.2}
-  .mg-note{position:absolute;left:calc(var(--L) + ${mm(I.marginW + 1.5)});font-size:${mm(2.6)};font-style:italic;opacity:.8}
+  .mg-label{position:absolute;left:var(--L);top:${mm(I.ruleTop + 2.2)};width:${mm(I.marginW)};text-align:center;font-size:${mm(2.1)};font-weight:700;line-height:1.25;letter-spacing:.01em}
   .ruled{position:absolute;display:block;overflow:visible}
   .ifoot{position:absolute;left:var(--L);top:${mm(I.footTop)};width:var(--CW);display:flex;justify-content:space-between;align-items:center;font-size:${mm(2.9)}}
   .ifm{font-style:italic;font-weight:700;letter-spacing:.04em}

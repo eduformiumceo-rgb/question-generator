@@ -17,7 +17,7 @@
  */
 import { IMAGE_SIZES, isSafeImageDataUrl, imageSizeKey } from "./imageUtils.js";
 import { diagramGuideText, renderDiagramTemplate } from "./diagramRegistry.js";
-import { classWithProgramme, termCell } from "./shsLevel.js";
+import { classWithProgramme, termCell, yearCell } from "./shsLevel.js";
 import { imageAlign, imagePlacement, diagramDrawing, figureLabels, captionText } from "./examFigures.js";
 import { figureLines, hasPartFigureLines, ownerImageOk, ownerDrawing } from "./partFigures.js";
 import { checkWassceSection, wassceStyleBlock, wassceSchemeBlock, getWassceProfile, wassceCoverCode, wasscePaper2Code, wassceSchemeNotes } from "./wassceStyle.js";
@@ -597,7 +597,7 @@ const PAGINATE_SCRIPT = `
 
 export function renderExamHTML(examData, meta = {}, mode = "paper") {
   const {
-    schoolName = "", className = "", programme = "", subject = "", term = "",
+    schoolName = "", className = "", programme = "", subject = "", term = "", academicYear = "",
     examType = "Exam", durationMinutes = 60, landscape = false,
     schoolLogo = null, examVersion = "",
     optionsLayout = "vertical",
@@ -918,7 +918,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
       <div class="cv-subject">
         <div class="cv-rule"></div>
         <div class="cv-sub-name">${esc(subject || "")}</div>
-        <div class="cv-sub-line">${esc([classWithProgramme(className, programme), term].filter(Boolean).join("  |  "))}</div>
+        <div class="cv-sub-line">${esc([classWithProgramme(className, programme), term, academicYear].filter(Boolean).join("  |  "))}</div>
         ${profile ? `<div class="cv-sub-papers">${wassce && profile.order !== "21" ? `${esc(profile.paper1.name)} and ${esc(profile.paper2.name)}` : `${esc(profile.paper2.name)} and ${esc(profile.paper1.name)}`}</div>` : ""}
         <div class="cv-rule"></div>
       </div>` : "";
@@ -934,6 +934,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
           ${metaCell("Subject", subject)}
           ${metaCell("Class", classWithProgramme(className, programme))}
           ${metaCell(...termCell(term))}
+          ${yearCell(academicYear) ? metaCell(...yearCell(academicYear)) : ""}
           ${metaCell("Duration", `${durationMinutes} mins`)}
           ${totalMarks ? metaCell("Total Marks", totalMarks) : ""}
         </tr>
@@ -958,6 +959,7 @@ export function renderExamHTML(examData, meta = {}, mode = "paper") {
             ${metaCell("Subject", subject)}
             ${metaCell("Class", classWithProgramme(className, programme))}
             ${metaCell(...termCell(term))}
+          ${yearCell(academicYear) ? metaCell(...yearCell(academicYear)) : ""}
             ${totalMarks ? metaCell("Total Marks", totalMarks) : ""}
           </tr>
         </table>

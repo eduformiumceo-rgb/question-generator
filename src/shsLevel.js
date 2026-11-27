@@ -38,9 +38,24 @@ export function classWithProgramme(cls, programme) {
   return p && p !== "Core Subjects" && isSHSClass(cls) ? `${cls} (${p})` : String(cls || "");
 }
 
+/** The academic year a Ghanaian school year is normally in: it starts in September, so Nov 2026 is "2026/2027" and Mar 2027 is too. */
+export function currentAcademicYear(date = new Date()) {
+  const y = date.getFullYear(), start = date.getMonth() >= 8 ? y : y - 1;
+  return `${start}/${start + 1}`;
+}
+
+/** Keep what a teacher types to the shape "2026/2027" (digits and one slash, at most 9 characters). */
+export const cleanAcademicYear = (v) => String(v || "").replace(/[^\d/]/g, "").slice(0, 9);
+
 /** Header cell for the term: "Term: Term 1" stays as before; SHS prints "Semester: 1". */
 export function termCell(term) {
   const t = String(term || "");
   const m = /^semester\s*(.*)$/i.exec(t);
   return m ? ["Semester", m[1] || t] : ["Term", t];
+}
+
+/** Header cell for the academic year, or null when none was given (so no empty cell is printed). */
+export function yearCell(academicYear) {
+  const y = String(academicYear || "").trim();
+  return y ? ["Year", y] : null;
 }

@@ -351,9 +351,9 @@ describe("answer booklet", () => {
     expect(count(h, /<table class="et">/g)).toBe(2);                       // 12 questions: two tables of ten rows
     expect(count(bk({ pages: 8, questions: 6 }), /<table class="et">/g)).toBe(1);
   });
-  it("every answer page carries the index-number boxes, a question-number margin and the page number", () => {
+  it("every answer page carries the index-number boxes, a "do not write" margin and the page number", () => {
     const h = bk({ pages: 8, questions: 5 });
-    expect(count(h, /class="mg-note"/g)).toBe(7);
+    expect(count(h, /class="mg-label"/g)).toBe(7);
     expect(count(h, /<span class="ih-r">/g)).toBe(7);
     expect(count(h, /class="pgno"/g)).toBe(7); expect(h).not.toContain('class="ipn"');
     expect(count(h, /<svg class="ruled"/g)).toBe(7);
@@ -362,7 +362,7 @@ describe("answer booklet", () => {
   it("plain ruling prints the margin but no lines", () => {
     const h = bk({ pages: 8, questions: 5, ruling: "plain" });
     expect(count(h, /<line /g)).toBe(0);
-    expect(count(h, /class="mg-note"/g)).toBe(7);
+    expect(count(h, /class="mg-label"/g)).toBe(7);
   });
   it("lines fit between the header and the footer, inside the printable area", () => {
     const i = BOOKLET_GEOM.inner;
