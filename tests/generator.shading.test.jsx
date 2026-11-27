@@ -44,8 +44,7 @@ describe("Shading sheet option in the generator screen", () => {
     expect(screen.queryByTestId("shading-card")).toBeNull();           // Assessment tab is showing
     await openShadingTab(u);
     const tab = await screen.findByTestId("shading-tab");
-    expect(tab.textContent).toMatch(/Choose a class/);                 // nothing to set up until a class is chosen
-    expect(screen.queryByTestId("shading-card")).toBeNull();
+    expect(screen.queryByTestId("shading-card")).not.toBeNull();       // no class needed: it is written in by hand on the sheet
     expect(screen.getAllByRole("tab", { name: /Shading Sheet/i })[0].getAttribute("aria-selected")).toBe("true");
   });
 
@@ -62,7 +61,7 @@ describe("Shading sheet option in the generator screen", () => {
     expect(screen.queryByTestId("shading-card")).toBeNull();
   });
 
-  it("SHS: appears after the subject, defaults to the WASSCE-type sheet with school colours, and prints one full A4 portrait sheet", async () => {
+  it("SHS: appears after the subject, defaults to the WASSCE-type sheet with school colours, and prints two A5 sheets per A4 landscape page", async () => {
     const u = userEvent.setup();
     const w = { document: { open: vi.fn(), write: vi.fn(), close: vi.fn() }, closed: false, __paperReady: true, print: vi.fn() };
     vi.spyOn(window, "open").mockReturnValue(w);
@@ -75,13 +74,13 @@ describe("Shading sheet option in the generator screen", () => {
     expect(card.textContent).toMatch(/Sheet layout/);
     expect(screen.getByRole("button", { name: /WASSCE-type sheet/i }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: /^School colour$/i }).getAttribute("aria-pressed")).toBe("true");
-    expect(card.textContent).toMatch(/210 × 297 mm/);
-    expect(card.textContent).toMatch(/A4 portrait/);
+    expect(card.textContent).toMatch(/148.5 × 210 mm/);
+    expect(card.textContent).toMatch(/A4 landscape/);
     await u.click(screen.getByRole("button", { name: /Preview & print shading sheet/i }));
     const html = (await screen.findByTitle("Shading sheet preview")).getAttribute("srcdoc");   // preview first; printing happens from the preview window
-    expect(html).toContain("@page{size:210mm 297mm;margin:0}");
+    expect(html).toContain("@page{size:297mm 210mm;margin:0}");
     expect(html).toContain('data-sheet-style="wassce"');
-    expect((html.match(/<div class="card st-wassce">/g) || []).length).toBe(1);
+    expect((html.match(/<div class="card st-wassce">/g) || []).length).toBe(2);
   });
 
   it("Basic 9 (JHS 3): defaults to the BECE-type sheet in school colours (v11), black-and-white is one tap away, and the style can be switched", async () => {

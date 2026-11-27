@@ -36,7 +36,7 @@ export const BOOKLET_MAX_QUESTIONS = 40;
 export const BOOKLET_GEOM = {
   W: 210, H: 297, L: 12, CW: 186, gutter: 4,     // gutter: extra inner margin on the stapled side
   head: { top: 10, h: 24, logo: 22 },
-  inner: { headTop: 9, ruleTop: 19, linesTop: 30, pitch: 8, linesBottom: 277, marginW: 22, footTop: 283 },
+  inner: { headTop: 3, headH: 13, logo: 12, ruleTop: 23, linesTop: 32, pitch: 8, linesBottom: 277, marginW: 22, footTop: 283 },
 };
 
 const PX = 25.4 / 96;
@@ -142,7 +142,6 @@ export function renderBookletHTML(h) {
 
   /* ---------- cover (mirrors the question paper's cover page) ---------- */
   const idLabel = String(meta.idLabel || "").trim() || (idMode === "boxes" ? "Index Number" : "Index No.");
-  const metaCell = (label, value) => `<td><div class="ml">${esc(label)}</div><div class="mv">${esc(value) || "&nbsp;"}</div></td>`;
   // One boxed form for the candidate: labelled write-in cells (small caps label, blank space to write in).
   // Subject and class are never printed, so one printed booklet serves any subject or class.
   const fcell = (label, cls = "") => `<div class="fc ${cls}"><span class="fl">${esc(label)}</span></div>`;
@@ -150,7 +149,7 @@ export function renderBookletHTML(h) {
     ? `<div class="fc fidb"><span class="fl">${esc(idLabel)}</span><span class="idc">${"<i></i>".repeat(digits)}</span></div>`
     : idMode === "line" ? fcell(idLabel, "fid") : "";
   // Term / Semester and Academic Year are blank write-in cells too (the label follows the level), so one printed booklet serves any exam.
-  const termLabel = isSHSClass(meta.className) ? "Semester" : "Term";
+  const termLabel = !String(meta.className || "").trim() ? "Term / Semester" : isSHSClass(meta.className) ? "Semester" : "Term";
   const candidate = `
       <div class="cand">
         <div class="fr">${fcell("Candidate's Name", "w1")}</div>
@@ -173,7 +172,7 @@ export function renderBookletHTML(h) {
     return `<div class="exam-box">
       <div class="exam-t">FOR EXAMINER'S USE ONLY</div>
       <div class="ets">${tables}</div>
-      <div class="total"><span>TOTAL</span><i></i><span class="chk">Checked by</span><i class="w"></i></div>
+      <div class="total"><span>TOTAL</span><i></i>${meta.totalMarks ? `<span>/ ${esc(meta.totalMarks)}</span>` : ""}<span class="chk">Checked by</span><i class="w"></i></div>
     </div>`;
   })();
 
@@ -188,12 +187,9 @@ export function renderBookletHTML(h) {
       <div class="mast-side"></div>
     </div>
     <div class="mast-line"></div>
-    <div class="etitle"><i class="er"></i><span class="ttl">ANSWER BOOKLET</span><i class="er"></i>${version ? `<span class="ver">VERSION ${esc(version)}</span>` : ""}</div>
+    <div class="etitle"><i class="er"></i><span class="ttl">EXAMINATION ANSWER BOOKLET</span><i class="er"></i>${version ? `<span class="ver">VERSION ${esc(version)}</span>` : ""}</div>
     ${noticeText ? `<div class="notice">${esc(noticeText)}</div>` : ""}
     ${cc && cc.code ? `<div class="codebox"><span>Paper</span><b class="cb">${esc(cc.code)}</b></div>` : ""}
-    ${(meta.durationMinutes || meta.totalMarks) ? `<table class="meta">
-      <tr>${meta.durationMinutes ? metaCell("Duration", `${meta.durationMinutes} mins`) : ""}${meta.totalMarks ? metaCell("Total Marks", meta.totalMarks) : ""}</tr>
-    </table>` : ""}
     ${candidate}
     ${examiner}
     <div class="ins">
@@ -225,11 +221,10 @@ export function renderBookletHTML(h) {
     for (let k = 0; k < lineN; k++) out += `<line x1="0" x2="${g.CW}" y1="${k * I.pitch}" y2="${k * I.pitch}"/>`;
     return `<svg class="ruled" style="left:var(--L);top:${mm(I.linesTop)};width:var(--CW);height:${mm((lineN - 1) * I.pitch + 0.4)}" viewBox="0 0 ${g.CW} ${(lineN - 1) * I.pitch + 0.4}" preserveAspectRatio="none"><g stroke="${lineCol}" stroke-width="0.22" fill="none">${out}</g></svg>`;
   };
-  const shortName = name.length > 30 ? name.slice(0, 28).trim() + "…" : name;
   const miniId = Array.from({ length: digits }, () => `<i class="ib"></i>`).join("");
   const innerPage = (p) => `<section class="page inner">
     <div class="ih">
-      <span class="ih-l">${esc(shortName)}</span>
+      <span class="ih-l"><span class="ih-logo">${logoMarkup || ""}</span><span class="ih-name">${esc(name)}</span></span>
       <span class="ih-c"><b>ANSWER BOOKLET</b></span>
       <span class="ih-p"><span class="pgno"><span>Page No.</span><i></i></span></span>
     </div>
@@ -296,7 +291,7 @@ export function renderBookletHTML(h) {
   .motto{margin-top:${mm(1.2)};font-size:${mm(2.7)};font-style:italic;opacity:.88;color:${pal.onBand}}
   .mast-line{position:absolute;left:0;top:${mm(42)};width:${mm(g.W)};height:${mm(1.3)};background:${mixFn(pal.band, "#FFFFFF", 0.55)}}
   .etitle{flex:none;display:flex;align-items:center;justify-content:center;gap:${mm(4)};margin:${mm(1)} 0 0}
-  .ttl{font-size:${mm(5.8)};font-weight:800;letter-spacing:.16em;white-space:nowrap}
+  .ttl{font-size:${mm(5.4)};font-weight:800;letter-spacing:.11em;white-space:nowrap}
   .er{flex:1;display:block;height:0;border-top:${mm(MID)} solid ${ink}}
   .ver{font-size:${mm(3)};font-weight:700;letter-spacing:.06em;border:${mm(THIN)} solid ${ink};padding:${mm(0.3)} ${mm(2)};white-space:nowrap}
   .notice{flex:none;border:${mm(MID)} solid ${ink};text-align:center;font-weight:800;text-transform:uppercase;letter-spacing:.09em;font-size:${mm(3.1)};padding:${mm(1.4)} ${mm(3)}}
@@ -332,9 +327,13 @@ export function renderBookletHTML(h) {
   .ins ol{margin:0 0 0 ${mm(4)}}.ins li{margin:${mm(0.2)} 0}
 
   /* ---- inner pages ---- */
-  .ih{position:absolute;left:var(--L);top:${mm(3.4)};width:var(--CW);display:flex;align-items:center;justify-content:space-between;gap:${mm(4)};font-size:${mm(2.8)};font-weight:700}
-  .ih-l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;letter-spacing:.04em}
-  .ih-c{flex:none;display:flex;flex-direction:column;align-items:center;line-height:1.25;letter-spacing:.08em}.ih-c b{font-weight:800}.ih-c small{font-size:${mm(2.1)};font-weight:700;opacity:.8;text-transform:uppercase;letter-spacing:.05em;max-width:${mm(70)};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ih{position:absolute;left:var(--L);top:${mm(I.headTop)};width:var(--CW);height:${mm(I.headH)};display:flex;align-items:center;justify-content:space-between;gap:${mm(4)};font-size:${mm(2.8)};font-weight:700}
+  .ih-l{flex:1.7;min-width:0;display:flex;align-items:center;gap:${mm(2.5)}}
+  .ih-logo{flex:none;width:${mm(I.logo)};height:${mm(I.logo)};display:flex;align-items:center;justify-content:center}
+  .ih-logo .logo{max-width:${mm(I.logo)};max-height:${mm(I.logo)};object-fit:contain;display:block}
+  .ih-logo .crest,.ih-logo .crest svg{width:${mm(I.logo)};height:${mm(I.logo)};display:block}
+  .ih-name{min-width:0;font-size:${mm(3.7)};font-weight:800;line-height:1.15;text-transform:uppercase;letter-spacing:.03em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .ih-c{flex:none;display:flex;flex-direction:column;align-items:center;line-height:1.25;letter-spacing:.08em;font-size:${mm(3)}}.ih-c b{font-weight:800}.ih-c small{font-size:${mm(2.1)};font-weight:700;opacity:.8;text-transform:uppercase;letter-spacing:.05em;max-width:${mm(70)};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ih-r,.ih-p{flex:1;text-align:right;white-space:nowrap}
   .ibs{display:inline-flex;border:${mm(LINE)} solid ${ink};background:#fff}
   .ibs.mini{border-width:${mm(THIN)};vertical-align:middle}
@@ -348,7 +347,7 @@ export function renderBookletHTML(h) {
   .ifm{font-style:italic;font-weight:700;letter-spacing:.04em}
   .pgno{display:inline-flex;align-items:center;gap:${mm(1.6)};font-size:${mm(2.7)};font-weight:700}
   .pgno i{display:block;width:${mm(17)};height:${mm(5.6)};border:${mm(MID)} solid ${ink};background:#fff}
-  .ih2{position:absolute;left:var(--L);top:${mm(12.6)};width:var(--CW);display:flex;align-items:center;gap:${mm(4)};font-size:${mm(2.7)};font-weight:700}
+  .ih2{position:absolute;left:var(--L);top:${mm(I.headTop + I.headH + 1.6)};width:var(--CW);display:flex;align-items:center;gap:${mm(4)};font-size:${mm(2.7)};font-weight:700}
   .ih2-l{flex:1;display:flex;align-items:flex-end;gap:${mm(1.6)};white-space:nowrap}
   .ih2-l::after{content:"";flex:1;max-width:${mm(70)};border-bottom:${mm(THIN)} solid ${ink};height:${mm(4)}}
   @media screen{

@@ -985,7 +985,7 @@ function QuestionsGeneratorInner() {
   // ── Shading sheet ───────────────────────────────────────────────
   // Style follows the level (BECE for Primary/JHS, WASSCE for SHS) until the teacher picks one. The question count comes from the
   // paper's objective questions (real counts once generated, the section set-up before that) unless typed in.
-  const effClass = sheetClass !== null ? sheetClass : className;
+  const effClass = className;   // the sheet tabs have no class picker: the class is written in by hand on the printed sheet
   const sameAsPaper = effClass === className;
   const sheetIsSHS = isSHSClass(effClass);
   // Exam type and term are NOT printed or asked for on the sheets and booklet. They only feed the hidden scan code
@@ -1103,29 +1103,8 @@ function QuestionsGeneratorInner() {
 
   const schoolExamCard = (
       <div style={S.card}>
-        <CardTitle F={F} mb={16} desc="Printed on the sheet. Shared with the Assessment tab, so you only enter it once.">School details</CardTitle>
-        <div style={{ marginBottom: 14 }}>
-          <label style={S.lbl}>Class</label>
-          <select value={effClass} onChange={e => setSheetClass(e.target.value)} style={S.sel}>
-            <option value="">- Select Class -</option>
-            {CLASS_GROUPS.map(group => (
-              <optgroup key={group.label} label={group.label}>
-                {group.classes.map(c => <option key={c} value={c}>{c}</option>)}
-              </optgroup>
-            ))}
-          </select>
-          {!sameAsPaper && className && (
-            <div className="qa-note" style={{ fontFamily: F, marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <span>Different from your paper's class ({className}). Your Assessment form is not affected.</span>
-              <button type="button" style={S.sm} onClick={() => { setSheetClass(null); }}>Use paper's class</button>
-            </div>
-          )}
-        </div>
-        {effClass && (
-          <>
-            <SchoolIdentityFields S={S} schoolName={schoolName} setSchoolName={setSchoolName} schoolLogo={schoolLogo} setSchoolLogo={setSchoolLogo} schoolMotto={schoolMotto} setSchoolMotto={setSchoolMotto} emblem={emblem} setEmblem={setEmblem} />
-          </>
-        )}
+        <CardTitle F={F} mb={16} desc="Printed on the sheet. Shared with the Assessment tab, so you only enter it once. Class, subject and date are written in by hand.">School details</CardTitle>
+        <SchoolIdentityFields S={S} schoolName={schoolName} setSchoolName={setSchoolName} schoolLogo={schoolLogo} setSchoolLogo={setSchoolLogo} schoolMotto={schoolMotto} setSchoolMotto={setSchoolMotto} emblem={emblem} setEmblem={setEmblem} />
       </div>
   );
   const colourGroup = (
@@ -1657,15 +1636,13 @@ function QuestionsGeneratorInner() {
             </div>
           </header>
           {schoolExamCard}
-          {effClass ? (
+          {(
             <div>
             <BookletPanel S={S} F={F} colourGroup={colourGroup}
               cfg={{ paper: bookletPaper, pages: bookletPages, ruling: bookletRuling, questions: bookletQuestions }}
               set={setBookletCfg} autoQuestions={autoBookletCount} questionCount={bookletCount}
               suggested={bookletSuggested} printed={bookletPrinted} sheets={bookletSheetCount(bookletPages, "a3")} onPreview={openAnswerBooklet} />
             </div>
-          ) : (
-            <div className="qa-note" style={{ fontFamily: F, lineHeight: 1.6 }}>Choose a class above to set up your answer booklet.</div>
           )}
         </div>
       )}
@@ -1686,7 +1663,7 @@ function QuestionsGeneratorInner() {
               <button type="button" style={S.sm} onClick={() => goTab("generate")}>Open Assessment</button>
             </div>
           )}
-          {effClass ? (
+          {(
             <div>
             <ShadingPanel S={S} F={F} colourGroup={colourGroup} style={shadeStyle} onStyle={(id) => { setSheetStyle(id); setSheetColourMode(null); }}
               options={sheetOptions} onOptions={setSheetOptions}
@@ -1699,8 +1676,6 @@ function QuestionsGeneratorInner() {
                 keyFor={(v) => (examData ? keyFromExam(!v || v === "A" ? examData : createExamVariant(examData, v)) : null)} />
             )}
             </div>
-          ) : (
-            <div className="qa-note" style={{ fontFamily: F, lineHeight: 1.6 }}>Choose a class above to set up your shading sheet.</div>
           )}
         </div>
       )}

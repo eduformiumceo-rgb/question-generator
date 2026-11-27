@@ -24,7 +24,10 @@
 
 import { sheetPayload, qrSvg, paperRef } from "./sheetCode.js";
 
-export const WASSCE_PAGE = { w: 210, h: 297 };
+/** The full-size sheet is an A4 portrait design (210 x 297). It is printed at 70.7%, which is exactly A5, two per A4 landscape (like the BECE sheet). */
+export const WASSCE_SHEET = { w: 210, h: 297 };
+export const WASSCE_PAGE = { w: 297, h: 210 };
+export const WASSCE_SCALE = 148.5 / 210;
 
 export const WASSCE_GEOM = {
   W: 210, H: 297,
@@ -269,14 +272,18 @@ export function renderWassceSheet(h) {
     ${header}${leftBlock}${idBlock}${instructions}${answerTitle}${cols}
     <div class="strip">${marks}</div>${foot}
   </div>`;
-  const sheets = `<section class="sheet">${card}</section>`;
+  const slot = (side) => `<div class="slot ${side}"><div class="scaler">${card}</div></div>`;
+  const sheets = `<section class="sheet">${slot("l")}${slot("r")}<i class="cut"></i></section>`;
 
   const css = `
-  @page{size:${mm(g.W)} ${mm(g.H)};margin:0}
+  @page{size:${mm(WASSCE_PAGE.w)} ${mm(WASSCE_PAGE.h)};margin:0}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{font-family:"Helvetica Neue",Arial,"Liberation Sans",sans-serif;color:${ink}}
-  .sheet{position:relative;width:${mm(g.W)};height:${mm(g.H)};overflow:hidden;background:#fff;page-break-after:always;break-after:page}
+  .sheet{position:relative;width:${mm(WASSCE_PAGE.w)};height:${mm(WASSCE_PAGE.h)};overflow:hidden;background:#fff;page-break-after:always;break-after:page}
+  .slot{position:absolute;top:0;width:${mm(WASSCE_PAGE.w / 2)};height:${mm(WASSCE_PAGE.h)};overflow:hidden}.slot.l{left:0}.slot.r{left:${mm(WASSCE_PAGE.w / 2)}}
+  .scaler{width:${mm(g.W)};height:${mm(g.H)};transform:scale(${WASSCE_SCALE});transform-origin:0 0}
+  .cut{position:absolute;left:${mm(WASSCE_PAGE.w / 2 - 0.15)};top:0;height:${mm(WASSCE_PAGE.h)};border-left:${mm(0.3)} dashed #000;display:block;z-index:5}
   .sheet:last-child{page-break-after:auto;break-after:auto}
   .card{position:relative;width:${mm(g.W)};height:${mm(g.H)};overflow:hidden;background:#fff;color:${ink}}
   .reg{position:absolute;width:${mm(g.mark.size)};height:${mm(g.mark.size)};background:#000}
@@ -391,8 +398,8 @@ export function renderWassceSheet(h) {
       setTimeout(ok,2500);
     })();`;
 
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${esc(name || "School")} - Objective Answer Sheet</title><style>${css}</style></head><body data-sheet-style="wassce" data-questions="${n}" data-sheets="1">
-${preview ? "" : `<div class="bar">Print on A4 PORTRAIT at 100% (Actual size), margins None. One full sheet per candidate.</div>`}
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${esc(name || "School")} - Objective Answer Sheet</title><style>${css}</style></head><body data-sheet-style="wassce" data-questions="${n}" data-sheets="1" data-per-page="2">
+${preview ? "" : `<div class="bar">Print on A4 LANDSCAPE at 100% (Actual size), margins None. Then cut along the dashed line: two sheets, each half of A4.</div>`}
 ${sheets}
 <script>${script}</script></body></html>`;
 }

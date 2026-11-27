@@ -3,7 +3,8 @@ import { renderShadingSheetHTML } from "../src/shadingSheet.js";
 import { wassceLayout, WASSCE_GEOM } from "../src/wassceSheet.js";
 
 const meta = { schoolName: "Test SHS", term: "Term 1", examType: "Mock Exam", idMode: "boxes", idDigits: 10 };
-const render = (style, questions, optionCount) => renderShadingSheetHTML({ style, questions, optionCount, colourMode: "school", colours: { main: "#12285C" }, meta });
+const oneCopy = (h) => h.replace(/<div class="slot r">[\s\S]*?(<i class="cut"><\/i>)/, "$1");   // WASSCE prints two identical copies per A4: count the first
+const render = (style, questions, optionCount) => { const r = renderShadingSheetHTML({ style, questions, optionCount, colourMode: "school", colours: { main: "#12285C" }, meta }); return style === "wassce" ? oneCopy(r) : r; };
 
 /** Every answer row of the rendered page: its question number and how many bubbles it has. */
 function rows(html) {

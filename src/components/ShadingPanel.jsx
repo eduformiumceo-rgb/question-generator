@@ -23,14 +23,14 @@ import { sheetSizeSummary, printNote } from "../shadingSheet.js";
 export default function ShadingPanel({ S, F, colourGroup, style: shadeStyle, onStyle, options: sheetOptions, onOptions, mode, onMode, standardCount, questions: sheetQuestions, onQuestions, count: shadeCount, autoCount, maxQuestions, onPreview }) {
   return (
             <div style={S.card} data-testid="shading-card">
-        <CardTitle F={F} mb={14} desc="BECE prints two per A4 to cut; WASSCE prints one full A4 sheet per candidate.">Sheet layout</CardTitle>
+        <CardTitle F={F} mb={14} desc="Both styles print two sheets per A4 landscape page, to cut along the dashed line.">Sheet layout</CardTitle>
 
         <div className="qa-group">
           <label style={S.lbl}>Sheet style</label>
           <div className="qa-choices" role="group" aria-label="Shading sheet style">
             {[
               { id: "bece", label: "BECE-type sheet", desc: "Same layout as the Ghana Education Service answer sheet, with your school's name and logo, in your school colours." },
-              { id: "wassce", label: "WASSCE-type sheet", desc: "Full A4 sheet like the real WASSCE objective answer sheet: index-number grid, paper version, and a bracket box [A] for every option, in your school colours." },
+              { id: "wassce", label: "WASSCE-type sheet", desc: "WASSCE-style layout with index-number grid, paper version and a bracket box [A] for every option, in your school colours. Two A5 sheets per A4, like the BECE." },
             ].map(o => (
               <button key={o.id} type="button" className="qa-choice" aria-pressed={shadeStyle === o.id} onClick={() => { onStyle(o.id); }}>
                 <span className="qa-choice-t" style={{ fontFamily: F }}>{o.label}</span>
@@ -38,7 +38,7 @@ export default function ShadingPanel({ S, F, colourGroup, style: shadeStyle, onS
               </button>
             ))}
           </div>
-          <p className="qa-choice-sel" style={{ fontFamily: F }}>{shadeStyle === "wassce" ? "Full A4 sheet like the real WASSCE answer sheet: index-number grid, paper version and bracket boxes." : "Same layout as the Ghana Education Service answer sheet, with your school's name and logo."}</p>
+          <p className="qa-choice-sel" style={{ fontFamily: F }}>{shadeStyle === "wassce" ? "WASSCE-style sheet: index-number grid, paper version and bracket boxes. Two A5 sheets per A4 page." : "Same layout as the Ghana Education Service answer sheet, with your school's name and logo."}</p>
         </div>
 
         {colourGroup}

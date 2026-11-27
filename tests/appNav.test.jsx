@@ -73,25 +73,19 @@ describe("tabs live in the address", () => {
 });
 
 describe("the Shading Sheet tab never disturbs the Assessment form", () => {
-  it("choosing a class for the sheet leaves the paper's class (and everything under it) alone", async () => {
+  it("the sheet tabs have no class picker: the class is written in by hand, and the paper's class is left alone", async () => {
     const u = userEvent.setup();
     render(<QuestionsGenerator />);
     await u.selectOptions(wizardClass(), "Basic 9");
     await u.click(tab(/Shading Sheet/));
-    const sheetClass = document.querySelector('[data-testid="shading-tab"] select');
-    await u.selectOptions(sheetClass, "SHS 3");
-    expect(sheetClass.value).toBe("SHS 3");
-    expect(wizardClass().value).toBe("Basic 9");                       // the paper form kept its class
-    expect(screen.getByText(/Different from your paper's class \(Basic 9\)/)).toBeTruthy();
-    await u.click(screen.getByRole("button", { name: /Use paper's class/i }));
-    expect(sheetClass.value).toBe("Basic 9");
+    expect(screen.queryByRole("option", { name: "Basic 8" }) && document.querySelector('[data-testid="shading-tab"] option[value="Basic 8"]')).toBeNull();
+    expect(wizardClass().value).toBe("Basic 9");
   });
 
-  it("works with no class chosen anywhere: the sheet has its own class, and the paper stays empty", async () => {
+  it("works with no class chosen anywhere: the sheet is still set up, and the paper stays empty", async () => {
     const u = userEvent.setup();
     render(<QuestionsGenerator />);
     await u.click(tab(/Shading Sheet/));
-    await u.selectOptions(document.querySelector('[data-testid="shading-tab"] select'), "Basic 8");
     expect(await screen.findByTestId("shading-card")).toBeTruthy();
     expect(wizardClass().value).toBe("");
   });
@@ -106,14 +100,6 @@ describe("the Shading Sheet tab never disturbs the Assessment form", () => {
     expect(document.querySelector('[data-testid="shading-tab"] input[placeholder*="St. Mary"]').value).toBe("Sunrise JHS");
   });
 
-  it("a different class from the paper does not borrow the paper's objective count", async () => {
-    const u = userEvent.setup();
-    render(<QuestionsGenerator />);
-    await u.selectOptions(wizardClass(), "Basic 9");
-    await u.click(tab(/Shading Sheet/));
-    await u.selectOptions(document.querySelector('[data-testid="shading-tab"] select'), "SHS 2");
-    expect(screen.queryByText(/Linked to your paper/)).toBeNull();
-  });
 });
 
 describe("navigation colours are theme-proof and accessible", () => {

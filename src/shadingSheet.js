@@ -34,10 +34,10 @@
  */
 
 import { renderBeceSheet, BECE_GEOM, BECE_PER_SHEET, fitSchoolName } from "./beceSheet.js";
-import { renderWassceSheet, WASSCE_PAGE, wassceLayout } from "./wassceSheet.js";
+import { renderWassceSheet, WASSCE_SHEET, wassceLayout } from "./wassceSheet.js";
 import { renderBookletHTML } from "./bookletSheet.js";
 
-/** The printed A4 page (landscape) that carries two BECE sheets. The WASSCE sheet is a full A4 portrait page (WASSCE_PAGE). */
+/** The printed A4 page (landscape) that carries two BECE sheets. The WASSCE sheet is the A4 design scaled to A5, so it prints two per page as well. */
 export const PRINT_PAGE = { w: 297, h: 210 };
 
 /** Physical specification of each style, all in millimetres. */
@@ -65,8 +65,8 @@ export const SHEET_SPECS = {
   wassce: {
     id: "wassce",
     label: "WASSCE style",
-    card: { w: 210, h: 297 },            // one sheet = one full A4 portrait page
-    page: { w: 210, h: 297, orientation: "portrait", perPage: 1 },
+    card: { w: 148.5, h: 210 },          // one sheet = half of A4 (A5 portrait): the A4 design printed at 70.7%
+    page: { w: 297, h: 210, orientation: "landscape", perPage: 2 },
     defaultColour: "school",             // one printing colour, the school's main colour (black & white is one tap away)
     showMotto: true,
     versionRow: true,
@@ -89,13 +89,11 @@ export const defaultSheetStyle = (isSHS) => (isSHS ? "wassce" : "bece");
 export function sheetSizeSummary(style, questions = 40, optionCount = 4) {
   if (style === "bece") return `Each sheet is half of A4 (${BECE_GEOM.W} × ${BECE_GEOM.H} mm), two per A4 landscape, cut along the dashed line · ${BECE_PER_SHEET} questions per sheet in 3 columns, [A] to [E] boxes`;
   const p = wassceLayout(clampQuestions(questions), optionCount);
-  return `One full A4 portrait sheet (${WASSCE_PAGE.w} × ${WASSCE_PAGE.h} mm) per candidate · exactly ${clampQuestions(questions)} questions in ${p.cols} column${p.cols === 1 ? "" : "s"} of ${p.per}, bracket boxes [A] to [${optionCount === 5 ? "E" : "D"}]`;
+  return `Each sheet is half of A4 (148.5 × 210 mm), two per A4 landscape, cut along the dashed line · exactly ${clampQuestions(questions)} questions in ${p.cols} column${p.cols === 1 ? "" : "s"} of ${p.per}, bracket boxes [A] to [${optionCount === 5 ? "E" : "D"}]`;
 }
 
 /** What to choose in the print dialog for a style. */
-export const printNote = (style) => style === "bece"
-  ? "Print on A4 landscape at 100% (Actual size)."
-  : "Print on A4 portrait at 100% (Actual size), one sheet per candidate.";
+export const printNote = () => "Print on A4 landscape at 100% (Actual size), then cut along the dashed line.";
 
 /** The printed page of a style (for the preview window). */
 export const pageFor = (style) => (SHEET_SPECS[style] || SHEET_SPECS.bece).page;

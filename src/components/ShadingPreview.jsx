@@ -71,7 +71,7 @@ export default function ShadingPreview({ html, style, onStyle, colourMode, onCol
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "12px 48px 12px 16px", borderBottom: "1px solid var(--border-strong)", position: "relative" }}>
           <div style={{ flex: "1 1 220px", minWidth: 0 }}>
             <h3 id="shade-prev-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: F }}>{title}</h3>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>{subtitle || (portrait ? `${questions} questions · A4 portrait · one full sheet per candidate` : `${questions} questions · A4 landscape · prints two sheets per page, cut along the dashed line`)}</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F }}>{subtitle || (portrait ? `${questions} questions · A4 portrait` : `${questions} questions · A4 landscape · prints two sheets per page, cut along the dashed line`)}</div>
           </div>
           {showStyle && (
             <div role="group" aria-label="Sheet style" style={{ display: "flex", gap: 6 }}>

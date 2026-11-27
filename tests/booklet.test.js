@@ -5,6 +5,7 @@ import { parseSheetPayload } from "../src/sheetCode.js";
 import { wassceSheetCode, wassceTopMarks, wassceSheetModel } from "../src/wassceSheet.js";
 
 const meta = { schoolName: "Achimota Senior High School", schoolMotto: "Ut Omnes Unum Sint", subject: "Elective Mathematics", className: "SHS 3", programme: "Science", term: "Term 2", examType: "Mock Exam", durationMinutes: 150, totalMarks: 100, idMode: "boxes", idDigits: 10, notice: true, examVersion: "B", paperNames: "Paper 1 and Paper 2", coverCode: { code: "2", subject: "ELECTIVE MATHEMATICS", kind: "Essay", duration: "2 hours 30 minutes" } };
+const oneCopy = (h) => h.replace(/<div class="slot r">[\s\S]*?(<i class="cut"><\/i>)/, "$1");   // WASSCE prints two identical copies per A4: count the first
 const bk = (o = {}) => renderAnswerBookletHTML({ pages: 12, paper: "a4", questions: 13, ruling: "lined", colourMode: "school", colours: { main: "#12285C" }, meta, ...o });
 const count = (h, re) => (h.match(re) || []).length;
 
@@ -92,17 +93,18 @@ describe("A3 landscape booklet", () => {
 describe("booklet cover", () => {
   const h = bk();
   it("carries everything the question paper's cover carries", () => {
-    for (const t of ["Achimota Senior High School", "Ut Omnes Unum Sint", "DO NOT OPEN THIS BOOKLET", "150 mins", "FOR EXAMINER'S USE ONLY", "Instructions to Candidates", "Candidate's Name", "Index Number", "VERSION B"]) expect(h.toLowerCase()).toContain(t.toLowerCase());
+    for (const t of ["Achimota Senior High School", "Ut Omnes Unum Sint", "DO NOT OPEN THIS BOOKLET", "FOR EXAMINER'S USE ONLY", "Instructions to Candidates", "Candidate's Name", "Index Number", "VERSION B"]) expect(h.toLowerCase()).toContain(t.toLowerCase());
     expect(h).toContain('<b class="cb">2</b>');
     expect(h).toContain(">Subject<"); expect(h).toContain(">Class<");
     for (const t of ["ESSAY", "OBJECTIVE", "2 HOURS 30 MINUTES", "Paper 1 and Paper 2", "crule", "wrow"]) expect(h).not.toContain(t);
-    expect(h).toContain(">100<");                                  // total marks
+    expect(h).not.toContain(">Duration<");                         // duration is on the question paper, not repeated here
+    expect(h).toContain("/ 100");                                  // total marks sit in the examiner's TOTAL row
   });
   it("has its own identity: a school-colour masthead with the logo on a white disc and a ruled title plate", () => {
     expect(h).toContain('<div class="mast">'); expect(h).toContain('class="mast-logo"');
     expect(h).toMatch(/\.mast\{[^}]*background:#12285C/);
     expect(h).toMatch(/\.mast-logo\{[^}]*background:#fff/);
-    expect(h).toContain('<span class="ttl">ANSWER BOOKLET</span>');
+    expect(h).toContain('<span class="ttl">EXAMINATION ANSWER BOOKLET</span>');
   });
   it("boxes mode prints the index boxes; line mode prints a line; none prints neither", () => {
     expect(count(bk({ meta: { ...meta, idMode: "boxes", idDigits: 8 } }), /<span class="idc">(<i><\/i>){8}<\/span>/g)).toBe(1);
@@ -146,12 +148,12 @@ describe("ruled pages", () => {
   it("every inner page repeats the school name and an index-number strip at the top", () => {
     const h = bk({ pages: 6 });
     expect(count(h, /<span class="ibs mini">/g)).toBe(5);
-    expect(count(h, /<span class="ih-l">Achimota Senior High School<\/span>/g)).toBe(5);
+    expect(count(h, /<span class="ih-name">Achimota Senior High School<\/span>/g)).toBe(5);
   });
 });
 
 describe("WASSCE sheet: scanning features", () => {
-  const html = (o = {}) => renderShadingSheetHTML({ style: "wassce", questions: 50, optionCount: 4, colourMode: "school", colours: { main: "#12285C" }, meta, ...o });
+  const html = (o = {}) => oneCopy(renderShadingSheetHTML({ style: "wassce", questions: 50, optionCount: 4, colourMode: "school", colours: { main: "#12285C" }, meta, ...o }));
   it("prints a QR sheet ID that says how many questions, options, digits, version and which paper", () => {
     const h = html(), code = wassceSheetCode(meta, 50, 4, 10);
     expect(parseSheetPayload(code)).toMatchObject({ n: 50, optionCount: 4, digits: 10, version: "B" });

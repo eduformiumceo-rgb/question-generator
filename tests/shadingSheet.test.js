@@ -8,7 +8,8 @@ import { WASSCE_GEOM, WASSCE_PAGE, wassceLayout, wassceRowsPerColumn, wassceTimi
 import { theoryCount, bookletLineCount, BOOKLET_GEOM } from "../src/bookletSheet.js";
 
 const meta = { schoolName: "St. Mary's Senior High School", schoolMotto: "Knowledge, Discipline, Service", subject: "Core Mathematics", className: "SHS 3", term: "Semester 1", examType: "End of Semester Exam", examVersion: "B", idDigits: 10 };
-const html = (o) => renderShadingSheetHTML({ meta, ...o });
+const oneCopy = (h) => h.replace(/<div class="slot r">[\s\S]*?(<i class="cut"><\/i>)/, "$1");   // WASSCE prints two identical copies per A4: count the first
+const html = (o) => { const r = renderShadingSheetHTML({ meta, ...o }); return o && o.style === "wassce" && !o.both ? oneCopy(r) : r; };
 const count = (s, re) => (s.match(re) || []).length;
 
 describe("physical sizes", () => {
@@ -20,14 +21,15 @@ describe("physical sizes", () => {
     expect(PRINT_PAGE).toEqual({ w: 297, h: 210 });
   });
 
-  it("WASSCE: one sheet is one full A4 portrait page", () => {
-    expect(SHEET_SPECS.wassce.card).toEqual({ w: 210, h: 297 });
-    expect(WASSCE_PAGE).toEqual({ w: 210, h: 297 });
-    const h = html({ style: "wassce", questions: 50 });
-    expect(h).toContain("@page{size:210mm 297mm;margin:0}");
+  it("WASSCE: the A4 design prints at A5, two sheets per A4 landscape page, like the BECE", () => {
+    expect(SHEET_SPECS.wassce.card).toEqual({ w: 148.5, h: 210 });
+    expect(WASSCE_PAGE).toEqual({ w: 297, h: 210 });
+    const h = html({ style: "wassce", questions: 50, both: true });
+    expect(h).toContain("@page{size:297mm 210mm;margin:0}");
     expect(count(h, /<section class="sheet">/g)).toBe(1);
-    expect(count(h, /<div class="card st-wassce">/g)).toBe(1);
-    expect(h).not.toContain('class="cut"');
+    expect(count(h, /<div class="card st-wassce">/g)).toBe(2);
+    expect(h).toContain('class="cut"');
+    expect(h).toContain("transform:scale(0.7071");
   });
 
   it("the page is declared A4 landscape with no margin, and carries two sheets per page", () => {
@@ -257,7 +259,7 @@ describe("styles", () => {
   });
   it("the size summary reads from the spec", () => {
     const t = sheetSizeSummary("wassce", 50, 4);
-    expect(t).toContain("210 × 297 mm");
+    expect(t).toContain("148.5 × 210 mm");
     expect(t).toContain("exactly 50 questions");
     expect(t).toContain("5 columns of 10");
     expect(sheetSizeSummary("bece", 40)).toContain("148.5 × 210 mm");
@@ -351,7 +353,7 @@ describe("answer booklet", () => {
     expect(count(h, /<table class="et">/g)).toBe(2);                       // 12 questions: two tables of ten rows
     expect(count(bk({ pages: 8, questions: 6 }), /<table class="et">/g)).toBe(1);
   });
-  it("every answer page carries the index-number boxes, a "do not write" margin and the page number", () => {
+  it("every answer page carries the index-number boxes, a do-not-write margin and the page number", () => {
     const h = bk({ pages: 8, questions: 5 });
     expect(count(h, /class="mg-label"/g)).toBe(7);
     expect(count(h, /<span class="ih-r">/g)).toBe(7);
@@ -372,7 +374,7 @@ describe("answer booklet", () => {
   it("uses the school's own name, logo and colours, never an examining body's", () => {
     const h = bk({ pages: 8, questions: 5, colours: { main: "#0F5C32", accent: "#C99A2E" }, meta: { ...meta, schoolLogo: "data:image/png;base64,AAAA" } });
     expect(h).toContain("#0F5C32");
-    expect(count(h, /class="logo" src="data:image\/png/g)).toBe(1);
+    expect(count(h, /class="logo" src="data:image\/png/g)).toBe(1 + 7);   // cover + the header of each of the 7 inner pages
     expect(h).not.toMatch(/WAEC|West African Examinations/i);
     expect(bk({ pages: 8, questions: 5, colourMode: "mono", colours: { main: "#0F5C32", accent: "#C99A2E" } })).not.toContain("#0F5C32");
   });
