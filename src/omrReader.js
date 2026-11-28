@@ -104,7 +104,6 @@ function findCorners(gray, dark) {
 }
 
 /* ---------- reading ---------- */
-const OPT_FRAC = 0.58;
 const BIAS_CAP = 0.05;                         // the most a per-position printing bias may be taken off a bubble's strength
 const SNAP = 1.3;                              // mm: how far a bubble may be nudged onto its printed outline
 const LOBE_OUTER = 0.8, LOBE_INNER = 0.4;      // sampled part of a bubble, as fractions of its half-width: from 0.4 to 0.8 either side of the centre

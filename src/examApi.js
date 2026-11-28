@@ -35,7 +35,7 @@ export async function streamExamAPI(payload, token, onProgress) {
     });
   } catch (e) {
     clearTimeout(watchdog);
-    throw new Error(e.name === "AbortError" ? "The server took too long to respond. Please try again. You have not been charged." : e.message);
+    throw new Error(e.name === "AbortError" ? "The server took too long to respond. Please try again. You have not been charged." : e.message, { cause: e });
   }
 
   if (!res.ok) {
@@ -46,7 +46,7 @@ export async function streamExamAPI(payload, token, onProgress) {
     err.balance = errBody.balance;
     throw err;
   }
-  if (!res.body) throw new Error("Streaming is not supported in this browser. Please update your browser and try again.");
+  if (!res.body) { clearTimeout(watchdog); throw new Error("Streaming is not supported in this browser. Please update your browser and try again."); }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -59,7 +59,7 @@ export async function streamExamAPI(payload, token, onProgress) {
     try { chunk = await reader.read(); }
     catch (e) {
       clearTimeout(watchdog);
-      throw new Error(e.name === "AbortError" ? "Generation stalled and was stopped. Please try again. You have not been charged." : "Connection lost while generating. Please try again.");
+      throw new Error(e.name === "AbortError" ? "Generation stalled and was stopped. Please try again. You have not been charged." : "Connection lost while generating. Please try again.", { cause: e });
     }
     arm(); // any bytes (including server keep-alive pings) reset the stall timer
     const { done, value } = chunk;
@@ -78,6 +78,16 @@ export async function streamExamAPI(payload, token, onProgress) {
   }
 
   clearTimeout(watchdog);
+  // A last line that arrived without its closing newline (a proxy can drop it) must still count; the "done" event is often exactly that line.
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    try {
+      const event = JSON.parse(buffer);
+      onProgress?.(event);
+      if (event.type === "done") finalResult = event;
+      if (event.type === "error") streamError = event;
+    } catch { /* a half-written last line: nothing usable in it */ }
+  }
   if (streamError) {
     const err = new Error(streamError.message);
     err.creditsRemaining = streamError.creditsRemaining;

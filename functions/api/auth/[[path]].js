@@ -211,6 +211,13 @@ async function verifyJWT(token, secret) {
   } catch { return null; }
 }
 
+// Login-session check. Password-reset tokens are signed with the same secret, so every place that means "a signed-in user"
+// must refuse them (only handleResetPassword accepts a token that carries a `purpose`).
+async function verifySession(token, secret) {
+  const payload = await verifyJWT(token, secret);
+  return payload && !payload.purpose ? payload : null;
+}
+
 async function sb(env, path, opts = {}) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
     // Clear, greppable message in Cloudflare logs - instead of the cryptic
@@ -257,7 +264,9 @@ async function handleSignIn(request, env) {
 
   const rows = await sb(env, `/users?email=eq.${encodeURIComponent(normalEmail)}&select=*&limit=1`);
   if (!rows?.length) {
-    return jsonResp({ error: "No account found with that email. Please sign up first." }, 401);
+    // Same message AND similar work as a wrong password, so the response (text and timing) does not reveal which emails are registered.
+    await hashPassword(password).catch(() => {});
+    return jsonResp({ error: "Incorrect email or password." }, 401);
   }
 
   const user = rows[0];
@@ -270,7 +279,7 @@ async function handleSignIn(request, env) {
   }
 
   if (!(await verifyPassword(password, user.password_hash))) {
-    return jsonResp({ error: "Incorrect password. Please try again." }, 401);
+    return jsonResp({ error: "Incorrect email or password." }, 401);
   }
 
   // Transparent upgrade: if stored hash is legacy SHA-256, re-hash with PBKDF2
@@ -464,7 +473,8 @@ async function handleSendOTP(request, env) {
 
   if (purpose === "reset") {
     const rows = await sb(env, `/users?email=eq.${encodeURIComponent(normalEmail)}&select=id&limit=1`);
-    if (!rows?.length) return jsonResp({ error: "No account found with that email address." }, 404);
+    // Answer exactly as if the code was sent, so this form cannot be used to find out which emails have an account.
+    if (!rows?.length) return jsonResp({ ok: true });
   }
 
   const code   = makeOTP();
@@ -658,7 +668,7 @@ async function handleGetCoins(request, env, url) {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return jsonResp({ error: "Authentication required." }, 401);
-  const payload = await verifyJWT(token, env.JWT_SECRET);
+  const payload = await verifySession(token, env.JWT_SECRET);
   if (!payload) return jsonResp({ error: "Invalid or expired session." }, 401);
 
   // Use the authenticated user's ID from the JWT - never trust the query param alone
@@ -672,14 +682,29 @@ async function handleDeductCoins(request, env) {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return jsonResp({ error: "Authentication required." }, 401);
-  const payload = await verifyJWT(token, env.JWT_SECRET);
+  const payload = await verifySession(token, env.JWT_SECRET);
   if (!payload) return jsonResp({ error: "Invalid or expired session." }, 401);
 
-  const { amount = 1 } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return jsonResp({ error: "Invalid request." }, 400); }
+  // The amount comes from the browser, so it must be a real, positive, sensible number. Without this check a NEGATIVE
+  // amount passed the "enough coins?" test and ADDED coins to the balance, and a non-number wrote a broken balance.
+  const amount = body?.amount === undefined ? 1 : Number(body.amount);   // only a MISSING amount means 1; null / text / NaN are errors
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 100) return jsonResp({ error: "Invalid amount." }, 400);
   // Always use the authenticated user's ID - ignore any user_id in the body
   const user_id = payload.sub;
+
+  // Atomic decrement (no read-then-write race that lets two parallel requests spend the same coins).
+  try {
+    const result = await sb(env, `/rpc/decrement_coins`, { method: "POST", body: JSON.stringify({ p_user_id: user_id, p_amount: amount }) });
+    const balance = typeof result === "number" ? result : (result?.[0] ?? null);
+    if (balance !== null && balance !== undefined) return jsonResp({ balance });
+  } catch (e) {
+    if (String(e?.message || "").includes("insufficient_coins")) return jsonResp({ error: "Not enough coins." }, 402);
+    // any other failure (e.g. the RPC is not installed): use the plain read-then-write path below
+  }
   const rows    = await sb(env, `/coins?user_id=eq.${user_id}&select=balance`);
-  const current = rows?.[0]?.balance ?? 0;
+  const current = Number(rows?.[0]?.balance) || 0;
   if (current < amount) return jsonResp({ error: "Not enough coins." }, 402);
   const newBalance = current - amount;
   await sb(env, `/coins?user_id=eq.${user_id}`, {
@@ -697,7 +722,7 @@ async function handleLogGen(request, env) {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return jsonResp({ error: "Authentication required." }, 401);
-  const payload = await verifyJWT(token, env.JWT_SECRET);
+  const payload = await verifySession(token, env.JWT_SECRET);
   if (!payload) return jsonResp({ error: "Invalid or expired session." }, 401);
 
   const { subject, class: cls, tier: rawTier, coins_used: rawCoinsUsed = 0,
@@ -730,7 +755,7 @@ async function handleGenToday(request, env, url) {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return jsonResp({ error: "Authentication required." }, 401);
-  const payload = await verifyJWT(token, env.JWT_SECRET);
+  const payload = await verifySession(token, env.JWT_SECRET);
   if (!payload) return jsonResp({ error: "Invalid or expired session." }, 401);
 
   // Use the JWT subject as the authoritative user ID
@@ -873,7 +898,7 @@ async function handleMe(request, env) {
   const token = auth.replace("Bearer ", "").trim();
   if (!token) return jsonResp({ error: "Unauthorised." }, 401);
 
-  const payload = await verifyJWT(token, env.JWT_SECRET);
+  const payload = await verifySession(token, env.JWT_SECRET);
   if (!payload) return jsonResp({ error: "Invalid or expired token." }, 401);
 
   const rows = await sb(env, `/users?id=eq.${payload.sub}&select=id,email,name,school,role,avatar_url&limit=1`);
@@ -890,7 +915,7 @@ async function handleUpdateProfile(request, env) {
 
   let userId;
   try {
-    const payload = await verifyJWT(token, env.JWT_SECRET);
+    const payload = await verifySession(token, env.JWT_SECRET);
     if (!payload) throw new Error("invalid");
     userId = payload.sub;
   } catch {
@@ -923,7 +948,7 @@ async function handleUploadAvatar(request, env) {
 
   let userId;
   try {
-    const payload = await verifyJWT(token, env.JWT_SECRET);
+    const payload = await verifySession(token, env.JWT_SECRET);
     if (!payload) throw new Error("invalid");
     userId = payload.sub;
   } catch {

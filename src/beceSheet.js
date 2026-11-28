@@ -95,7 +95,6 @@ export function renderBeceSheet(h) {
   const sheetsTotal = Math.max(1, Math.ceil(n / BECE_PER_SHEET));
   const digits = Math.max(4, Math.min(10, Math.round(Number(meta.idDigits) || 10)));
   // SUBJECT and CLASS are left blank for the candidate to write (like the name); the class is never printed in the heading either.
-  const subject = [meta.subject, meta.programme].filter(Boolean).join(" - ");
   const sideSpace = g.head.logo + 3.5;   // reserved on BOTH sides so the text is centred on the sheet
   const fit = fitSchoolName(name, g.CW - 2 * sideSpace);
 

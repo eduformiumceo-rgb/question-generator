@@ -25,7 +25,7 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-import { minutesLabel, answerableMarks } from "./beceStyle.js";
+import { minutesLabel } from "./beceStyle.js";
 
 const OBJ_ID = "OBJ";
 

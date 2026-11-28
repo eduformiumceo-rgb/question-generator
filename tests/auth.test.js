@@ -68,9 +68,11 @@ describe("auth: sending verification codes", () => {
     await call("/send-otp", { email: "ama@example.com", purpose: "verify:admin@x.com\nreset" });
     expect([...ENV.OTP_KV.m.keys()].filter(k => k.startsWith("otp:"))).toEqual(["otp:verify:ama@example.com"]);
   });
-  it("password reset codes are only sent to existing accounts", async () => {
-    expect((await call("/send-otp", { email: "ghost@example.com", purpose: "reset" })).status).toBe(404);
-    expect(emails).toHaveLength(0);
+  it("password reset codes are only sent to existing accounts, and the answer does not reveal whether the account exists", async () => {
+    const r = await call("/send-otp", { email: "ghost@example.com", purpose: "reset" });
+    expect(r.status).toBe(200);          // identical to a real request: nobody can probe which emails are registered
+    expect(r.json).toEqual({ ok: true });
+    expect(emails).toHaveLength(0);      // ...but no email is actually sent
   });
 });
 

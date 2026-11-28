@@ -291,7 +291,7 @@ const lineGraph = {
   example: { title: "Rainfall", categories: ["Jan", "Feb", "Mar", "Apr", "May"], series: [{ name: "Town A", values: [20, 35, 50, 80, 95] }], xLabel: "Month", yLabel: "Rainfall (mm)" },
   normalize(p) {
     const cats = strList(p.categories, 12, 10);
-    let series = [];
+    let series;
     if (Array.isArray(p.series)) series = p.series.slice(0, 3).filter(isObj).map(s => ({ name: str(s.name, 14), values: numList(s.values, 12) }));
     else series = [{ name: "", values: numList(p.values, 12) }];
     const n = Math.min(cats.length, ...series.map(s => s.values.length));

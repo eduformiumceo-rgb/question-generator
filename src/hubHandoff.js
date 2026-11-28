@@ -4,7 +4,7 @@
    the same way a normal sign-in does. The page then starts already signed in. Never throws, never waits more than a
    few seconds, and does nothing at all when there is no code. */
 export async function completeHubHandoff({ win = window, store = win.localStorage, fetchFn = fetch, timeoutMs = 6000 } = {}) {
-  let code = null;
+  let code;
   try {
     const url = new URL(win.location.href);
     code = url.searchParams.get("hub_code");

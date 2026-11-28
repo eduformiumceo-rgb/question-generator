@@ -17,7 +17,9 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { F, S, Spinner } from "./sharedStyles.jsx";
 import ExamStructureBuilder, { DEFAULT_SECTIONS, paperTotals, nextSectionId, sectionLabel } from "./components/ExamStructureBuilder.jsx";
-import TopicSelector, { CLASS_GROUPS } from "./components/TopicSelector.jsx";
+import TopicSelector from "./components/TopicSelector.jsx";
+import { useAccountMeters } from "./hooks/useAccountMeters.js";
+import { TAB_HASH, TAB_TITLE, viewFromHash, RESPONSIVE_CSS } from "./generatorTabs.js";
 import FigurePanel from "./components/FigurePanel.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { diagramDrawing } from "./examFigures.js";
@@ -26,10 +28,10 @@ import { autoDrawFigures, requestFigureSVG } from "./aiFigures.js";
 import { isSHSClass, termOptionsFor, mapTermForLevel, examTypesFor, mapExamTypeForLevel } from "./shsCourses.js";
 import { currentAcademicYear, cleanAcademicYear } from "./shsLevel.js";
 import { renderExamHTML, validateExamData, createExamVariant, schoolCrestSVG, isSafeGeneratedSVG, OPTIONS_LAYOUTS, ID_MODES, PAPER_PRESETS, clampIdDigits, DEFAULT_NOTICE } from "./examTemplate.js";
-import { fileToPngDataUrl, svgToPngDataUrl } from "./imageUtils.js";
+import { svgToPngDataUrl } from "./imageUtils.js";
 import { getWassceProfile, wassceSections, wassceTotalMinutes, decorateWassceExam, wassceCoverCode, wasscePaper2Code } from "./wassceStyle.js";
-import { renderShadingSheetHTML, renderAnswerBookletHTML, printNote, pageFor, SHEET_SPECS, SCHOOL_COLOUR_PRESETS, DEFAULT_SCHOOL_COLOURS, defaultSheetStyle, objectiveCount, clampQuestions, sheetSizeSummary, standardQuestions, MAX_QUESTIONS } from "./shadingSheet.js";
-import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, answerableMarks, cleanBeceTitle, beceCoverCode } from "./beceStyle.js";
+import { renderShadingSheetHTML, renderAnswerBookletHTML, pageFor, SHEET_SPECS, SCHOOL_COLOUR_PRESETS, DEFAULT_SCHOOL_COLOURS, defaultSheetStyle, objectiveCount, clampQuestions, standardQuestions, MAX_QUESTIONS } from "./shadingSheet.js";
+import { getBeceProfile, beceSections, beceTotalMinutes, isBeceClass, decorateBeceExam, minutesLabel, cleanBeceTitle, beceCoverCode } from "./beceStyle.js";
 // NOT statically imported - docx bundles to ~700KB, which would hurt first-load
 // time on low-end Android for a feature most teachers use occasionally, not on
 // every visit. Loaded on demand inside handleDownloadWord() instead.
@@ -48,7 +50,7 @@ import NumberField from "./components/NumberField.jsx";
 import BookletPanel from "./components/BookletPanel.jsx";
 import ShadingPanel from "./components/ShadingPanel.jsx";
 import { Toggle, Segmented, GenerationProgress } from "./components/FormControls.jsx";
-import { EXAM_API, ACCOUNT_API, DIFFICULTIES, LANGUAGE_STYLES, COGNITIVE_LEVELS, streamExamAPI } from "./examApi.js";
+import { EXAM_API, DIFFICULTIES, LANGUAGE_STYLES, COGNITIVE_LEVELS, streamExamAPI } from "./examApi.js";
 import TopUpModal from "./components/TopUpModal.jsx";
 import ShadingPreview from "./components/ShadingPreview.jsx";
 import ScanMarker from "./components/ScanMarker.jsx";
@@ -111,7 +113,6 @@ const PREFS_KEY = "eduq.paperPrefs.v1";
 const LOGO_KEY = "eduq.schoolLogo.v1";
 const readPrefs = () => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") || {}; } catch { return {}; } };
 const readLogo = () => { try { return localStorage.getItem(LOGO_KEY) || null; } catch { return null; } };
-const isPublicExamClass = (cls) => /^(JHS\s*3|SHS\s*3|Basic\s*9)\b/i.test(String(cls || "").trim());
 
 
 function QuestionsGeneratorInner() {
@@ -151,7 +152,6 @@ function QuestionsGeneratorInner() {
   const [bookletRuling, setBookletRuling] = useState("lined");   // "lined" | "graph" | "plain"
   const [bookletQuestions, setBookletQuestions] = useState(null); // null = count from the paper's theory questions
   // The sheet's own class / exam type / term. null = follow the paper. Setting them here never changes the Assessment form.
-  const [sheetClass, setSheetClass] = useState(null);
   const [className, setClassName] = useState(D.className ?? "");
   const [term, setTerm] = useState(D.term ?? "Term 1");
   const [academicYear, setAcademicYear] = useState(D.academicYear ?? currentAcademicYear());   // optional; printed beside the term on the paper
@@ -295,22 +295,8 @@ function QuestionsGeneratorInner() {
   const [showTopUp, setShowTopUp] = useState(false);
   const printFrameRef = useRef(null);
 
-  // Credits are the SAME shared `coins` wallet the Lesson Planner uses -
-  // not a separate balance. `creditBalance` here is always the RAW value;
-  // toDisplayCredits() is applied only at render time, matching the real
-  // App.jsx's rule ("never show coins raw to the user").
-  const [creditBalance, setCreditBalance] = useState(null);
-  const fetchBalance = useCallback(async () => {
-    try {
-      const token = getToken ? getToken() : null;
-      if (!token) { setCreditBalance(null); return; }
-      const res = await fetch(`${ACCOUNT_API}/balance`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) return;
-      const data = await res.json();
-      setCreditBalance(data.balance);
-    } catch { /* balance display is non-critical - fail quietly */ }
-  }, []);
-  React.useEffect(() => { fetchBalance(); }, [fetchBalance]);
+  // Credit balance + "free quizzes left" (display-only numbers; see hooks/useAccountMeters.js)
+  const { creditBalance, setCreditBalance, fetchBalance, freeUsage, fetchFreeUsage } = useAccountMeters();
 
   // ── My Assessments (saved papers) ────────────────────────────────────────────
   // Same model as the Lesson Planner's "My Plans": every generated exam is
@@ -428,20 +414,6 @@ function QuestionsGeneratorInner() {
     setView("generate");
   };
 
-  // "X/5 left" on the Free button - same proactive-remaining-count pattern
-  // as the real App.jsx's Free button badge, not just a failure message.
-  const [freeUsage, setFreeUsage] = useState(null); // { used, limit, remaining }
-  const fetchFreeUsage = useCallback(async () => {
-    try {
-      const token = getToken ? getToken() : null;
-      if (!token) { setFreeUsage(null); return; }
-      const res = await fetch(`${ACCOUNT_API}/free-usage`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) return;
-      setFreeUsage(await res.json());
-    } catch { /* non-critical - fail quietly, the server still enforces the real limit */ }
-  }, []);
-  React.useEffect(() => { fetchFreeUsage(); }, [fetchFreeUsage]);
-
   // Safety net, mirrored from the real App.jsx: if Google/Supabase lands the
   // teacher on "/" instead of "/auth/callback" (misconfigured Redirect URL,
   // cached link), finish the handshake here so login still completes.
@@ -539,7 +511,9 @@ function QuestionsGeneratorInner() {
   });
 
   /** resumeFrom: { sections, title, instructions } kept from an interrupted run. Only the missing sections are then written (and charged). */
+  const generatingRef = useRef(false);   // set the instant a run starts (state lags a render), so a double-tap can never start - and pay for - two runs
   const handleGenerate = async (tierArg, resumeFrom = null) => {
+    if (generatingRef.current) return;
     setError("");
     const validationError = validate(tierArg);
     if (validationError) { setError(validationError); return; }
@@ -563,6 +537,7 @@ function QuestionsGeneratorInner() {
     let keepJob = false;   // true when the run stopped part-way and the finished sections are worth keeping for "Continue"
     setProgress({ index: held.length, total: activeSections.length, sectionLabel: "", sectionsDone: new Set(held.map(sc => sc.id)) });
     if (held.length) setLivePreview({ title: heldTitle, instructions: heldInstructions, sections: held, answerKey: [] });
+    generatingRef.current = true;   // taken right before the try so the finally below ALWAYS releases it
     try {
       const payload = buildGenerationPayload(tierArg);
       settingsKey = fingerprint(payload);          // taken BEFORE skipSectionIds is added: it describes the settings, not the continuation
@@ -650,6 +625,7 @@ function QuestionsGeneratorInner() {
         }
       }
     } finally {
+      generatingRef.current = false;
       if (!keepJob) clearJob(); // finished, failed or cancelled: the run is over (a refresh leaves the marker behind; a part-way stop keeps it on purpose)
       setLoading(false);
       setLoadingTier(null);
@@ -1742,35 +1718,6 @@ function QuestionsGeneratorInner() {
     </>
   );
 }
-
-/**
- * A small, scoped responsive stylesheet for the couple of fixed 2-column
- * grids used across this wizard (Basic Info, Curriculum, Exam Structure
- * Builder). Inline React styles can't express media queries, and these
- * grids not stacking on a narrow phone - squishing two inputs into ~150px
- * each - is a real usability regression against the "smooth on low-end
- * Android" requirement, not a cosmetic nitpick.
- */
-const TAB_HASH = { generate: "", shading: "#shading", booklet: "#booklet", saved: "#saved" };
-const TAB_TITLE = { generate: "Eduformium Assessment Studio: Tests, Quizzes & Exams", shading: "Shading Sheet · Eduformium Assessment Studio", booklet: "Answer Booklet · Eduformium Assessment Studio", saved: "My Assessments · Eduformium Assessment Studio" };
-function viewFromHash() {
-  if (typeof window === "undefined") return "generate";
-  const h = window.location.hash;
-  return h === "#shading" ? "shading" : h === "#booklet" ? "booklet" : h === "#saved" ? "saved" : "generate";
-}
-
-const RESPONSIVE_CSS = `
-  @keyframes eduq-rise { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
-  .eduq-bar { animation: eduq-rise .22s ease-out backwards; }
-  @keyframes eduq-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  .eduq-live-sec { animation: eduq-in .3s ease-out both; }
-  @media (prefers-reduced-motion: reduce) { .eduq-bar, .eduq-live-sec { animation: none; } }
-  .eduq-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .eduq-grid-2 > * { min-width: 0; }
-  @media (max-width: 480px) {
-    .eduq-grid-2:not(.is-pair) { grid-template-columns: 1fr; }
-  }
-`;
 
 export default function QuestionsGenerator() {
   return (

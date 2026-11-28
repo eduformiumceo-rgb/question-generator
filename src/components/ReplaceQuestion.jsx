@@ -3,7 +3,7 @@
  * Optional note ("make it harder"), a spinner while the server works, a clear
  * error, and one-step Undo so a teacher can never lose a question they liked.
  */
-import React, { useState, useId } from "react";
+import React, { useState, useId, useRef } from "react";
 
 export default function ReplaceQuestion({ question, onReplace, onApply, S, F }) {
   const inputId = useId();   // unique even when two sections both have a "question 1"
@@ -13,7 +13,10 @@ export default function ReplaceQuestion({ question, onReplace, onApply, S, F }) 
   const [error, setError] = useState("");
   const [previous, setPrevious] = useState(null);
 
+  const inFlight = useRef(false);   // `busy` is state and lags a render: a double-tap used to send (and charge for) two replacements
   const run = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true); setError("");
     const old = question;
     try {
@@ -23,7 +26,7 @@ export default function ReplaceQuestion({ question, onReplace, onApply, S, F }) 
       setOpen(false); setNote("");
     } catch (e) {
       if (e?.name !== "AbortError") setError(e?.message || "Couldn't write a replacement question.");
-    } finally { setBusy(false); }
+    } finally { inFlight.current = false; setBusy(false); }
   };
 
   const small = { ...S.sm, height: 32, fontSize: 12, padding: "0 14px" };

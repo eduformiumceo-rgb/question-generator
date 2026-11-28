@@ -4,7 +4,7 @@
  * compatibility, including low-end Android - matches the pattern the
  * exam-payment endpoint's `callback_url` already expects.
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { getToken } from "../auth.js";
 
 const ACCOUNT_API = "/api/exam-payment";
@@ -41,7 +41,10 @@ export default function TopUpModal({ onClose, onPurchased, S, F }) {
     })();
   }, []);
 
+  const buying = useRef(false);   // state lags a render: a double-tap used to start two payments (two pending transactions)
   const buy = async (pkg) => {
+    if (buying.current) return;
+    buying.current = true;
     setError("");
     setLoadingPkg(pkg.id);
     try {
@@ -59,6 +62,7 @@ export default function TopUpModal({ onClose, onPurchased, S, F }) {
     } catch (e) {
       setError(e.message || "Something went wrong. Please try again.");
       setLoadingPkg(null);
+      buying.current = false;   // only a failed attempt re-opens the button; on success the page is leaving for Paystack
     }
   };
 

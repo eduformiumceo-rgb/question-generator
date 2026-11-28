@@ -48,7 +48,7 @@ export async function requestQuestionReplacement({ api, token, settings, section
     });
   } catch (e) {
     if (e?.name === "AbortError") throw e;
-    throw new Error("Couldn't reach the server. Check your connection and try again.");
+    throw new Error("Couldn't reach the server. Check your connection and try again.", { cause: e });
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) { const err = new Error(data.error || "Couldn't write a replacement question."); err.creditsRemaining = data.creditsRemaining; throw err; }

@@ -25,7 +25,7 @@ export async function requestFigureSVG({ api, token, description, subject = "", 
     });
   } catch (e) {
     if (e?.name === "AbortError") throw e;
-    throw new Error("Couldn't reach the server to draw this figure.");
+    throw new Error("Couldn't reach the server to draw this figure.", { cause: e });
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Couldn't draw this figure.");

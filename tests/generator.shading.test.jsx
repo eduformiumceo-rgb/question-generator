@@ -35,7 +35,6 @@ const selectFor = (labelText) => {
 };
 const openShadingTab = (u) => u.click(screen.getAllByRole("tab", { name: /Shading Sheet/i })[0]);
 const openBookletTab = (u) => u.click(screen.getAllByRole("tab", { name: /Answer Booklet/i })[0]);
-const pageText = () => document.body.textContent.replace(/\s+/g, " ");
 
 describe("Shading sheet option in the generator screen", () => {
   it("lives on its own Shading Sheet tab, not inside the Assessment form", async () => {
@@ -43,7 +42,7 @@ describe("Shading sheet option in the generator screen", () => {
     render(<QuestionsGenerator />);
     expect(screen.queryByTestId("shading-card")).toBeNull();           // Assessment tab is showing
     await openShadingTab(u);
-    const tab = await screen.findByTestId("shading-tab");
+    await screen.findByTestId("shading-tab");
     expect(screen.queryByTestId("shading-card")).not.toBeNull();       // no class needed: it is written in by hand on the sheet
     expect(screen.getAllByRole("tab", { name: /Shading Sheet/i })[0].getAttribute("aria-selected")).toBe("true");
   });

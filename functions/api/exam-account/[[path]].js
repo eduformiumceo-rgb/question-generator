@@ -51,6 +51,7 @@ async function verifyJWT(token, secret) {
     if (!valid) return null;
     const payload = JSON.parse(atob(body.replace(/-/g, "+").replace(/_/g, "/")));
     if (payload.exp && payload.exp < Date.now() / 1000) return null;
+    if (payload.purpose) return null;   // a password-reset token is not a login session
     return payload;
   } catch { return null; }
 }
@@ -135,6 +136,9 @@ const MAX_EXAM_JSON_BYTES = 600 * 1024;
 // URL the client has already shrunk to ~150 KB). They get their own budget so
 // they can't crowd out the paper's text, and the 600 KB text limit above is
 // measured WITHOUT them. Keep in sync with imageUtils.js on the client.
+// meta_json (the paper's settings) is small by nature; without a ceiling it was the one field a client could fill with megabytes.
+const MAX_META_JSON_BYTES = 100 * 1024;
+function metaTooBig(meta) { try { return JSON.stringify(meta).length > MAX_META_JSON_BYTES; } catch { return true; } }
 const MAX_IMAGE_CHARS_EACH = 300 * 1024;
 const MAX_IMAGE_CHARS_TOTAL = 1024 * 1024;
 const SAFE_IMAGE_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
@@ -164,6 +168,7 @@ async function saveHistory(request, env, user) {
   if (!exam_json || typeof exam_json !== "object") return jsonResp({ error: "Missing exam data." }, 400);
   const tooBig = checkExamPayload(exam_json);
   if (tooBig) return tooBig;
+  if (meta_json && typeof meta_json === "object" && metaTooBig(meta_json)) return jsonResp({ error: "This exam's settings are too large to save." }, 413);
 
   // Enforce the per-user cap server-side - a client-supplied count can't be trusted.
   // Same eviction rule as the Lesson Planner's plans endpoint: oldest first,
@@ -186,7 +191,7 @@ async function saveHistory(request, env, user) {
       class: String(cls || "").slice(0, 100),
       exam_type: String(exam_type || "").slice(0, 100),
       exam_json,
-      meta_json: meta_json || {},
+      meta_json: (meta_json && typeof meta_json === "object") ? meta_json : {},
     }),
   });
   const row = saved?.[0];
@@ -208,7 +213,10 @@ async function updateHistory(request, env, user, id) {
     if (tooBig) return tooBig;
     patch.exam_json = body.exam_json;
   }
-  if (body.meta_json && typeof body.meta_json === "object") patch.meta_json = body.meta_json;
+  if (body.meta_json && typeof body.meta_json === "object") {
+    if (metaTooBig(body.meta_json)) return jsonResp({ error: "This exam's settings are too large to save." }, 413);
+    patch.meta_json = body.meta_json;
+  }
   if (!Object.keys(patch).length) return jsonResp({ error: "Nothing to update." }, 400);
   const rows = await sb(env, `/exam_history?id=eq.${id}&user_id=eq.${user.sub}`, { method: "PATCH", body: JSON.stringify(patch) });
   if (!rows?.length) return jsonResp({ error: "That exam is no longer in My Exams." }, 404);
@@ -286,7 +294,7 @@ async function lookupScheme(env, user, url) {
  */
 async function getFreeUsage(env, user) {
   const todaySince = new Date(Date.now() - 86400 * 1000).toISOString();
-  const rows = await sb(env, `/exam_generations?user_id=eq.${user.sub}&tier=eq.free&created_at=gte.${todaySince}&select=id`);
+  const rows = await sb(env, `/exam_generations?user_id=eq.${user.sub}&curriculum=eq.GES&tier=eq.free&created_at=gte.${todaySince}&select=id`);
   const used = (rows || []).length;
   return jsonResp({ used, limit: FREE_TIER_DAILY_LIMIT, remaining: Math.max(0, FREE_TIER_DAILY_LIMIT - used) });
 }

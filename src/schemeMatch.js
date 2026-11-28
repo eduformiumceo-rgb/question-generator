@@ -37,8 +37,8 @@ const PAGE_NUMBER_LINE = /^(page\s*)?\d{1,3}(\s*(of|\/)\s*\d{1,3})?$/i;
  */
 export function condenseSchemeText(raw, maxChars) {
   const lines = String(raw || "")
-    .replace(/ /g, " ")
-    .replace(/[​-‍﻿]/g, "")
+    .replace(/\u00A0/g, " ")                 // non-breaking space -> normal space
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")   // zero-width characters and the byte-order mark
     .split(/\r?\n/)
     .map(l => l.replace(/[ \t]+/g, " ").trim())
     // the prompt wraps the syllabus in triple quotes - never let the file close them early

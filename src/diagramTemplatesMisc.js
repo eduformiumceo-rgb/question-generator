@@ -3,7 +3,7 @@
  * faces and fraction shapes. See diagramTemplates.js.
  */
 import { num, str, _internals as u } from "./diagramTemplates.js";
-const { text, line, rect, circle, path, poly, svgWrap, r2, fin, strList, bool, pick, isObj, INK } = u;
+const { text, line, rect, circle, path, poly, svgWrap, r2, bool, pick, isObj, INK } = u;
 
 /* ═══════════════════════════════════════════════════════════════════
    ELECTRIC CIRCUIT (series or parallel)
@@ -20,7 +20,6 @@ function parseParts(v, maxN) {
     return { type: (i < 0 ? s : s.slice(0, i)).trim().toLowerCase().replace(/[\s-]+/g, "_"), label: str(i < 0 ? "" : s.slice(i + 1), 10) };
   }).filter(x => PARTS.includes(x.type));
 }
-const partsToText = (v) => (v || []).map(x => (x.label ? `${x.type}:${x.label}` : x.type)).join(", ");
 
 /** One component drawn horizontally around the origin, on a white patch that hides the wire behind it. */
 function symbol(type, label) {

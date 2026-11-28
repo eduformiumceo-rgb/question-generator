@@ -8,6 +8,22 @@
 const CACHE_VERSION = "eduformium-questions-v2"; // bumped with the rename: activate() deletes the old cache so installed apps pick up the new name
 const OFFLINE_PAGE  = "/index.html";
 
+// Hashed script/style files get a new name on every deploy, and the old ones used to stay in the cache forever, so storage on a
+// teacher's phone grew with every release. Keep the newest MAX_CACHED_FILES and drop the oldest; the app shell is never dropped.
+const MAX_CACHED_FILES = 250;
+const SHELL_URLS = ["/", "/index.html", "/manifest.json", "/questions-icon-192.png", "/questions-icon-512.png", "/questions-icon-192-maskable.png",
+  "/questions-icon-512-maskable.png", "/questions-logo.png", "/questions-apple-touch-icon.png", "/questions-favicon-32.png"];
+async function cachePut(request, response) {
+  try {
+    const cache = await caches.open(CACHE_VERSION);
+    await cache.put(request, response);
+    const keys = await cache.keys();
+    if (keys.length <= MAX_CACHED_FILES) return;
+    const droppable = keys.filter((k) => !SHELL_URLS.includes(new URL(k.url).pathname));   // keys() lists the oldest first
+    await Promise.all(droppable.slice(0, keys.length - MAX_CACHED_FILES).map((k) => cache.delete(k)));
+  } catch { /* the cache is a speed-up; a full disk or a blocked cache must never break the page */ }
+}
+
 // ── Install: cache the app shell ──────────────
 // IMPORTANT: cache.addAll() fails ENTIRELY (rejecting the whole install
 // event) if even one URL in the list 404s. Vite outputs content-hashed
@@ -23,18 +39,7 @@ const OFFLINE_PAGE  = "/index.html";
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE_VERSION).then((cache) =>
-      cache.addAll([
-        "/",
-        "/index.html",
-        "/manifest.json",
-        "/questions-icon-192.png",
-        "/questions-icon-512.png",
-        "/questions-icon-192-maskable.png",
-        "/questions-icon-512-maskable.png",
-        "/questions-logo.png",
-        "/questions-apple-touch-icon.png",
-        "/questions-favicon-32.png",
-      ].map((u) => new Request(u, { cache: "reload" })))
+      cache.addAll(SHELL_URLS.map((u) => new Request(u, { cache: "reload" })))
     ).then(() => self.skipWaiting())
   );
 });
@@ -90,14 +95,18 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       fetch(request)
         .then((res) => {
-          // Cache fresh copy while online
-          const clone = res.clone();
-          caches.open(CACHE_VERSION).then((c) => c.put(request, clone));
+          // Cache a fresh copy while online - but only a GOOD page. An error page (404/500) used to be stored too and then
+          // served back later. Every route is the same single-page shell, so the copy kept for offline use is refreshed as well;
+          // before, it stayed the one saved at install time and pointed at long-gone script files after a deploy.
+          if (res.ok) {
+            const forRoute = res.clone(), forShell = res.clone();
+            caches.open(CACHE_VERSION).then((c) => { c.put(request, forRoute); c.put(OFFLINE_PAGE, forShell); }).catch(() => {});
+          }
           return res;
         })
         .catch(() =>
           // Offline: serve cached shell - React router handles the rest
-          caches.match(OFFLINE_PAGE)
+          caches.match(OFFLINE_PAGE).then((r) => r || Response.error())
         )
     );
     return;
@@ -110,12 +119,9 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       caches.match(request).then((cached) => {
         const fetchPromise = fetch(request).then((res) => {
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_VERSION).then((c) => c.put(request, clone));
-          }
+          if (res.ok) cachePut(request, res.clone());
           return res;
-        });
+        }).catch(() => cached || Response.error());   // offline: the saved copy, and no unhandled rejection in the background refresh
         // Return cache instantly if available, fetch updates it silently
         return cached || fetchPromise;
       })
@@ -127,13 +133,10 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(
     fetch(request)
       .then((res) => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE_VERSION).then((c) => c.put(request, clone));
-        }
+        if (res.ok) cachePut(request, res.clone());
         return res;
       })
-      .catch(() => caches.match(request))
+      .catch(() => caches.match(request).then((r) => r || Response.error()))
   );
 });
 

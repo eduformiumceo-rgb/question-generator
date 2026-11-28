@@ -30,7 +30,6 @@ async function extractText(blob) {
   // Minimal unzip-and-strip-tags check - enough to verify real content made
   // it into the document, without a full docx-parsing dependency.
   const buf = Buffer.from(await blob.arrayBuffer());
-  const zlib = await import("zlib");
   // docx is a zip; find the central directory entry for word/document.xml the
   // simple way - search for the raw deflate stream is overkill for a test,
   // so instead just confirm the blob is a valid, non-trivial zip (PK header)

@@ -207,7 +207,6 @@ export function buildExemplarBlock(subject, cls, strandName, subStrandName, indi
     const mySteps = distribution[dayIdx] || [];
     const totalSteps = allSteps.length;
     const globalStart = distribution.slice(0, dayIdx).flat().length + 1;
-    const globalEnd   = globalStart + mySteps.length - 1;
 
     if (mySteps.length === 0) {
       return [

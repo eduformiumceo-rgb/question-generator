@@ -51,7 +51,7 @@ export const WASSCE_MAX = 100;
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 const PX = 25.4 / 96;           // browsers snap fractional borders down to whole pixels, so use exact px multiples
-const LINE = 3 * PX, MID = 2 * PX, THIN = 1 * PX;
+const LINE = 3 * PX, THIN = 1 * PX;
 
 /** Rows per column for `n` questions: the smallest of 10 / 15 / 20 that fits in five columns. */
 export function wassceRowsPerColumn(n) {
@@ -158,7 +158,6 @@ export function renderWassceSheet(h) {
   const name = String(meta.schoolName || "").trim();
   const sideSpace = g.head.logo + 4;
   const fit = fitSchoolName(name, g.CW - 2 * sideSpace);
-  const subject = [meta.subject, meta.programme].filter(Boolean).join(" - ");
   const version = String(meta.examVersion || "").toUpperCase();
 
   /* ---- pieces ---- */

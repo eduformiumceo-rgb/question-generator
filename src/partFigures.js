@@ -112,7 +112,7 @@ export function patchSlotOwner(setExamData, slot, fn) {
 export function setSlotImage(setExamData, slot, image) {
   patchSlotOwner(setExamData, slot, o => {
     if (image) return { ...o, image };
-    const { image: _drop, ...rest } = o; // eslint-disable-line no-unused-vars
+    const { image: _drop, ...rest } = o;
     return rest;
   });
 }

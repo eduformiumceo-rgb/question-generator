@@ -11,9 +11,6 @@ import { isIOSDevice } from "../pwaInstall.js";
 
 const GRADIENT = "linear-gradient(120deg,#1B3E8A 0%,#0D9488 100%)";
 
-const Spin = () => (
-  <span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,.25)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "pwa-spin .75s linear infinite", display: "inline-block", flexShrink: 0 }} />
-);
 
 export default function InstallPrompt({ onClose, deferredPromptRef }) {
   const isIOS = isIOSDevice();

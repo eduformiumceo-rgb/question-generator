@@ -3,7 +3,7 @@
  * parallel lines + transversal, and 3-D solids. See diagramTemplates.js.
  */
 import { num, str, fmt, _internals as u } from "./diagramTemplates.js";
-const { text, line, rect, circle, path, poly, arrowHead, shortArc, svgWrap, r2, fin, strList, bool, pick, isObj, linesField, splitLines, INK } = u;
+const { text, line, rect, circle, path, poly, arrowHead, svgWrap, fin, strList, bool, pick, isObj, linesField, splitLines, INK } = u;
 
 /* ═══════════════════════════════════════════════════════════════════
    COORDINATE PLANE (points, segments, polygons, y = mx + c, parabolas)

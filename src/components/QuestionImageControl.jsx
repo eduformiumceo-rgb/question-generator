@@ -35,7 +35,7 @@ function patchQuestion(setExamData, sectionIdx, qIdx, fn) {
 export function patchQuestionImage(setExamData, sectionIdx, qIdx, image) {
   patchQuestion(setExamData, sectionIdx, qIdx, q => {
     if (image) return { ...q, image };
-    const { image: _drop, ...rest } = q; // eslint-disable-line no-unused-vars
+    const { image: _drop, ...rest } = q;
     return rest;
   });
 }

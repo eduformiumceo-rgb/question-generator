@@ -450,7 +450,7 @@ function paper2CoverDocx(W, title, pMarks) {
 
 function beceBand(section, idx, sections, W, parts = null) {
   const out = [];
-  const prev = sections[idx - 1], next = sections[idx + 1];
+  const prev = sections[idx - 1];
   const centre = (runs, extra = {}) => new Paragraph({ alignment: AlignmentType.CENTER, keepNext: true, spacing: { before: 60, after: 40 }, children: runs, ...extra });
   if (!prev || prev.paper !== section.paper) {
     const pNo = section.paper === 1 ? 1 : 2;

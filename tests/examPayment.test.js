@@ -32,6 +32,9 @@ beforeEach(() => {
     sbCalls++;
     const { path, f } = q(u); const body = init.body ? JSON.parse(init.body) : null;
     const ok = (d, s = 200) => new Response(d === undefined ? "" : JSON.stringify(d), { status: s });
+    // migration 004 (exam_credit_purchase) is NOT installed in this suite: PostgREST answers an unknown function exactly like this,
+    // and the app must then use the three-step flow these tests describe. (The installed case is tested in auditFixes.test.js.)
+    if (path === "/rpc/exam_credit_purchase") return ok({ code: "PGRST202", message: "Could not find the function public.exam_credit_purchase(p_ref, p_user_id) in the schema cache" }, 404);
     if (path === "/rpc/increment_coins") { if (o.failRpc) return ok({ message: "rpc down" }, 500); db.coins.find(c => c.user_id === body.p_user_id).balance += body.p_amount; rpcDone = true; return ok(); }
     if (path === "/coins") {
       if (method === "GET") { if (o.failBalanceReadAfterRpc && rpcDone) return ok({ message: "read failed" }, 500); return ok(db.coins.filter(c => match(c, f)).map(c => ({ balance: c.balance }))); }

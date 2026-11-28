@@ -115,6 +115,7 @@ async function verifyJWT(token, secret) {
     if (!valid) return null;
     const payload = JSON.parse(atob(body.replace(/-/g, "+").replace(/_/g, "/")));
     if (payload.exp && payload.exp < Date.now() / 1000) return null;
+    if (payload.purpose) return null;   // a password-reset token is not a login session
     return payload;
   } catch { return null; }
 }
@@ -164,7 +165,7 @@ async function deductCoins(env, userId, amount) {
     const msg = rpcErr.message || "";
 
     if (msg.includes("insufficient_coins")) {
-      throw new Error(`Insufficient credits.`);
+      throw new Error(`Insufficient credits.`, { cause: rpcErr });
     }
 
     const rpcMissing = (
@@ -177,7 +178,7 @@ async function deductCoins(env, userId, amount) {
 
     if (!rpcMissing) {
       console.error(`[generate-exam] Coin deduction failed for user ${userId}:`, msg);
-      throw new Error("We couldn't process your credit balance right now. Please try again in a moment.");
+      throw new Error("We couldn't process your credit balance right now. Please try again in a moment.", { cause: rpcErr });
     }
 
     // Fallback: read-then-write
@@ -187,7 +188,7 @@ async function deductCoins(env, userId, amount) {
       // DISPLAY_CREDIT_MULTIPLIER (30x) before showing them to the user, and
       // that constant only exists client-side, so a raw number here would
       // show the wrong (much smaller) figure than what the user sees on screen.
-      throw new Error(`Insufficient credits. Please buy more credits to continue.`);
+      throw new Error(`Insufficient credits. Please buy more credits to continue.`, { cause: rpcErr });
     }
     await sb(env, `/coins?user_id=eq.${userId}`, {
       method: "PATCH",
@@ -575,6 +576,13 @@ async function handleGenerateExamStreaming(body, env, user) {
   // ── Validation ──
   if (!subject || !className) return jsonResp({ error: "Subject and class are required." }, 400);
   if (!Array.isArray(sections) || !sections.length) return jsonResp({ error: "At least one exam section is required." }, 400);
+  // The browser's builder allows 8 sections; leave headroom for exam-board papers, but never an unbounded list.
+  if (sections.length > 12) return jsonResp({ error: "That paper has too many sections." }, 400);
+  // Every section must carry a usable shape BEFORE any credit is reserved or any AI call is made. Previously only an upper bound
+  // was checked, so a count of 0, a negative, a fraction or a non-number got through and cost three AI calls per section before failing.
+  const malformed = sections.some(s => !s || typeof s !== "object" || !Number.isInteger(Number(s.questionCount)) || Number(s.questionCount) < 1 ||
+    !Number.isFinite(Number(s.marksPerQuestion)) || Number(s.marksPerQuestion) <= 0 || Number(s.marksPerQuestion) > 60);
+  if (malformed) return jsonResp({ error: "One of the sections has an invalid number of questions or marks." }, 400);
   const excessive = sections.find(s => Number(s.questionCount) > 60);
   if (excessive) return jsonResp({ error: `Section ${excessive.id} requests too many questions.` }, 400);
 

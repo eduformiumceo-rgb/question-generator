@@ -79,6 +79,7 @@ async function verifyJWT(token, secret) {
     if (!valid) return null;
     const payload = JSON.parse(atob(body.replace(/-/g, "+").replace(/_/g, "/")));
     if (payload.exp && payload.exp < Date.now() / 1000) return null;
+    if (payload.purpose) return null;   // a password-reset token is not a login session
     return payload;
   } catch { return null; }
 }
@@ -98,7 +99,39 @@ async function sbAdmin(env, path, opts = {}) {
   return data;
 }
 
+// Preferred way to finish a purchase: the database function exam_credit_purchase (supabase/004_exam_credit_purchase.sql) claims the
+// purchase AND adds the coins in ONE transaction, so a crash can never leave it paid-but-uncredited.
+//   { handled: true,  balance: <number> }  it credited the purchase and returned the wallet's new balance
+//   { handled: true,  balance: null }      nothing to do (already completed / being processed / not pending)
+//   { handled: false }                     the function is not installed: use the older three-step flow below
+// Anything else (a database error, an unexpected answer) throws; the function is all-or-nothing, so nothing was credited.
+async function creditPurchaseAtomically(env, ref, userId) {
+  let result;
+  try {
+    result = await sbAdmin(env, `/rpc/exam_credit_purchase`, { method: "POST", body: JSON.stringify({ p_ref: ref, p_user_id: userId }) });
+  } catch (e) {
+    if (/could not find the function|PGRST202/i.test(String(e?.message || ""))) return { handled: false };
+    throw e;
+  }
+  if (result === null || result === undefined) return { handled: true, balance: null };
+  if (typeof result === "number" && Number.isFinite(result)) return { handled: true, balance: result };
+  throw new Error("exam_credit_purchase returned an unexpected answer");
+}
+
 export async function onRequest(context) {
+  // Any unexpected failure (a database hiccup, an unreadable Paystack reply) must still come back as a normal JSON error WITH the
+  // CORS headers; before, it escaped as a bare 500 and the browser showed a confusing network error instead of a message.
+  try {
+    return await handleRequest(context);
+  } catch (e) {
+    console.error("[exam-payment] unexpected error:", e?.stack || e?.message || e);
+    let cors = {};
+    try { cors = corsHeaders(resolveEnv(context.env || {}, context.request)); } catch { /* keep the bare response */ }
+    return errResp("Something went wrong. Please try again. If you were charged, use 'Restore Previous Purchase'.", 500, cors);
+  }
+}
+
+async function handleRequest(context) {
   const { request } = context;
   const env = resolveEnv(context.env, request);
   const corsHdrs = corsHeaders(env);
@@ -163,8 +196,12 @@ export async function onRequest(context) {
         callback_url: `${allowedOrigin}/payment-success`,
       }),
     });
-    const psData = await psRes.json();
-    if (!psData.status) return errResp("Payment initialization failed. Please try again.", 500, corsHdrs);
+    const psData = await psRes.json().catch(() => ({}));
+    if (!psData.status || !psData.data?.authorization_url) {
+      // Nothing was charged and no payment page exists: do not leave a "pending" row that would show up under Restore Previous Purchase.
+      await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}&status=eq.pending`, { method: "PATCH", body: JSON.stringify({ status: "failed" }) }).catch(() => {});
+      return errResp("Payment initialization failed. Please try again.", 500, corsHdrs);
+    }
 
     return jsonResp({ authorization_url: psData.data.authorization_url, reference: ref, package: pkg, amount_pesewas: pkg.ghs }, 200, corsHdrs);
   }
@@ -214,6 +251,21 @@ export async function onRequest(context) {
     const credits = txn.coins_purchased ?? parseInt(psData.data?.metadata?.credits ?? "0");
     if (!credits || credits <= 0) return errResp("Invalid credit amount. Please contact support.", 400, corsHdrs);
 
+    // Preferred path (when supabase/004 is installed): claim + credit in one database transaction.
+    if (Number(txn.coins_purchased) > 0) {
+      let atomic;
+      try { atomic = await creditPurchaseAtomically(env, ref, userId); }
+      catch (e) {
+        console.error("[exam-payment] atomic credit failed (nothing was credited):", ref, e?.message);
+        return errResp("Payment verified but your credit top-up failed. Please use 'Restore Previous Purchase'. If this persists, contact support.", 500, corsHdrs);
+      }
+      if (atomic.handled) {
+        if (atomic.balance === null) return jsonResp({ message: "Already processed.", already_credited: true, credits_added: credits }, 200, corsHdrs);
+        return jsonResp({ success: true, credits_added: credits, new_balance: atomic.balance }, 200, corsHdrs);
+      }
+      // not installed: fall through to the three-step flow below
+    }
+
     // Atomic claim - PATCH only succeeds if status is still "pending", preventing a double-credit race.
     const claimResult = await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}&status=eq.pending`, {
       method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify({ status: "processing" }),
@@ -251,7 +303,10 @@ export async function onRequest(context) {
       } catch { /* the credits ARE added; only the balance display is unavailable */ }
     }
 
-    await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}`, { method: "PATCH", body: JSON.stringify({ status: "completed" }) });
+    // The credits ARE added at this point. If only this bookkeeping step fails, the purchase must still be reported as a success
+    // (a repeat verify finds the row in "processing" and answers "already processed", so nothing is ever credited twice).
+    try { await sbAdmin(env, `/transactions?paystack_ref=eq.${ref}`, { method: "PATCH", body: JSON.stringify({ status: "completed" }) }); }
+    catch (e) { console.error("[exam-payment] credited but could not mark the transaction completed:", ref, e?.message); }
     return jsonResp({ success: true, credits_added: credits, ...(newTotalBalance !== null ? { new_balance: newTotalBalance } : {}) }, 200, corsHdrs);
   }
 

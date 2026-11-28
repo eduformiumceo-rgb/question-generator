@@ -59,15 +59,6 @@ function getStrength(pw) {
 const STRENGTH_LABELS = ["", "Weak", "Fair", "Good", "Strong"];
 const STRENGTH_COLORS = ["", "#E53E3E", "#ED8936", "#38A169", "#0D9488"];
 
-function getMissingHints(pw) {
-  if (!pw) return [];
-  const missing = [];
-  if (!(/[A-Z]/.test(pw) && /[a-z]/.test(pw))) missing.push("uppercase & lowercase");
-  if (!/\d/.test(pw))                           missing.push("numbers");
-  if (!/[^A-Za-z0-9]/.test(pw))                missing.push("symbols");
-  return missing;
-}
-
 /* ─── Education roles ────────────────────────────────────────────────────── */
 const AFRICA_EDU_ROLES = [
   { value: "Teacher",                     label: "Teacher" },
@@ -300,16 +291,6 @@ function Divider() {
       <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: F, letterSpacing: ".04em" }}>OR</span>
       <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
     </div>
-  );
-}
-
-/* ─── Spinner ────────────────────────────────────────────────────────────── */
-function Spin() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"
-      style={{ animation: "edu-spin 0.7s linear infinite" }}>
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" strokeDasharray="31" strokeDashoffset="10" strokeLinecap="round"/>
-    </svg>
   );
 }
 

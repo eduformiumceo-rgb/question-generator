@@ -31,7 +31,7 @@ async function call(path = "", opts = {}) {
  * exam_json on the question they belong to, so a reopened paper keeps them.
  */
 export function metaForSave(meta, extras = {}) {
-  const { schoolLogo, svgPngs, examVersion, noticeText, ...rest } = meta || {}; // eslint-disable-line no-unused-vars
+  const { schoolLogo, svgPngs, examVersion, noticeText, ...rest } = meta || {};
   return { ...rest, ...extras };
 }
 

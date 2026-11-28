@@ -34,7 +34,7 @@
  */
 
 import { renderBeceSheet, BECE_GEOM, BECE_PER_SHEET, fitSchoolName } from "./beceSheet.js";
-import { renderWassceSheet, WASSCE_SHEET, wassceLayout } from "./wassceSheet.js";
+import { renderWassceSheet, wassceLayout } from "./wassceSheet.js";
 import { renderBookletHTML } from "./bookletSheet.js";
 
 /** The printed A4 page (landscape) that carries two BECE sheets. The WASSCE sheet is the A4 design scaled to A5, so it prints two per page as well. */

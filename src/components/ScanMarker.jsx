@@ -39,7 +39,7 @@ export default function ScanMarker({ S, F, keyFor, expectedN, optionCount = 4, d
     setBusy(true); setNote("");
     const out = [];
     for (const f of list) {
-      let pages = [];
+      let pages;
       try { pages = await load(f); } catch (e) { out.push({ id: ++seq.current, file: f.name, error: e.message || "Could not open this file." }); continue; }
       for (const pg of pages) {
         await new Promise(r => setTimeout(r, 0));          // let the page breathe between sheets

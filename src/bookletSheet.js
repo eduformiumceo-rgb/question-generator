@@ -240,7 +240,6 @@ export function renderBookletHTML(h) {
   const parity = (p) => (p % 2 === 1 ? "rt" : "vs");      // odd = right-hand (recto) page, even = left-hand (verso)
 
   let body = "";
-  let sheetsNote = "";
   if (paper === "a3") {
     const faces = a3Imposition(pages);
     for (const f of faces) {
@@ -252,10 +251,8 @@ export function renderBookletHTML(h) {
         <div class="flabel">Sheet ${f.sheet} of ${pages / 4} &middot; ${f.side === "front" ? "FRONT" : "BACK"}</div>
       </section>`;
     }
-    sheetsNote = `${pages / 4} A3 sheets`;
   } else {
     for (let p = 1; p <= pages; p++) body += pageHTML(p).replace('class="page ', `class="page ${parity(p)} `);
-    sheetsNote = `${pages} A4 pages`;
   }
   const sh = BOOKLET_SHEET[paper];
 

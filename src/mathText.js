@@ -317,8 +317,8 @@ function parseEnv(p) {
     const c = p.s[p.i];
     if (c === "&") { p.i++; continue; }
     if (c === "\\" && p.s[p.i + 1] === "\\") { p.i += 2; rows.push(cur); cur = []; continue; }
-    if (peekCmd(p) === "end") { p.i += 4; readBraced(p); rows.push(cur); cur = null; break; }
-    p.errors++; rows.push(cur); cur = null; break; // ran out of text
+    if (peekCmd(p) === "end") { p.i += 4; readBraced(p); rows.push(cur); break; }
+    p.errors++; rows.push(cur); break; // ran out of text
   }
   const last = rows[rows.length - 1];
   if (rows.length > 1 && last.length === 1 && !last[0].c.length) rows.pop(); // trailing "\\"

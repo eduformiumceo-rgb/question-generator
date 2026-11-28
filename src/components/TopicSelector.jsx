@@ -167,6 +167,8 @@ export default function TopicSelector({
       map[strandName] = getSubStrands(lookupKey, className, strandName).map(ss => ss.name);
     });
     return map;
+  // dataReady is read from a lazily loaded store (useSubjectData), so it must stay a dependency: it is what makes this recompute once the subject has downloaded.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookupKey, className, selectedStrands, dataReady]);
 
   // Match the uploaded scheme to the curriculum. Runs when a scheme arrives AND whenever the
